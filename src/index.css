@@ -1,0 +1,175 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ATAK.GG Design System - League of Legends inspired gaming theme */
+
+@layer base {
+  :root {
+    /* Gaming Dark Theme - Primary */
+    --background: 225 15% 8%;
+    --foreground: 40 100% 96%;
+
+    /* Cards & Surfaces */
+    --card: 225 20% 12%;
+    --card-foreground: 40 100% 96%;
+
+    --popover: 225 25% 15%;
+    --popover-foreground: 40 100% 96%;
+
+    /* Brand Colors - LoL Inspired */
+    --primary: 45 100% 60%; /* Gold */
+    --primary-foreground: 225 15% 8%;
+
+    --secondary: 215 100% 65%; /* Blue */
+    --secondary-foreground: 40 100% 96%;
+
+    /* Interactive States */
+    --muted: 225 20% 18%;
+    --muted-foreground: 40 30% 70%;
+
+    --accent: 45 100% 60%;
+    --accent-foreground: 225 15% 8%;
+
+    /* Semantic Colors */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 40 100% 96%;
+
+    --success: 120 60% 50%;
+    --success-foreground: 40 100% 96%;
+
+    /* Borders & Inputs */
+    --border: 225 30% 20%;
+    --input: 225 30% 18%;
+    --ring: 45 100% 60%;
+
+    /* Radius */
+    --radius: 0.75rem;
+
+    /* Gaming Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(45 100% 60%), hsl(35 100% 50%));
+    --gradient-secondary: linear-gradient(135deg, hsl(215 100% 65%), hsl(235 100% 55%));
+    --gradient-hero: linear-gradient(135deg, hsl(225 15% 8%), hsl(225 25% 15%));
+    --gradient-card: linear-gradient(135deg, hsl(225 20% 12%), hsl(225 25% 15%));
+
+    /* Glows & Effects */
+    --glow-primary: 0 0 30px hsl(45 100% 60% / 0.3);
+    --glow-secondary: 0 0 30px hsl(215 100% 65% / 0.3);
+    --shadow-gaming: 0 10px 40px hsl(225 50% 5% / 0.5);
+
+    /* Animations */
+    --transition-gaming: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Gaming Typography */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-background;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-accent;
+  }
+}
+
+@layer components {
+  /* Gaming Button Styles */
+  .btn-gaming {
+    @apply relative overflow-hidden;
+    background: var(--gradient-primary);
+    box-shadow: var(--glow-primary);
+    transition: var(--transition-gaming);
+  }
+
+  .btn-gaming:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--glow-primary), var(--shadow-gaming);
+  }
+
+  .btn-gaming-secondary {
+    @apply relative overflow-hidden;
+    background: var(--gradient-secondary);
+    box-shadow: var(--glow-secondary);
+    transition: var(--transition-gaming);
+  }
+
+  .btn-gaming-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--glow-secondary), var(--shadow-gaming);
+  }
+
+  /* Gaming Card Styles */
+  .card-gaming {
+    background: var(--gradient-card);
+    box-shadow: var(--shadow-gaming);
+    backdrop-filter: blur(10px);
+    border: 1px solid hsl(var(--border));
+  }
+
+  .card-gaming:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-gaming), 0 0 20px hsl(var(--accent) / 0.1);
+  }
+
+  /* Gaming Input Styles */
+  .input-gaming {
+    @apply bg-input border-border;
+    backdrop-filter: blur(10px);
+    transition: var(--transition-gaming);
+  }
+
+  .input-gaming:focus {
+    box-shadow: 0 0 0 2px hsl(var(--ring));
+    border-color: hsl(var(--accent));
+  }
+
+  /* Hero Section */
+  .hero-gaming {
+    background: var(--gradient-hero);
+    position: relative;
+  }
+
+  .hero-gaming::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 50% 50%, hsl(45 100% 60% / 0.1) 0%, transparent 70%);
+    pointer-events: none;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
