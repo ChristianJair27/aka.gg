@@ -3,6 +3,8 @@ import { Button } from './Button';
 import { useAuth } from '@/features/auth/useAuth';
 import { GamepadIcon, LogOut, User } from 'lucide-react';
 
+import atakLogo from '../../public/atak-logo.png';
+
 export const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
@@ -18,7 +20,11 @@ export const Navbar = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2 group">
-            <GamepadIcon className="h-8 w-8 text-accent transition-transform group-hover:rotate-12" />
+            <img
+              src={atakLogo}
+              alt="ATAK.GG Logo"
+              className="h-8 w-auto transition-transform group-hover:scale-105"
+            />
             <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
               ATAK.GG
             </span>
