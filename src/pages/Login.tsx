@@ -56,7 +56,7 @@ export default function Login() {
 
   const onGoogle = () => {
     // redirige al flujo de OAuth del backend
-    window.location.href = `${API_BASE}/auth/google`;
+    window.location.href = `${API_BASE}auth/google`;
   };
 
   return (
