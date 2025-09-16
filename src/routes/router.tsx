@@ -12,6 +12,7 @@ import Social from '@/pages/Social';
 import Tournaments from '@/pages/Tournaments';
 import Dashboard from '@/pages/Dashboard';
 import NotFound from '@/pages/NotFound';
+import MatchDetailPage from '@/pages/MatchDetailPage';
 
 // Guard que permite entrar si ya estás autenticado
 // o si vienes con ?payload=... (OAuth callback)
@@ -33,6 +34,7 @@ export const AppRouter = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/stats" element={<StatsSearch />} />
       <Route path="/stats/:region/:riotId" element={<SummonerPage />} />
+      <Route path="/match/:regional/:matchId" element={<MatchDetailPage />} />
 
       {/* Protected Routes */}
       <Route

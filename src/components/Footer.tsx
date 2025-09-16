@@ -1,4 +1,5 @@
 import { GamepadIcon } from 'lucide-react';
+import atakLogo from '../../public/atak-logo.png';
 
 export const Footer = () => {
   return (
@@ -6,14 +7,18 @@ export const Footer = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row items-center justify-between">
           <div className="flex items-center space-x-2 mb-4 md:mb-0">
-            <GamepadIcon className="h-6 w-6 text-accent" />
+            <img
+              src={atakLogo}
+              alt="ATAK.GG Logo"
+              className="h-8 w-auto transition-transform group-hover:scale-105"
+            />
             <span className="text-lg font-bold bg-gradient-primary bg-clip-text text-transparent">
               ATAK.GG
             </span>
           </div>
           
           <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-            <span>© 2024 ATAK.GG. Todos los derechos reservados.</span>
+            <span>© 2025 ATAK.GG. Design by Revolution505</span>
           </div>
         </div>
         
