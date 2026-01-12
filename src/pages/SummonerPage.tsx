@@ -1,24 +1,19 @@
 // src/pages/SummonerPage.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useLocation, useParams } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/Card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { MessageCircle, Zap, BarChart3, Crown, Swords, Target, TrendingUp, Clock, Star, Sword, Skull, Shield } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Bot, Zap, Crown, Swords, Target, TrendingUp, Clock, Skull, Shield } from "lucide-react";
 import { axiosInstance } from "@/lib/axios";
+import axios from "axios";
 import { useChampions, useStaticData } from "@/hooks/use-ddragon";
 import { MatchRow } from "@/components/MatchRow";
-import { ChampionDance3D } from "@/components/ChampionDance3D"; // ajusta la ruta si lo pegaste en el mismo archivo
-
+import { motion } from "framer-motion";
 
 // ---------- Tipos auxiliares ----------
 type Platform = "la1" | "la2" | "na1" | "br1" | "oc1" | "euw1" | "eun1" | "tr1" | "ru" | "jp1" | "kr";
 type Continent = "americas" | "europe" | "asia";
-
-type TeamMini = { teamId: number; championId: number; summonerName?: string; puuid?: string };
-
 type MatchDetail = {
   matchId: string;
   championId: number;
@@ -28,173 +23,95 @@ type MatchDetail = {
   deaths: number;
   assists: number;
   kda: number;
-  cs?: number;
   gameDuration: number;
   gameMode: string;
   gameStartTimestamp: number;
   items: number[];
-  trinket?: number;
-  summonerSpells: number[];
-  perks: any;
   role: string;
   lane: string;
-  queueId?: number;
-  championLevel?: number;
-  gold?: number;
-  totalDamageDealtToChampions?: number;
   totalMinionsKilled?: number;
-  neutralMinionsKilled?: number;
-  killParticipation?: number;
-  playerAugments?: number[];
-  teamParticipants?: TeamMini[];
 };
 
-// ---------- Constantes UI ----------
-const SUMMONER_BG =
-  "https://images.unsplash.com/photo-1542751371-adc38448a05e?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80";
-
 const CDRAGON = "https://raw.communitydragon.org/latest";
-
 const championSquare = (champKey?: number | string) =>
   champKey != null ? `${CDRAGON}/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${champKey}.png` : "";
-
-const summonerSpellIcon = (id?: number) =>
-  id != null ? `${CDRAGON}/plugins/rcp-be-lol-game-data/global/default/v1/summoner-spells/${id}.png` : "";
-
-const runeIcon = (perkId?: number) =>
-  perkId != null
-    ? `${CDRAGON}/plugins/rcp-be-lol-game-data/global/default/v1/perk-icons/${perkId}.png`
-    : "";
-
 const RANKED_EMBLEM = (tier?: string) =>
-  `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-emblems/emblem-${(tier||'unranked').toLowerCase()}.png`;
+  tier ? `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-emblems/emblem-${tier.toLowerCase()}.png` : "";
 
-// ---------- Helpers ----------
 const normalizePlatform = (pf?: string): Platform | undefined => {
   if (!pf) return undefined;
   const p = pf.toLowerCase();
-  if (p === "la1") return "la1";           // <-- fix
+  if (p === "la1") return "la1";
   if (p === "la2" || p === "las" || p === "la") return "la2";
   return p as Platform;
 };
-
 const platformToContinent = (pf: Platform): Continent => {
   if (["la1", "la2", "na1", "br1"].includes(pf)) return "americas";
   if (["euw1", "eun1", "tr1", "ru"].includes(pf)) return "europe";
-  return "asia"; // oc1, jp1, kr
+  return "asia";
 };
-
 const splitRiotId = (s: string) => {
   const [gameName = "", tagLine = ""] = decodeURIComponent(s).split("#");
   return { gameName, tagLine };
 };
 
-// ---------- WinRate circle ----------
-const WinRateCircle = ({ winRate, size = 100 }: { winRate: number; size?: number }) => {
-  const radius = size / 2 - 5;
-  const circumference = 2 * Math.PI * radius;
-  const dash = circumference - (winRate / 100) * circumference;
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="transform -rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} stroke="rgba(255,255,255,.12)" strokeWidth="8" fill="transparent" />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={winRate >= 50 ? "url(#winGradient)" : "url(#lossGradient)"}
-          strokeWidth="8"
-          fill="transparent"
-          strokeDasharray={circumference}
-          strokeDashoffset={dash}
-          strokeLinecap="round"
-        />
-        <defs>
-          <linearGradient id="winGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#10b981" />
-            <stop offset="100%" stopColor="#34d399" />
-          </linearGradient>
-          <linearGradient id="lossGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#ef4444" />
-            <stop offset="100%" stopColor="#f87171" />
-          </linearGradient>
-        </defs>
-      </svg>
-      <div className="absolute inset-0 grid place-items-center">
-        <span className="text-white font-bold text-lg">{Math.round(winRate)}%</span>
-      </div>
-    </div>
-  );
-};
-
-const StatBar = ({ label, value, max = 10, color = "red" }: { label: string; value: number; max?: number; color?: string }) => {
-  const pct = Math.min(100, (value / max) * 100);
-  const colorClass = color === "red" ? "bg-red-500" : color === "blue" ? "bg-blue-500" : "bg-green-500";
-  return (
-    <div className="mb-3">
-      <div className="flex justify-between text-sm mb-1">
-        <span className="text-gray-300">{label}</span>
-        <span className="font-medium text-white">{value.toFixed(1)}</span>
-      </div>
-      <div className="w-full bg-gray-700 rounded-full h-2">
-        <div className={`h-2 rounded-full ${colorClass}`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-};
-
-// ===================================================================
-//                              PAGE
-// ===================================================================
 export default function SummonerPage() {
   const { data: champs } = useChampions();
   const staticData = useStaticData();
-
   const { region, riotId } = useParams<{ region: string; riotId: string }>();
   const platform = normalizePlatform(region);
   const continent: Continent = platform ? platformToContinent(platform) : "americas";
-
   const { state } = useLocation() as { state?: { puuid?: string } };
   const { gameName, tagLine } = splitRiotId(riotId || "");
-
   const [puuid, setPuuid] = useState<string | undefined>(state?.puuid);
-  const [summary, setSummary] = useState<null | {
-    summoner: { name: string; level: number; profileIconId?: number };
-    rank: { queue: string; tier: string; rank: string; lp: number; wins: number; losses: number }[] | null;
-    masteryTop: { championId: number; championName: string; level: number; points: number }[] | null;
-  }>(null);
-
-  const [recent, setRecent] = useState<
-    { championId: number; championName: string; games: number; wins: number; losses: number; winRate: number; kda: string; avgKills: string; avgDeaths: string; avgAssists: string }[]
-  >([]);
+  const [summary, setSummary] = useState<any>(null);
   const [matchHistory, setMatchHistory] = useState<MatchDetail[]>([]);
-  const [liveGame, setLiveGame] = useState<{
-    gameMode: string;
-    gameStartTime: number;
-    queueId?: number;
-    participants: {
-      summonerName: string;
-      championId: number;
-      teamId: number;
-      puuid?: string;
-      summonerId?: string;
-      profileIconId?: number;
-      spell1Id?: number;
-      spell2Id?: number;
-      perks?: { keystone?: number; primaryStyle?: number; subStyle?: number };
-      rank?: { tier: string; rank: string; lp: number } | null;
-    }[];
-  } | null>(null);
   const [championStats, setChampionStats] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("resumen");
 
-  const profileIconUrl =
-    summary?.summoner.profileIconId != null && champs?.version
-      ? `https://ddragon.leagueoflegends.com/cdn/${champs.version}/img/profileicon/${summary.summoner.profileIconId}.png`
-      : undefined;
+  // IA states
+  const [aiTags, setAiTags] = useState<string[]>([]);
+  const [matchTags, setMatchTags] = useState<{ [key: string]: string[] }>({});
+  const [loadingAI, setLoadingAI] = useState(false);
+  const [loadingMatchTags, setLoadingMatchTags] = useState(false); // Nuevo estado
 
-  // 1) Resolver PUUID
+  const [personalScore, setPersonalScore] = useState<number>(0);
+
+  // Spotlight
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (sectionRef.current) {
+      const rect = sectionRef.current.getBoundingClientRect();
+      setMousePosition({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+    }
+  };
+
+  // Icono de invocador
+  const profileIconUrl = summary?.summoner?.profileIconId && champs?.version
+    ? `https://ddragon.leagueoflegends.com/cdn/${champs.version}/img/profileicon/${summary.summoner.profileIconId}.png`
+    : null;
+
+
+
+
+    const safeTagString = (tag: any): string => {
+  if (typeof tag === 'string') return tag;
+  if (tag && typeof tag === 'object') {
+    // Si es objeto con Label/Value, prioriza Label
+    if ('Label' in tag && typeof tag.Label === 'string') return tag.Label;
+    if ('Value' in tag && typeof tag.Value === 'string') return tag.Value;
+    // Último recurso: stringify
+    return String(tag);
+  }
+  return 'Tag inválido';
+};
+
+  // Fetch puuid
   useEffect(() => {
     const ac = new AbortController();
     (async () => {
@@ -206,44 +123,24 @@ export default function SummonerPage() {
           });
           setPuuid(data.puuid);
         } catch (e) {
-          if (!(e as any)?.name?.includes("Abort")) console.error("[SUMMONER] resolve error", e);
+          console.error("[SUMMONER] resolve error", e);
         }
       }
     })();
     return () => ac.abort();
   }, [puuid, platform, gameName, tagLine]);
 
-  // 2) Cargar summary, recent, live, champion-stats
+  // Fetch summary y champion stats
   useEffect(() => {
     if (!puuid || !platform) return;
     const ac = new AbortController();
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
     (async () => {
       try {
         setIsLoading(true);
-
         const sum = await axiosInstance.get(`/api/stats/summary/${platform}/${puuid}`, { signal: ac.signal });
         setSummary(sum.data);
-
         await sleep(150);
-
-        const rec = await axiosInstance.get(`/api/stats/recent/${platform}/${puuid}`, {
-          params: { count: 8, queues: "420,440" },
-          signal: ac.signal,
-        });
-        setRecent(rec.data?.champions ?? []);
-
-        await sleep(150);
-
-        const live = await axiosInstance.get(
-          `/api/stats/spectator/${platform}/${puuid}?rank=1`,
-          { validateStatus: () => true, signal: ac.signal }
-        );
-        setLiveGame(live.status === 200 ? live.data : null);
-
-        await sleep(150);
-
         const chstats = await axiosInstance.get(`/api/stats/champion-stats/${platform}/${puuid}`, {
           params: { count: 12 },
           validateStatus: () => true,
@@ -251,16 +148,15 @@ export default function SummonerPage() {
         });
         setChampionStats(chstats.status === 200 ? chstats.data : null);
       } catch (e) {
-        if (!(e as any)?.name?.includes("Abort")) console.warn("[SUMMONER] load warn", e);
+        console.warn("[SUMMONER] load warn", e);
       } finally {
         setIsLoading(false);
       }
     })();
-
     return () => ac.abort();
   }, [puuid, platform]);
 
-  // 3) Historial de partidas
+  // Fetch match history
   useEffect(() => {
     if (!puuid || !platform) return;
     const ac = new AbortController();
@@ -270,34 +166,23 @@ export default function SummonerPage() {
           params: { count: 5 },
           signal: ac.signal,
         });
-
         const settled = await Promise.allSettled(
           (matchIds || []).slice(0, 5).map((matchId: string) =>
             axiosInstance.get(`/api/stats/matches/${continent}/${matchId}`, { params: { puuid }, signal: ac.signal })
           )
         );
-
         const details: MatchDetail[] = settled
           .filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled")
           .map((r) => r.value.data);
-
         setMatchHistory(details);
       } catch (e) {
-        if (!(e as any)?.name?.includes("Abort")) console.error("[SUMMONER] match history error", e);
+        console.error("[SUMMONER] match history error", e);
       }
     })();
     return () => ac.abort();
   }, [puuid, platform, continent]);
 
-  // SOLO / FLEX y badge principal
-  const solo = useMemo(() => summary?.rank?.find((r) => r.queue === "RANKED_SOLO_5x5"), [summary]);
-  const flex = useMemo(() => summary?.rank?.find((r) => r.queue === "RANKED_FLEX_SR"), [summary]);
-  const soloWR = useMemo(() => (solo ? Math.round((solo.wins / Math.max(solo.wins + solo.losses, 1)) * 100) : null), [solo]);
-  const flexWR = useMemo(() => (flex ? Math.round((flex.wins / Math.max(flex.wins + flex.losses, 1)) * 100) : null), [flex]);
-
-  const mainRank = solo || flex || (summary?.rank && summary.rank[0]) || null;
-  const rankBadge = mainRank ? `${mainRank.tier} ${mainRank.rank} - ${mainRank.lp} LP` : "Sin clasificar";
-
+  // Cálculos generales
   const overallStats = useMemo(() => {
     if (!matchHistory.length) return null;
     const totalGames = matchHistory.length;
@@ -319,511 +204,254 @@ export default function SummonerPage() {
     };
   }, [matchHistory]);
 
-  const teams = useMemo(() => {
-    if (!liveGame?.participants?.length) return [];
-    const map = new Map<number, typeof liveGame.participants>();
-    for (const p of liveGame.participants) {
-      const arr = map.get(p.teamId) ?? [];
-      arr.push(p);
-      map.set(p.teamId, arr);
-    }
-    return Array.from(map.entries()).sort((a, b) => a[0] - b[0]); // ordenar por teamId
-  }, [liveGame]);
+  const mainRank = useMemo(() => {
+    if (!summary?.rank) return null;
+    return summary.rank.find((r: any) => r.queue === "RANKED_SOLO_5x5") || summary.rank[0] || null;
+  }, [summary]);
 
-  const teamLabel = (id: number, idx: number) => {
-    if (id === 100) return "Equipo Azul";
-    if (id === 200) return "Equipo Rojo";
-    return `Equipo ${idx + 1}`;
-  };
+  const rankBadge = mainRank ? `${mainRank.tier} ${mainRank.rank} - ${mainRank.lp} LP` : "Sin clasificar";
+
+  // Personal Score
+  useEffect(() => {
+    if (overallStats) {
+      const score = Math.round(
+        (overallStats.winRate * 0.5) +
+        (parseFloat(overallStats.avgKDA) * 10 * 0.3) +
+        20
+      );
+      setPersonalScore(Math.min(100, Math.max(0, score)));
+    }
+  }, [overallStats]);
+
+  // IA global tags
+  useEffect(() => {
+    if (!summary || !matchHistory.length || !championStats) return;
+
+    const fetchAITags = async () => {
+      setLoadingAI(true);
+      try {
+        const topChamps = Object.entries(championStats)
+          .slice(0, 3)
+          .map(([id, s]: [string, any]) => {
+            const champ = champs?.byKey[id];
+            return `${champ?.name || id} (${s.winRate}% WR)`;
+          })
+          .join(', ');
+
+        const response = await axios.post('http://192.168.1.14:4000/api/ai-insights', {
+          riotId: `${gameName}#${tagLine}`,
+          region: platform?.toUpperCase(),
+          stats: {
+            rank: mainRank ? `${mainRank.tier} ${mainRank.rank}` : 'Sin clasificar',
+            winRate: overallStats?.winRate,
+            kda: overallStats?.avgKDA,
+            mostPlayed: topChamps,
+            totalGames: matchHistory.length,
+          },
+        });
+
+        setAiTags(JSON.parse(response.data.insights) || ['Análisis no disponible']);
+      } catch (err) {
+        console.error(err);
+        setAiTags(['Error en análisis IA']);
+      } finally {
+        setLoadingAI(false);
+      }
+    };
+
+    fetchAITags();
+  }, [summary, matchHistory, championStats, overallStats, mainRank, champs, gameName, tagLine, platform]);
+
+  // IA tags por partida (con estado de carga)
+  useEffect(() => {
+    if (!matchHistory.length) {
+      setMatchTags({});
+      setLoadingMatchTags(false);
+      return;
+    }
+
+    const fetchMatchTags = async () => {
+      setLoadingMatchTags(true);
+      const tags: { [key: string]: string[] } = {};
+
+      for (const m of matchHistory) {
+        try {
+          const response = await axios.post('http://192.168.1.14:4000/api/ai-match-tags', {
+            matchData: m,
+          });
+          tags[m.matchId] = JSON.parse(response.data.tags) || ["Sin etiquetas"];
+        } catch (err) {
+          tags[m.matchId] = ["Error en análisis"];
+        }
+      }
+
+      setMatchTags(tags);
+      setLoadingMatchTags(false);
+    };
+
+    fetchMatchTags();
+  }, [matchHistory]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-900 to-black">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-300">Cargando datos del invocador...</p>
+      <div className="min-h-screen bg-black">
+        <div className="container mx-auto px-6 py-20">
+          <div className="flex justify-center mb-12">
+            <Skeleton className="w-32 h-32 rounded-full" />
+          </div>
+          <div className="text-center space-y-4">
+            <Skeleton className="h-12 w-80 mx-auto" />
+            <Skeleton className="h-8 w-60 mx-auto" />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-20">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-32 rounded-2xl" />
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
-  // --- grid cols seguras para Tailwind ---
-  const cols = Math.max(2, teams.length);
-  const colsClass = cols === 2 ? "grid-cols-2" : cols === 3 ? "grid-cols-3" : "grid-cols-4";
-
-
-
-const danceChamps = [
-  {
-    id: 55,
-    name: "Katarina",
-    imageUrl: `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/55.png`,
-    modelUrl: "/models/katarina.glb",
-    anim: "Dance",
-    scale: 0.015,            // ↓ más pequeño (prueba 0.4 ~ 0.7)
-    position: [0, -0.05, 0],  // baja o sube el modelo si lo ves flotando
-    rotation: [0, Math.PI, 0],
-  },
-];
-
-
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
+    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+      {/* Halo rojo */}
+      <div className="fixed inset-0 -z-10 pointer-events-none bg-gradient-radial from-red-950/20 via-black/90 to-black" />
+
+      {/* Spotlight */}
+      <div
+        ref={sectionRef}
+        onMouseMove={handleMouseMove}
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          background: `radial-gradient(800px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(239, 68, 68, 0.15), transparent 40%)`,
+        }}
+      />
+
       {/* Header */}
-      <div className="bg-gradient-to-r from-red-900/70 to-black/90 py-8 relative overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center opacity-20" style={{ backgroundImage: `url(${SUMMONER_BG})` }} />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80" />
-
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-            <div className="flex-shrink-0">
-              <div className="relative">
-                {profileIconUrl ? (
-                  <>
-                    <img
-                      src={profileIconUrl}
-                      alt="Icono de invocador"
-                      className="w-24 h-24 rounded-full object-cover border-4 border-red-500/50 shadow-lg"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
-                      }}
-                    />
-                    <div className="absolute -bottom-1 -right-1 w-10 h-10 rounded-full bg-gradient-to-r from-red-600 to-red-800 text-white flex items-center justify-center text-sm font-bold shadow-lg border-2 border-gray-900">
-                      {summary?.summoner.level ?? "—"}
-                    </div>
-                  </>
-                ) : (
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-r from-red-600 to-red-800 animate-pulse" />
-                )}
-              </div>
-            </div>
-
-            <div className="flex-grow">
-              <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-red-300 to-red-500 bg-clip-text text-transparent">
-                {summary?.summoner.name ?? gameName}
-                <span className="text-red-400">#{tagLine}</span>
-              </h1>
-              <div className="flex flex-wrap gap-3 mb-3">
-                <Badge className="bg-gradient-to-r from-red-600 to-red-800 text-white px-3 py-1 flex items-center gap-1">
-                  <img
-                    src={RANKED_EMBLEM(mainRank?.tier)}
-                    className="w-4 h-4"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
-                    }}
-                  />
-                  {rankBadge}
-                </Badge>
-                <Badge variant="outline" className="border-red-500 text-red-300">
-                  {platform?.toUpperCase()}
-                </Badge>
-                {liveGame && (
-                  <Badge className="bg-green-600/20 text-green-300 border-green-500/30">
-                    <Zap className="w-3 h-3 mr-1" /> En partida
-                  </Badge>
-                )}
-              </div>
-
-              {/* Panel Solo/Flex */}
-              <div className="flex gap-3">
-                {solo && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-900/40 border border-red-700/30">
-                    <img src={RANKED_EMBLEM(solo.tier)} className="w-6 h-6" />
-                    <span className="text-sm">
-                      <span className="text-red-300 font-semibold">SoloQ:</span>{" "}
-                      {solo.tier} {solo.rank} • {solo.lp} LP
-                      {typeof soloWR === "number" && (
-                        <span className="text-gray-400"> • {solo.wins}W/{solo.losses}L ({soloWR}% WR)</span>
-                      )}
-                    </span>
-                  </div>
-                )}
-                {flex && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-900/40 border border-red-700/30">
-                    <img src={RANKED_EMBLEM(flex.tier)} className="w-6 h-6" />
-                    <span className="text-sm">
-                      <span className="text-red-300 font-semibold">Flex:</span>{" "}
-                      {flex.tier} {flex.rank} • {flex.lp} LP
-                      {typeof flexWR === "number" && (
-                        <span className="text-gray-400"> • {flex.wins}W/{flex.losses}L ({flexWR}% WR)</span>
-                      )}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <p className="text-red-200 text-sm mt-2">PUUID: {puuid ? puuid.slice(0, 12) + "…" : "resolviendo…"}</p>
-            </div>
+      <header className="py-20 px-6 text-center">
+        <motion.div
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+        >
+          <div className="flex justify-center mb-8">
+            {profileIconUrl ? (
+              <img
+                src={profileIconUrl}
+                alt="Icono"
+                className="w-32 h-32 rounded-full border-4 border-red-600 shadow-2xl shadow-red-600/50 hover:scale-105 transition"
+              />
+            ) : (
+              <div className="w-32 h-32 rounded-full bg-gradient-to-r from-red-600 to-red-800 animate-pulse" />
+            )}
           </div>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* KPIs */}
-        {overallStats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <Card className="bg-gray-800/50 border-red-700/30 backdrop-blur-sm">
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-red-300">
-                  {overallStats.wins}W / {overallStats.losses}L
-                </div>
-                <p className="text-sm text-gray-400">Récord</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-gray-800/30 border border-red-700/30 backdrop-blur-sm hover:bg-red-900/20 transition-all duration-300">
-              <CardContent className="p-4 text-center">
-                <div className="flex justify-center">
-                  <WinRateCircle winRate={overallStats.winRate} size={60} />
-                </div>
-                <p className="text-sm text-gray-400">Win Rate</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-gray-800/30 border border-red-700/30 backdrop-blur-sm hover:bg-red-900/20 transition-all duration-300">
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-yellow-300">{overallStats.avgKDA}:1</div>
-                <p className="text-sm text-gray-400">KDA Ratio</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-gray-800/30 border border-red-700/30 backdrop-blur-sm hover:bg-red-900/20 transition-all duration-300">
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-purple-300">{matchHistory.length}</div>
-                <p className="text-sm text-gray-400">Partidas analizadas</p>
-              </CardContent>
-            </Card>
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-red-400 to-red-600 bg-clip-text text-transparent">
+            {summary?.summoner.name || gameName}#{tagLine}
+          </h1>
+          <div className="mt-6 flex justify-center gap-6 flex-wrap">
+            <Badge className="bg-gradient-to-r from-red-700 to-red-900 px-6 py-3 text-lg shadow-lg">
+              <img src={RANKED_EMBLEM(mainRank?.tier)} className="w-6 h-6 mr-2" alt="Emblema" />
+              {rankBadge}
+            </Badge>
+            <Badge variant="outline" className="border-red-500 text-red-300 px-6 py-3 text-lg shadow-lg">
+              {platform?.toUpperCase()}
+            </Badge>
           </div>
+        </motion.div>
+      </header>
+
+      {/* Resumen */}
+      <main className="px-6 max-w-6xl mx-auto space-y-16 pb-32">
+        {/* Puntuación */}
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center"
+        >
+          <div className="mb-12">
+            <p className="text-gray-400 text-xl mb-4">Puntuación Personal ATAK</p>
+            <div className="text-7xl font-bold text-red-400">{personalScore}/100</div>
+            <Progress value={personalScore} className="mt-6 h-4 rounded-full bg-gray-800 [&>div]:bg-gradient-to-r [&>div]:from-red-600 [&>div]:to-red-800" />
+          </div>
+
+          <div>
+            <p className="text-gray-400 text-xl mb-6">Etiquetas IA</p>
+            <div className="flex flex-wrap justify-center gap-4">
+  {loadingAI ? (
+    <p className="text-gray-500 text-lg">Analizando perfil con IA...</p>
+  ) : aiTags.length > 0 ? (
+    aiTags.map((tag, i) => (
+      <Badge 
+        key={i} 
+        className="bg-red-900/60 text-red-200 px-6 py-3 text-xl rounded-full shadow-xl hover:bg-red-800/70 transition"
+      >
+        {safeTagString(tag)}
+      </Badge>
+    ))
+  ) : (
+    <p className="text-gray-500 text-lg">No disponible</p>
+  )}
+</div>
+          </div>
+        </motion.div>
+
+        {/* Mejores campeones */}
+        {championStats && Object.keys(championStats).length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-8"
+          >
+            {Object.entries(championStats).slice(0, 4).map(([id, s]: [string, any]) => {
+              const champ = champs?.byKey[id];
+              return (
+                <div key={id} className="text-center">
+                  <img src={champ?.image} alt={champ?.name} className="w-24 h-24 mx-auto rounded-xl border-4 border-red-700/50 shadow-2xl shadow-red-600/40 hover:scale-110 transition" />
+                  <p className="mt-4 font-bold text-xl text-white">{champ?.name || "Desconocido"}</p>
+                  <p className="text-red-300 text-3xl font-bold">{s.winRate}% WR</p>
+                  <p className="text-gray-400 text-sm">{s.games} partidas</p>
+                </div>
+              );
+            })}
+          </motion.div>
         )}
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-2 md:grid-cols-5 gap-2 p-1 bg-gray-800/50 rounded-xl border border-red-700/30 backdrop-blur-sm">
-            <TabsTrigger value="resumen" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-600 data-[state=active]:to-red-800 data-[state=active]:text-white rounded-lg transition-all">
-              <BarChart3 className="w-4 h-4 mr-2" /> Resumen
-            </TabsTrigger>
-            <TabsTrigger value="partidas" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-600 data-[state=active]:to-red-800 data-[state=active]:text-white rounded-lg transition-all">
-              <Swords className="w-4 h-4 mr-2" /> Partidas
-            </TabsTrigger>
-            <TabsTrigger value="campeones" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-600 data-[state=active]:to-red-800 data-[state=active]:text-white rounded-lg transition-all">
-              <Crown className="w-4 h-4 mr-2" /> Campeones
-            </TabsTrigger>
-            <TabsTrigger value="live" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-600 data-[state=active]:to-red-800 data-[state=active]:text-white rounded-lg transition-all">
-              <Zap className="w-4 h-4 mr-2" /> En Vivo
-            </TabsTrigger>
-            <TabsTrigger value="Comentarios" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-600 data-[state=active]:to-red-800 data-[state=active]:text-white rounded-lg transition-all">
-              <MessageCircle className="w-4 h-4 mr-2" /> Comentarios
-            </TabsTrigger>
-          </TabsList>
-
-          {/* RESUMEN */}
-          <TabsContent value="resumen" className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Mastery */}
-              <Card className="bg-gray-800/30 border border-red-700/30 backdrop-blur-sm hover:bg-red-900/20 transition-all duration-300">
-                <CardHeader className="bg-gradient-to-r from-red-900/50 to-red-800/50 border-b border-red-700/30">
-                  <CardTitle className="flex items-center gap-2 text-red-200">
-                    <Target className="h-5 w-5" />
-                    Top Maestría
-                  </CardTitle>
-                  <CardDescription className="text-gray-400">Campeones con más puntos de maestría</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="divide-y divide-red-700/30">
-                    {summary?.masteryTop?.slice(0, 5).map((m, i) => {
-                      const champ = champs?.byKey[String(m.championId)];
-                      return (
-                        <div
-                          key={m.championId}
-                          className="flex items-center justify-between p-4 hover:bg-red-900/20 transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={champ?.image}
-                              alt={champ?.name ?? String(m.championId)}
-                              className="w-12 h-12 rounded-lg object-cover border border-red-600/30"
-                            />
-                            <div>
-                              <p className="font-semibold text-white">{champ?.name ?? String(m.championId)}</p>
-                              <p className="text-sm text-gray-400">
-                                Nivel {m.level} • {m.points.toLocaleString()} pts
-                              </p>
-                            </div>
-                          </div>
-                          <div className="w-10 h-10 bg-gradient-to-b from-yellow-700 to-yellow-500 rounded-lg grid place-items-center text-white font-bold">
-                            #{i + 1}
-                          </div>
-                        </div>
-                      );
-                    }) || <p className="p-4 text-sm text-gray-400">Sin datos de maestría</p>}
-                  </div>
-                </CardContent>
-              </Card>
-
-                            {/* Escaparate 3D del campeón más usado */}
-              <Card className="bg-gray-800/30 border-red-700/30 backdrop-blur-sm">
-  <CardHeader className="bg-gradient-to-r from-red-900/50 to-red-800/50 border-b border-red-700/30">
-    <CardTitle className="flex items-center gap-2 text-red-200">
-      Campeón destacado (3D)
-    </CardTitle>
-  </CardHeader>
-  <CardContent className="p-0">
-    <ChampionDance3D champions={danceChamps} height={380} />
-  </CardContent>
-</Card>
+        {/* Partidas recientes */}
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="space-y-8"
+        >
+          <h2 className="text-4xl font-bold text-center text-red-400">Partidas Recientes</h2>
+          {matchHistory.map((m) => (
+            <div key={m.matchId} className="bg-gray-900/40 rounded-3xl p-8 border border-red-800/40 shadow-2xl shadow-red-900/30 hover:shadow-red-900/50 transition">
+              <MatchRow match={m as any} champs={champs} staticData={staticData} mePuuid={puuid} regional={continent} />
+              
+              {/* Etiquetas por partida - ahora 100% seguras */}
+              <div className="mt-6 flex flex-wrap gap-3 justify-center">
+  {loadingMatchTags ? (
+    <p className="text-gray-500">Analizando partida con IA...</p>
+  ) : (matchTags[m.matchId] || []).length > 0 ? (
+    (matchTags[m.matchId] || []).map((tag, i) => (
+      <Badge
+        key={i}
+        className="bg-red-900/60 text-red-200 px-5 py-2 text-base rounded-full shadow-md hover:bg-red-800/70 transition"
+      >
+        {safeTagString(tag)}
+      </Badge>
+    ))
+  ) : (
+    <p className="text-gray-500">Análisis no disponible</p>
+  )}
+</div>
             </div>
-
-            {/* KPIs extendidos */}
-            {overallStats && (
-              <Card className="bg-gray-800/30 border border-red-700/30 backdrop-blur-sm hover:bg-red-900/20 transition-all duration-300">
-                <CardHeader className="bg-gradient-to-r from-red-900/50 to-red-800/50 border-b border-red-700/30">
-                  <CardTitle className="flex items-center gap-2 text-red-200">
-                    <TrendingUp className="h-5 w-5" />
-                    Estadísticas de Desempeño
-                  </CardTitle>
-                  <CardDescription className="text-gray-400">Rendimiento en las últimas partidas</CardDescription>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div className="flex justify-center">
-                        <WinRateCircle winRate={overallStats.winRate} size={120} />
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-white">
-                          {overallStats.wins} Victorias / {overallStats.losses} Derrotas
-                        </p>
-                        <p className="text-sm text-gray-400">Récord total</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <h3 className="font-medium text-white mb-4">Promedios por partida</h3>
-                      <StatBar label="Asesinatos" value={parseFloat(overallStats.avgKills)} max={15} color="red" />
-                      <StatBar label="Muertes" value={parseFloat(overallStats.avgDeaths)} max={10} color="blue" />
-                      <StatBar label="Asistencias" value={parseFloat(overallStats.avgAssists)} max={15} color="green" />
-
-                      <div className="grid grid-cols-3 gap-4 mt-6">
-                        <div className="text-center p-3 bg-red-900/30 rounded-lg border border-red-700/30">
-                          <Sword className="w-6 h-6 text-red-400 mx-auto mb-2" />
-                          <div className="text-xl font-bold text-red-300">{overallStats.avgKills}</div>
-                          <div className="text-xs text-gray-400">Kills</div>
-                        </div>
-                        <div className="text-center p-3 bg-red-900/30 rounded-lg border border-red-700/30">
-                          <Skull className="w-6 h-6 text-red-400 mx-auto mb-2" />
-                          <div className="text-xl font-bold text-red-300">{overallStats.avgDeaths}</div>
-                          <div className="text-xs text-gray-400">Deaths</div>
-                        </div>
-                        <div className="text-center p-3 bg-red-900/30 rounded-lg border border-red-700/30">
-                          <Shield className="w-6 h-6 text-red-400 mx-auto mb-2" />
-                          <div className="text-xl font-bold text-red-300">{overallStats.avgAssists}</div>
-                          <div className="text-xs text-gray-400">Assists</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          {/* PARTIDAS */}
-          <TabsContent value="partidas" className="space-y-4">
-            <Card className="bg-gray-800/30 border-red-700/30 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-red-900/50 to-red-800/50 border-b border-red-700/30">
-                <CardTitle className="flex items-center gap-2 text-red-200">
-                  <Clock className="h-5 w-5" />
-                  Historial de Partidas
-                </CardTitle>
-                <CardDescription className="text-gray-400">Últimas partidas jugadas</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 p-4">
-                {matchHistory.length ? (
-                  matchHistory.map((m) => (
-                    <MatchRow
-                      key={m.matchId}
-                      match={m as any}
-                      champs={champs}
-                      staticData={staticData}
-                      mePuuid={puuid}
-                      regional={continent}          // <-- se pasa a MatchRow para navegar
-                    />
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-400">No hay partidas recientes</p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* CAMPEONES */}
-          <TabsContent value="campeones" className="space-y-4">
-            <Card className="bg-gray-800/30 border border-red-700/30 backdrop-blur-sm hover:bg-red-900/20 transition-all duration-300">
-              <CardHeader className="bg-gradient-to-r from-red-900/50 to-red-800/50 border-b border-red-700/30">
-                <CardTitle className="flex items-center gap-2 text-red-200">
-                  <Crown className="h-5 w-5" /> Estadísticas por Campeón
-                </CardTitle>
-                <CardDescription className="text-gray-400">Rendimiento con cada campeón</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {championStats ? (
-                  <div className="grid gap-4">
-                    {Object.entries(championStats)
-                      .slice(0, 10)
-                      .map(([championId, stats]: [string, any]) => {
-                        const champ = champs?.byKey[championId];
-                        if (!champ) return null;
-                        return (
-                          <div
-                            key={championId}
-                            className="flex items-center gap-4 p-3 bg-red-900/20 rounded-lg border border-red-700/30"
-                          >
-                            <img
-                              src={champ.image}
-                              alt={champ.name}
-                              className="w-12 h-12 rounded-lg object-cover border border-red-600/30"
-                            />
-                            <div className="flex-grow">
-                              <h3 className="font-bold text-white">{champ.name}</h3>
-                              <div className="flex gap-4 text-xs text-gray-400">
-                                <span>{stats.games} partidas</span>
-                                <span className={stats.winRate >= 50 ? "text-green-300" : "text-red-300"}>
-                                  {stats.winRate}% WR
-                                </span>
-                                <span>KDA: {stats.kda}</span>
-                              </div>
-                            </div>
-                            <div className="w-20">
-                              <div className="flex justify-between text-xs mb-1">
-                                <span className="text-gray-400">WR</span>
-                                <span>{stats.winRate}%</span>
-                              </div>
-                              <Progress
-                                value={stats.winRate}
-                                className="h-2 bg-gray-700 [&>div]:bg-gradient-to-r [&>div]:from-red-500 [&>div]:to-red-700"
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-400">No hay estadísticas de campeones disponibles</p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* LIVE */}
-          <TabsContent value="live" className="space-y-4">
-            <Card className="bg-gray-800/30 border border-red-700/30 backdrop-blur-sm hover:bg-red-900/20 transition-all duration-300">
-              <CardHeader className="bg-gradient-to-r from-red-900/50 to-red-800/50 border-b border-red-700/30">
-                <CardTitle className="flex items-center gap-2 text-red-200">
-                  <Zap className="h-5 w-5" /> Partida en Curso
-                </CardTitle>
-                <CardDescription className="text-gray-400">
-                  {liveGame ? "Información de la partida actual" : "No está en partida actualmente"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {liveGame ? (
-                  <div>
-                    <div className="mb-4 p-3 bg-red-900/20 rounded-lg border border-red-700/30">
-                      <h3 className="font-bold text-white">{liveGame.gameMode}</h3>
-                      <p className="text-sm text-gray-400">
-                        Inició: {new Date(liveGame.gameStartTime).toLocaleTimeString()}
-                      </p>
-                    </div>
-
-                    {/* Render por equipos (clases seguras) */}
-                    <div className={`grid ${colsClass} gap-6`}>
-                      {teams.map(([teamId, players], idx) => (
-                        <div key={teamId}>
-                          <h4 className={`font-medium ${teamId === 100 ? "text-blue-300" : "text-red-300"} mb-2`}>
-                            {teamLabel(teamId, idx)}
-                          </h4>
-                          <div className="space-y-2">
-                            {players.map((p, i) => (
-                              <div key={`${teamId}-${i}`} className="flex items-center justify-between p-2 bg-black/30 rounded border border-white/10">
-                                {/* IZQUIERDA: campeón + nombre */}
-                                <div className="flex items-center gap-3">
-                                  <img src={championSquare(p.championId)} className="w-8 h-8 rounded-md border border-white/10" />
-                                  <div className="flex flex-col">
-                                    <span className="text-white text-sm">{p.summonerName || "Invocador"}</span>
-                                    {p.rank && p.rank.tier && (
-                                      <span className="text-xs text-gray-400">
-                                        {p.rank.tier} {p.rank.rank} • {p.rank.lp} LP
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* CENTRO: spells + keystone */}
-                                <div className="flex items-center gap-2">
-                                  {p.spell1Id != null && <img src={summonerSpellIcon(p.spell1Id)} className="w-6 h-6 rounded" />}
-                                  {p.spell2Id != null && <img src={summonerSpellIcon(p.spell2Id)} className="w-6 h-6 rounded" />}
-                                  {p.perks?.keystone != null && <img src={runeIcon(p.perks.keystone)} className="w-6 h-6" />}
-                                </div>
-
-                                {/* DERECHA: emblema rank */}
-                                <div className="w-7 h-7">
-                                  {p.rank?.tier && <img src={RANKED_EMBLEM(p.rank.tier)} className="w-7 h-7" />}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Zap className="w-12 h-12 text-red-600 mx-auto mb-4" />
-                    <p className="text-gray-400">No se encuentra en partida actualmente</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* ComentarioS */}
-          <TabsContent value="Comentarios" className="space-y-4">
-            <Card className="bg-gray-800/30 border border-red-700/30 backdrop-blur-sm hover:bg-red-900/20 transition-all duration-300">
-              <CardHeader className="bg-gradient-to-r from-red-900/50 to-red-800/50 border-b border-red-700/30">
-                <CardTitle className="flex items-center gap-2 text-red-200">
-                  <MessageCircle className="h-5 w-5" /> Comentarios de la Comunidad
-                </CardTitle>
-                <CardDescription className="text-gray-400">Deja tu comentario sobre este invocador</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 bg-red-900/20 rounded-lg border border-red-700/30">
-                    <p className="text-gray-400 text-center">Sistema de Comentarios en desarrollo...</p>
-                  </div>
-                  <div className="bg-gray-800 p-4 rounded-lg border border-red-700/30">
-                    <h3 className="font-medium text-white mb-2">Deja tu Comentario</h3>
-                    <textarea
-                      className="w-full bg-gray-700 text-white p-3 rounded-lg border border-red-700/30 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                      rows={3}
-                      placeholder="Escribe tu comentario sobre este jugador..."
-                    />
-                    <div className="flex justify-end mt-3">
-                      <Button className="bg-gradient-to-r from-red-600 to-red-800 hover:from-red-700 hover:to-red-900">
-                        <Star className="w-4 h-4 mr-2" /> Publicar Comentario
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-4 mt-6">
-                    <h3 className="font-medium text-white">Comentarios recientes</h3>
-                    <div className="p-4 bg-red-900/20 rounded-lg border border-red-700/30 text-center">
-                      <p className="text-gray-400">Aún no hay Comentarios para este invocador</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+          ))}
+        </motion.div>
+      </main>
     </div>
   );
 }

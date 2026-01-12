@@ -14,7 +14,8 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <div className="min-h-screen flex flex-col bg-background">
+        {/* Quitamos bg-background aquí para que Home controle su fondo */}
+        <div className="min-h-screen flex flex-col">
           <Navbar />
           <main className="flex-grow">
             <AppRouter />

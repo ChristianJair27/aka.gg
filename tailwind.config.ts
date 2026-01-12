@@ -60,11 +60,16 @@ export default {
         "gradient-secondary": "var(--gradient-secondary)",
         "gradient-hero": "var(--gradient-hero)",
         "gradient-card": "var(--gradient-card)",
+        // Nuevo: gradient radial sutil rojo para fondo gaming premium
+        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
+        "gradient-radial-red": "radial-gradient(circle at center, hsl(0 80% 10% / 0.3) 0%, transparent 60%)",
       },
       boxShadow: {
         "glow-primary": "var(--glow-primary)",
         "glow-secondary": "var(--glow-secondary)",
         gaming: "var(--shadow-gaming)",
+        // Glow rojo sutil para cards o elementos flotantes
+        "glow-red": "0 0 30px rgba(239, 68, 68, 0.2)",
       },
       transitionTimingFunction: {
         gaming: "cubic-bezier(0.4, 0, 0.2, 1)",
@@ -75,8 +80,14 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
-        "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },
-        "accordion-up": { from: { height: "var(--radix-accordion-content-height)" }, to: { height: "0" } },
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",

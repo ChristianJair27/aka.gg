@@ -18,7 +18,7 @@ export const Footer = () => {
           </div>
           
           <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-            <span>© 2025 ATAK.GG. Design by Revolution505</span>
+            <span>© 2026 ATAKGG. Design by Revolution505</span>
           </div>
         </div>
         

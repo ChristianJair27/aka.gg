@@ -13,6 +13,8 @@ import Tournaments from '@/pages/Tournaments';
 import Dashboard from '@/pages/Dashboard';
 import NotFound from '@/pages/NotFound';
 import MatchDetailPage from '@/pages/MatchDetailPage';
+import TournamentsPage from '@/pages/Tournaments';
+import TournamentDetailsPage from '@/pages/TournamentDetailsPage';
 
 // Guard que permite entrar si ya estás autenticado
 // o si vienes con ?payload=... (OAuth callback)
@@ -61,6 +63,9 @@ export const AppRouter = () => {
           </RequireAuth>
         }
       />
+
+      <Route path="/tournaments" element={<TournamentsPage />} />
+<Route path="/tournaments/:id" element={<TournamentDetailsPage />} />
 
       {/* 404 */}
       <Route path="*" element={<NotFound />} />
