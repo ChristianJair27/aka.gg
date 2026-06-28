@@ -1,217 +1,203 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital,wght@0,400;1,400&display=swap');
+@import "tailwindcss";
+@config "../tailwind.config.ts";
 
-/* =========================
-   ATAK.GG Design System
-   Theme: Dark (Black + Red)
-   ========================= */
-
-@layer base {
-  :root {
-    /* Base layout (HSL for Tailwind vars) */
-    --background: 0 0% 4%;          /* #0a0a0a */
-    --foreground: 0 0% 96%;         /* #f5f5f5 */
-
-    /* Surfaces */
-    --card: 0 0% 7%;
-    --card-foreground: 0 0% 96%;
-    --popover: 0 0% 7%;
-    --popover-foreground: 0 0% 96%;
-
-    /* Brand */
-    --primary: 350 85% 55%;         /* crimson */
-    --primary-foreground: 0 0% 100%;
-
-    /* Secondary / Neutral dark */
-    --secondary: 0 0% 10%;
-    --secondary-foreground: 0 0% 92%;
-
-    /* Muted text/surfaces */
-    --muted: 0 0% 14%;
-    --muted-foreground: 0 0% 70%;
-
-    /* Accent (hover/cta brighter red) */
-    --accent: 0 90% 60%;
-    --accent-foreground: 0 0% 100%;
-
-    /* States */
-    --destructive: 0 70% 45%;
-    --destructive-foreground: 0 0% 100%;
-    --success: 142 70% 45%;
-    --success-foreground: 0 0% 100%;
-
-    /* Controls */
-    --border: 0 0% 14%;
-    --input: 0 0% 12%;
-    --ring: 350 85% 55%;
-
-    /* Radius */
-    --radius: 0.75rem;
-
-    /* Gradients */
-    --gradient-primary: linear-gradient(90deg, hsl(0 90% 60%) 0%, hsl(350 80% 48%) 100%);
-    --gradient-secondary: linear-gradient(135deg, hsl(0 0% 9%) 0%, hsl(0 0% 6%) 100%);
-    --gradient-hero:
-      radial-gradient(70% 50% at 15% 10%, hsl(350 80% 22% / 0.35) 0%, transparent 60%),
-      radial-gradient(60% 40% at 85% 15%, hsl(0 100% 40% / 0.15) 0%, transparent 60%),
-      linear-gradient(0deg, hsl(0 0% 6%), hsl(0 0% 6%));
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 9%) 0%, hsl(0 0% 7%) 100%);
-
-    /* Glows & Shadows */
-    --glow-primary: 0 0 0 2px hsl(0 90% 60% / 0.18), 0 0 28px -6px hsl(0 90% 60% / 0.45);
-    --glow-secondary: 0 0 0 2px hsl(0 0% 20% / 0.35), 0 8px 24px -6px hsl(0 0% 0% / 0.35);
-    --shadow-gaming: 0 10px 30px -10px rgb(0 0 0 / 0.5);
-
-    /* Motion */
-    --transition-gaming: all 0.25s cubic-bezier(0.4,0,0.2,1);
-  }
-
-  /* (Opcional) Tema claro si algún día lo activas con .light en <html> */
-  .light {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 10%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
-
-    --primary: 350 85% 45%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 12%;
-
-    --muted: 0 0% 92%;
-    --muted-foreground: 0 0% 42%;
-
-    --accent: 350 90% 50%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 80% 46%;
-    --destructive-foreground: 0 0% 100%;
-    --success: 142 65% 40%;
-    --success-foreground: 0 0% 100%;
-
-    --border: 0 0% 88%;
-    --input: 0 0% 92%;
-    --ring: 350 85% 50%;
-
-    --gradient-primary: linear-gradient(90deg, hsl(350 90% 50%) 0%, hsl(348 80% 45%) 100%);
-    --gradient-secondary: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(0 0% 96%) 100%);
-    --gradient-hero:
-      radial-gradient(70% 50% at 20% 10%, hsl(350 80% 60% / 0.12) 0%, transparent 60%),
-      linear-gradient(0deg, hsl(0 0% 100%), hsl(0 0% 100%));
-
-    --glow-primary: 0 0 0 2px hsl(350 90% 50% / 0.2), 0 0 24px -6px hsl(350 90% 50% / 0.35);
-    --glow-secondary: 0 0 0 2px hsl(0 0% 80% / 0.5), 0 8px 24px -6px rgb(0 0 0 / 0.15);
-  }
-
-  * { @apply border-border; }
-
-  body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
-
-  h1,h2,h3,h4,h5,h6 { @apply font-bold tracking-tight; }
-
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 8px; }
-  ::-webkit-scrollbar-track { @apply bg-background; }
-  ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-accent; }
+@theme {
+  --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-serif: "Instrument Serif", Georgia, serif;
 }
 
-@layer components {
-  /* Buttons */
-  .btn-gaming {
-    @apply relative inline-flex items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-[hsl(var(--primary-foreground))];
-    background: var(--gradient-primary);
-    box-shadow: var(--glow-primary);
-    transition: var(--transition-gaming);
-  }
-  .btn-gaming:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--glow-primary), var(--shadow-gaming);
-  }
-
-  .btn-gaming-secondary {
-    @apply relative inline-flex items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-foreground;
-    background: var(--gradient-secondary);
-    box-shadow: var(--glow-secondary);
-    transition: var(--transition-gaming);
-  }
-  .btn-gaming-secondary:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--glow-secondary), var(--shadow-gaming);
-  }
-
-  /* Cards */
-  .card-gaming {
-    background: var(--gradient-card);
-    box-shadow: var(--shadow-gaming);
-    backdrop-filter: blur(10px);
-    border: 1px solid hsl(var(--border));
-    transition: var(--transition-gaming);
-  }
-  .card-gaming:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-gaming), 0 0 18px hsl(var(--accent) / 0.15);
-  }
-
-  /* Inputs */
-  .input-gaming {
-    @apply bg-[hsl(var(--input))] border border-border rounded-md px-4 py-2 text-sm outline-none;
-    transition: var(--transition-gaming);
-    backdrop-filter: blur(8px);
-  }
-  .input-gaming:focus {
-    box-shadow: 0 0 0 2px hsl(var(--ring));
-    border-color: hsl(var(--accent));
-  }
-
-  /* Hero section */
-  .hero-gaming {
-    background: var(--gradient-hero);
-    position: relative;
-  }
-  .hero-gaming::before {
-    content: "";
-    position: absolute; inset: 0;
-    background:
-      radial-gradient(240px 120px at 8% 20%, hsl(0 0% 100% / 0.02) 0%, transparent 60%),
-      radial-gradient(180px 90px at 88% 25%, hsl(350 90% 50% / 0.06) 0%, transparent 65%);
-    pointer-events: none;
-  }
+/* ── Reset ──────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html { overflow-x: hidden; scroll-behavior: smooth; }
+body {
+  overflow-x: hidden;
+  background: #000;
+  color: #fff;
+  font-family: "Barlow", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "rlig" 1, "calt" 1;
 }
 
+/* ── ATAK.GG Design System (Dark Monochrome Edition) ───────────────────────── */
+:root {
+  --background:           0 0% 0%;
+  --foreground:           0 0% 100%;
+  --card:                 0 0% 5%;
+  --card-foreground:      0 0% 100%;
+  --popover:              0 0% 5%;
+  --popover-foreground:   0 0% 100%;
+  --primary:              0 0% 100%;
+  --primary-foreground:   0 0% 0%;
+  --secondary:            0 0% 12%;
+  --secondary-foreground: 0 0% 85%;
+  --muted:                0 0% 15%;
+  --muted-foreground:     0 0% 65%;
+  --accent:               170 15% 45%;
+  --accent-foreground:    0 0% 100%;
+  --destructive:          0 70% 45%;
+  --destructive-foreground: 0 0% 100%;
+  --success:              142 70% 45%;
+  --success-foreground:   0 0% 100%;
+  --border:               0 0% 20%;
+  --input:                0 0% 18%;
+  --ring:                 0 0% 40%;
+  --radius:               0.75rem;
+  --hero-subtitle:        210 17% 95%;
 
+  /* ATAK brand shortcuts */
+  --red:   #ef4444;
+  --red2:  #dc2626;
+  --red3:  #b91c1c;
+  --dark:  #000000;
+  --dark2: #080808;
+}
+
+/* ── Glass panels — red-tinted ──────────────────────────────────────────────── */
+.glass {
+  background: rgba(239, 68, 68, 0.03);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(239, 68, 68, 0.12);
+  border-radius: 12px;
+  position: relative;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(239, 68, 68, 0.04);
+  transition: all 0.3s ease;
+}
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(239,68,68,0.04) 0%, transparent 50%, rgba(0,0,0,0.02) 100%);
+  pointer-events: none;
+}
+.glass:hover {
+  border-color: rgba(239, 68, 68, 0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 16px 48px rgba(0,0,0,0.6),
+    0 0 24px rgba(239,68,68,0.08);
+}
+
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.01);
+  background-blend-mode: luminosity;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+.liquid-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.4px;
+  background: linear-gradient(180deg,
+    rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.15) 20%,
+    rgba(255,255,255,0) 40%, rgba(255,255,255,0) 60%,
+    rgba(255,255,255,0.15) 80%, rgba(255,255,255,0.45) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.glass-dark {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  position: relative;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* ── Red glow utilities ─────────────────────────────────────────────────────── */
+.glow-red { box-shadow: 0 0 24px rgba(239,68,68,0.4), 0 0 60px rgba(239,68,68,0.15); }
+.glow-red-text { text-shadow: 0 0 20px rgba(239,68,68,0.7), 0 0 60px rgba(239,68,68,0.3); }
+.gradient-red { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); }
+/* Solid brand red (was gradient-clip text — a common AI tell). Kept as a class
+   for compatibility; prefer solid color on text for a premium, intentional look. */
+.gradient-red-text { color: #ef4444; }
+
+/* ── Gaming buttons (legacy) ────────────────────────────────────────────────── */
+.btn-gaming {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 10px; padding: 0.75rem 1.5rem;
+  font-size: 0.875rem; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  box-shadow: 0 0 28px rgba(239,68,68,0.35), 0 4px 16px rgba(0,0,0,0.4);
+  transition: all 0.25s ease;
+}
+.btn-gaming:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(239,68,68,0.5), 0 8px 24px rgba(0,0,0,0.5); }
+
+.card-gaming {
+  background: rgba(239,68,68,0.04);
+  border: 1px solid rgba(239,68,68,0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  transition: all 0.25s ease;
+}
+.card-gaming:hover { border-color: rgba(239,68,68,0.3); transform: translateY(-4px); box-shadow: 0 0 30px rgba(239,68,68,0.12); }
+
+/* ── Text selection (premium red tint) ──────────────────────────────────────── */
+::selection { background: rgba(239, 68, 68, 0.28); color: #fff; }
+::-moz-selection { background: rgba(239, 68, 68, 0.28); color: #fff; }
+
+/* ── Scrollbar ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #0a0a0a; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+/* ── Animations ─────────────────────────────────────────────────────────────── */
 @keyframes blob {
-  0% { transform: translate(0px, 0px) scale(1); }
-  33% { transform: translate(30px, -50px) scale(1.1); }
-  66% { transform: translate(-20px, 20px) scale(0.9); }
-  100% { transform: translate(0px, 0px) scale(1); }
+  0%, 100% { transform: translate(0,0) scale(1); }
+  33% { transform: translate(30px,-50px) scale(1.1); }
+  66% { transform: translate(-20px,20px) scale(0.9); }
 }
-.animate-blob {
-  animation: blob 10s infinite;
+.animate-blob { animation: blob 12s infinite; }
+.animation-delay-2000 { animation-delay: 2s; }
+.animation-delay-4000 { animation-delay: 4s; }
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
-.animate-pulse-slow {
-  animation: pulse 20s infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 0.2; }
-  50% { opacity: 0.3; }
+.shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(239,68,68,0.15) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite;
 }
 
-@keyframes blob {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(50px, -50px) scale(1.1); }
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
 }
-.blob { animation: blob 20s infinite; }
+.float { animation: float 4s ease-in-out infinite; }
+
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+}
+.pulse-red { animation: pulse-red 2s infinite; }
+
+/* ── Noise texture overlay ──────────────────────────────────────────────────── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.018;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
