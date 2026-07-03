@@ -5,7 +5,7 @@ import {
   Trophy, Shield, Users, Copy, Check, Loader2, Crown, Zap, ExternalLink,
 } from 'lucide-react';
 import { useState } from 'react';
-import { useTournamentDashboard, useRespondInvitation } from '@/hooks/queries/tournaments';
+import { useMyTournamentDashboard, useRespondInvitation } from '@/hooks/queries/tournaments';
 
 function CopyBtn({ text }: { text: string }) {
   const [ok, setOk] = useState(false);
@@ -22,7 +22,7 @@ function CopyBtn({ text }: { text: string }) {
 }
 
 export function TournamentDashboardPanel() {
-  const { data, isLoading } = useTournamentDashboard();
+  const { data, isLoading } = useMyTournamentDashboard();
   const respond = useRespondInvitation();
 
   if (isLoading) {

@@ -101,6 +101,39 @@ export function useTournament(id?: string, options?: { pollWhenActive?: boolean 
   });
 }
 
+// ── Tournament dashboard (detail view) — one aggregated payload ───────────────
+export interface TdTeamRef { id: string; name: string; mono: string; color: string; score?: number | null; picks?: number[]; }
+export interface TdBoardPayload {
+  tournament: {
+    id: string; name: string; season: string | null; startDate: string; endDate: string | null;
+    format: string; patch: string; region: string; phase: string; status: string;
+    prizePool: string; prizeFinal: string | null; teamsRegistered: number; teamsMax: number;
+    checkinDeadline: string | null; logoUrl?: string | null; bannerUrl?: string | null;
+  };
+  bracket: Array<{ round: number; label: string; matches: Array<{
+    id: string; round: number; matchStatus: string; teamA: TdTeamRef | null; teamB: TdTeamRef | null; winnerId: string | null; scheduledAt: string | null;
+  }> }>;
+  standings: Array<{ teamId: string; name: string; mono: string; color: string; wins: number; losses: number; winratePct: number; streak: { count: number; type: "W" | "L" } | null; points: number; position: number }>;
+  liveMatch: { matchId: string; game: number; timer: number | null; code: string | null; teamA: TdTeamRef; teamB: TdTeamRef; goldDiffSeries: number[] } | null;
+  myTeam: { tag: string; checkinDeadline: string | null; checkedIn: boolean; roster: Array<{ playerName: string; role: string | null; mainChampionId: number | null; rank: { tier: string; division: string; color: string } | null }> } | null;
+  schedule: Array<{ matchId: string; scheduledAt: string | null; teamA: TdTeamRef | null; teamB: TdTeamRef | null; roundLabel: string; reminded: boolean }>;
+  activityByDay: Array<{ day: string; games: number }>;
+  version: string;
+  viewerAccess: ViewerAccess;
+}
+
+export function useTournamentDashboard(id?: string) {
+  return useQuery({
+    queryKey: id ? qk.tournamentBoard(id) : qk.tournamentBoard("_"),
+    enabled: Boolean(id),
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<TdBoardPayload>(`/api/tournaments/${id}/dashboard`);
+      return data;
+    },
+    refetchInterval: (query) => (query.state.data?.tournament.phase === "active" ? 15_000 : false),
+  });
+}
+
 export interface RosterPlayer {
   name: string;
   riotId?: string;
@@ -305,7 +338,7 @@ interface ReportResultInput {
   score2: number;
 }
 
-export function useTournamentDashboard() {
+export function useMyTournamentDashboard() {
   const isAuth = Boolean(typeof localStorage !== "undefined" && localStorage.getItem("access_token"));
   return useQuery({
     queryKey: qk.tournamentDashboard(),

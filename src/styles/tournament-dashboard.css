@@ -1,0 +1,60 @@
+/* ============================================================================
+   ATAK.GG — Tournament Dashboard design tokens (dark modern, red accent).
+   Scoped under .td-root so it never clashes with the global app theme.
+   ========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,600;0,700;1,600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+.td-root {
+  /* Surfaces */
+  --td-bg:        #0a0a0c;
+  --td-strip:     #0c0c0f;
+  --td-card:      #121217;
+  --td-subcard:   #17171c;
+  --td-sunken:    #1d1d23;
+  --td-sunken-2:  #1e1e24;
+  /* Borders */
+  --td-border:      #1f1f26;
+  --td-border-soft: #1a1a20;
+  --td-border-hov:  #33333c;
+  --td-border-hov2: #4b4b55;
+  /* Brand red */
+  --td-red:       #e8323c;
+  --td-red-hover: #f4485a;
+  --td-red-glow:  rgba(232, 50, 60, 0.35);
+  /* States */
+  --td-live:      #3b82f6;
+  --td-live-text: #60a5fa;
+  --td-green:     #4ade80;
+  --td-amber:     #f59e0b;
+  --td-neg:       #f87171;
+  --td-neutral:   #9ca3af;
+  /* Text */
+  --td-text:      #f4f4f5;
+  --td-text-2:    #9ca3af;
+  --td-muted:     #6b7280;
+  --td-disabled:  #4b5563;
+  /* Fonts */
+  --td-font-ui:   'Archivo', ui-sans-serif, system-ui, sans-serif;
+  --td-font-mono: 'Space Grotesk', ui-monospace, monospace;
+
+  font-family: var(--td-font-ui);
+  background: var(--td-bg);
+  color: var(--td-text);
+}
+
+.td-root .td-num,
+.td-root .td-over { font-family: var(--td-font-mono); }
+/* Overline label */
+.td-root .td-over {
+  font-size: 9px; letter-spacing: 2.2px; text-transform: uppercase;
+  color: var(--td-muted); font-weight: 600;
+}
+.td-root .td-italic { font-style: italic; font-weight: 600; }
+
+/* Card entrance + live pulse (transform/opacity only) */
+@keyframes td-in    { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes td-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+.td-card-in { animation: td-in .45s ease both; }
+.td-dot-pulse { animation: td-pulse 1.8s ease-in-out infinite; }
+
+.td-root :focus-visible { outline: 2px solid var(--td-red); outline-offset: 2px; }

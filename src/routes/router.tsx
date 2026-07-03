@@ -15,7 +15,7 @@ const Register             = lazy(() => import('@/pages/Register'));
 const StatsSearch          = lazy(() => import('@/pages/StatsSearch'));
 const Social               = lazy(() => import('@/pages/Social'));
 const TournamentsPage      = lazy(() => import('@/pages/Tournaments'));
-const TournamentDetailsPage= lazy(() => import('@/pages/TournamentDetailsPage'));
+const TournamentDashboardPage = lazy(() => import('@/pages/TournamentDashboardPage'));
 const TournamentLivePage   = lazy(() => import('@/pages/TournamentLivePage'));
 const Dashboard            = lazy(() => import('@/pages/Dashboard'));
 const NotFound             = lazy(() => import('@/pages/NotFound'));
@@ -52,7 +52,7 @@ export const AppRouter = () => (
       <Route path="/stats"                    element={<StatsSearch />} />
       <Route path="/match/:regional/:matchId" element={<MatchDetailPage />} />
       <Route path="/tournaments"              element={<TournamentsPage />} />
-      <Route path="/tournaments/:id"          element={<TournamentDetailsPage />} />
+      <Route path="/tournaments/:id"          element={<TournamentDashboardPage />} />
       <Route path="/tournaments/:id/live"    element={<TournamentLivePage />} />
       <Route path="/social"                   element={<Social />} />
 
