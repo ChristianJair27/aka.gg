@@ -6,6 +6,7 @@ import { useTexture, Float, Stars, MeshDistortMaterial, Sparkles } from '@react-
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { webglSupported } from '@/lib/webgl';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -197,6 +198,11 @@ interface ChampionSceneProps {
 }
 
 export function ChampionScene({ splashUrl, scrollRef, className = '' }: ChampionSceneProps) {
+  if (!webglSupported()) {
+    return splashUrl
+      ? <img src={splashUrl} className={className} style={{ objectFit: 'cover', width: '100%', height: '100%' }} alt="" />
+      : null;
+  }
   return (
     <div className={`${className} relative`}>
       <Canvas

@@ -3,6 +3,7 @@ import { Suspense, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, Float, Sparkles, OrbitControls, Environment, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
+import { webglSupported } from '@/lib/webgl';
 
 // ── Katarina model ────────────────────────────────────────────────────────────
 function KatarinaModel() {
@@ -202,6 +203,7 @@ function Scene() {
 
 // ── Export ────────────────────────────────────────────────────────────────────
 export default function HeroScene3D() {
+  if (!webglSupported()) return null;
   return (
     <Canvas
       camera={{ position: [0, 1, 5.5], fov: 42 }}

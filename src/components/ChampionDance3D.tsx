@@ -12,6 +12,7 @@ import {
 } from "@react-three/drei";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import { webglSupported } from '@/lib/webgl';
 
 type Vec3 = [number, number, number];
 
@@ -137,6 +138,8 @@ export function ChampionDance3D({
   useEffect(() => {
     if (current?.modelUrl) useGLTF.preload(current.modelUrl);
   }, [current?.modelUrl]);
+
+  if (!webglSupported()) return null;
 
   return (
     <div className="bg-gray-900/80 border border-red-500/20 rounded-xl overflow-hidden backdrop-blur-md">

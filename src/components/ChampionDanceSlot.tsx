@@ -15,6 +15,7 @@ import { Bounds, Center, useAnimations, useGLTF } from '@react-three/drei';
 import { motion } from 'framer-motion';
 import * as THREE from 'three';
 import { dd } from '@/lib/dataDragon';
+import { webglSupported } from '@/lib/webgl';
 
 const RED = '#e1242e';
 const GOLD = '#c8aa6e';
@@ -147,6 +148,14 @@ export default function ChampionDanceSlot({ champSlug, champName, loading, style
   }, [champSlug]);
 
   const name = champName || champSlug || '—';
+
+  if (!webglSupported()) {
+    return (
+      <div style={{ position: 'relative', height: 150, borderRadius: 16, overflow: 'hidden', ...style }}>
+        <ArtFallback champName={name} slug={champSlug} />
+      </div>
+    );
+  }
 
   return (
     <div

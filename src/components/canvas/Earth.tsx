@@ -1,6 +1,7 @@
 import React, { Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Preload, useGLTF, Html } from "@react-three/drei";
+import { webglSupported } from '@/lib/webgl';
 
 const CanvasLoader: React.FC = () => (
   <Html center>
@@ -19,6 +20,7 @@ const Earth: React.FC = () => {
 useGLTF.preload("/planet/scene.gltf");
 
 const EarthCanvas: React.FC = () => {
+  if (!webglSupported()) return null;
   return (
     <Canvas
       shadows
