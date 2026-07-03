@@ -34,4 +34,9 @@ export const qk = {
       ["stats", "bestPlayers", platform, puuid] as const,
     seasons: (puuid?: string) => ["stats", "seasons", puuid] as const,
   },
+
+  ai: {
+    insights: (riotId: string) => ["ai", "insights", riotId] as const,
+    matchTags: (matchId: string) => ["ai", "matchTags", matchId] as const,
+  },
 } as const;

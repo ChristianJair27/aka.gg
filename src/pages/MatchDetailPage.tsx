@@ -8,6 +8,8 @@ import { MatchStatsDetail } from '@/components/MatchStatsDetail';
 import { ArrowLeft } from 'lucide-react';
 import { KataLoaderOverlay } from '@/components/KataLoader';
 import { useMatchStats } from '@/hooks/queries/stats';
+import { useAiMatchTags, type AiMatchData } from '@/hooks/queries/ai';
+import AiTags from '@/components/ai/AiTags';
 
 const C = {
   bg: '#0a0a0c', panel: '#131316', border: 'rgba(255,255,255,0.07)',
@@ -50,6 +52,30 @@ export default function MatchDetailPage() {
     return [...stats.blueTeam, ...stats.redTeam];
   }, [stats]);
 
+  // ── ATAK AI match tags ─────────────────────────────────────────────────────
+  // Build the payload from the searched player's participant. The match detail is
+  // opened with the player's `puuid` in route state, so we match on that (the
+  // parsed participants carry puuid at runtime even though the type omits it).
+  const matchData = useMemo<AiMatchData | null>(() => {
+    if (!stats || !state?.puuid) return null;
+    const me = roster.find((p: any) => p.puuid === state.puuid);
+    if (!me) return null;
+    return {
+      matchId: stats.matchId,
+      win: me.win,
+      kda: me.kda,
+      cs: me.csPerMin,          // CS per minute — the normalized performance metric
+      role: me.teamPosition,
+      kills: me.kills,
+      deaths: me.deaths,
+      assists: me.assists,
+      championName: me.championName,
+    };
+  }, [stats, roster, state?.puuid]);
+
+  const matchTagsQ = useAiMatchTags(matchData);
+  const aiLoading = matchData ? matchTagsQ.isPending : loading;
+
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: '#e8e8ea', fontFamily: "'Saira', system-ui, sans-serif" }}>
       {/* 3D Katarina loader while the match detail loads. */}
@@ -72,6 +98,15 @@ export default function MatchDetailPage() {
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
             {queueLabel}{matchId ? ` · ${matchId}` : ''}
           </div>
+
+          {/* ATAK AI — compact per-match tags for the searched player */}
+          <AiTags
+            label="ATAK AI"
+            tags={matchTagsQ.data?.tags ?? []}
+            loading={aiLoading}
+            unavailable={matchTagsQ.data?.unavailable}
+            style={{ marginTop: 10 }}
+          />
         </div>
 
         {/* Rich stats (tables + charts + objectives + top performers) */}
