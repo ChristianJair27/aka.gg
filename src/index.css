@@ -1,11 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital,wght@0,400;1,400&display=swap');
+@import url('https://fonts.cdnfonts.com/css/friz-quadrata-std');
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Cinzel:wght@500;600;700&family=Instrument+Serif:ital,wght@0,400;1,400&display=swap');
 @import "tailwindcss";
 @config "../tailwind.config.ts";
 
 @theme {
   --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  --font-serif: "Instrument Serif", Georgia, serif;
+  /* Friz Quadrata — the League of Legends display font. Used for headings/brand
+     via `font-serif`; Cinzel is the fallback if the webfont fails. Body stays Barlow. */
+  --font-serif: "Friz Quadrata Std", "Friz Quadrata", "Cinzel", Georgia, serif;
+  --font-display: "Friz Quadrata Std", "Friz Quadrata", "Cinzel", serif;
 }
 
 /* ── Reset ──────────────────────────────────────────────────────────────────── */
