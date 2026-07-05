@@ -16,6 +16,7 @@ import { motion } from 'framer-motion';
 import * as THREE from 'three';
 import { dd } from '@/lib/dataDragon';
 import { webglSupported } from '@/lib/webgl';
+import Safe3D from '@/components/Safe3D';
 
 const RED = '#e1242e';
 const GOLD = '#c8aa6e';
@@ -175,23 +176,25 @@ export default function ChampionDanceSlot({ champSlug, champName, loading, style
         </div>
       ) : phase === 'model' && champSlug ? (
         <GLBBoundary fallback={<ArtFallback champName={name} slug={champSlug} />}>
-          <Canvas
-            camera={{ position: [0, 1, 3], fov: 35 }}
-            dpr={[1, 1.5]}
-            gl={{ alpha: true, antialias: true }}
-            style={{ background: 'transparent' }}
-          >
-            <ambientLight intensity={0.8} />
-            <directionalLight position={[3, 5, 4]} intensity={1.2} />
-            <directionalLight position={[-4, 2, -3]} intensity={0.5} color={RED} />
-            <Suspense fallback={null}>
-              <Bounds fit clip observe margin={1.15}>
-                <Center>
-                  <DanceModel url={modelUrl(champSlug)} onFail={() => setPhase('fallback')} />
-                </Center>
-              </Bounds>
-            </Suspense>
-          </Canvas>
+          <Safe3D fallback={<ArtFallback champName={name} slug={champSlug} />}>
+            <Canvas
+              camera={{ position: [0, 1, 3], fov: 35 }}
+              dpr={[1, 1.5]}
+              gl={{ alpha: true, antialias: true }}
+              style={{ background: 'transparent' }}
+            >
+              <ambientLight intensity={0.8} />
+              <directionalLight position={[3, 5, 4]} intensity={1.2} />
+              <directionalLight position={[-4, 2, -3]} intensity={0.5} color={RED} />
+              <Suspense fallback={null}>
+                <Bounds fit clip observe margin={1.15}>
+                  <Center>
+                    <DanceModel url={modelUrl(champSlug)} onFail={() => setPhase('fallback')} />
+                  </Center>
+                </Bounds>
+              </Suspense>
+            </Canvas>
+          </Safe3D>
         </GLBBoundary>
       ) : (
         <ArtFallback champName={name} slug={champSlug} />

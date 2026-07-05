@@ -4,6 +4,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, Float, Sparkles, OrbitControls, Environment, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
 import { webglSupported } from '@/lib/webgl';
+import Safe3D from '@/components/Safe3D';
 
 // ── Katarina model ────────────────────────────────────────────────────────────
 function KatarinaModel() {
@@ -205,14 +206,16 @@ function Scene() {
 export default function HeroScene3D() {
   if (!webglSupported()) return null;
   return (
-    <Canvas
-      camera={{ position: [0, 1, 5.5], fov: 42 }}
-      gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
-      style={{ background: 'transparent' }}
-      shadows
-    >
-      <Scene />
-    </Canvas>
+    <Safe3D fallback={null}>
+      <Canvas
+        camera={{ position: [0, 1, 5.5], fov: 42 }}
+        gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
+        style={{ background: 'transparent' }}
+        shadows
+      >
+        <Scene />
+      </Canvas>
+    </Safe3D>
   );
 }
 

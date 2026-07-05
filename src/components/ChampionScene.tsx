@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { webglSupported } from '@/lib/webgl';
+import Safe3D from '@/components/Safe3D';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -205,13 +206,15 @@ export function ChampionScene({ splashUrl, scrollRef, className = '' }: Champion
   }
   return (
     <div className={`${className} relative`}>
-      <Canvas
-        camera={{ position: [0, 0, 6], fov: 50 }}
-        gl={{ antialias: false, alpha: true, powerPreference: 'high-performance', failIfMajorPerformanceCaveat: false }}
-        dpr={Math.min(window.devicePixelRatio, 1.5)}
-      >
-        <Scene splashUrl={splashUrl} scrollRef={scrollRef} />
-      </Canvas>
+      <Safe3D fallback={splashUrl ? <img src={splashUrl} className={className} style={{ objectFit: 'cover', width: '100%', height: '100%' }} alt="" /> : null}>
+        <Canvas
+          camera={{ position: [0, 0, 6], fov: 50 }}
+          gl={{ antialias: false, alpha: true, powerPreference: 'high-performance', failIfMajorPerformanceCaveat: false }}
+          dpr={Math.min(window.devicePixelRatio, 1.5)}
+        >
+          <Scene splashUrl={splashUrl} scrollRef={scrollRef} />
+        </Canvas>
+      </Safe3D>
       {/* Vignette overlay */}
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.8) 100%)' }} />

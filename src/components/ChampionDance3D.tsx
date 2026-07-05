@@ -13,6 +13,7 @@ import {
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { webglSupported } from '@/lib/webgl';
+import Safe3D from '@/components/Safe3D';
 
 type Vec3 = [number, number, number];
 
@@ -168,6 +169,7 @@ export function ChampionDance3D({
       </div>
 
       <div style={{ height }} className="relative">
+        <Safe3D fallback={null}>
         <Canvas
           camera={{ position: [0, 2.6, 4.2], fov: 45 }}
           dpr={[1, 1]}
@@ -222,6 +224,7 @@ export function ChampionDance3D({
 
           <OrbitControls enablePan={false} minDistance={3} maxDistance={6} target={[0, 1, 0]} enableDamping dampingFactor={0.05} />
         </Canvas>
+        </Safe3D>
       </div>
     </div>
   );

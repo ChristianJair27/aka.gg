@@ -6,6 +6,8 @@ import { Suspense, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Bounds, Center, useAnimations, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import Safe3D from '@/components/Safe3D';
+import { webglSupported } from '@/lib/webgl';
 
 // The rigged + dance-animated model lives in /public/models/katarina.glb.
 const MODEL_URL = '/models/katarina.glb';
@@ -57,28 +59,47 @@ function KataModel({ autoRotate = true }: { autoRotate?: boolean }) {
   );
 }
 
+function NoWebGLFallback({ size = 220 }: { size?: number }) {
+  const spinSize = Math.round(size * 0.28);
+  return (
+    <div style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{
+        width: spinSize,
+        height: spinSize,
+        borderRadius: '50%',
+        border: '3px solid rgba(255,255,255,0.08)',
+        borderTopColor: RED,
+        animation: 'kata-spin 0.9s linear infinite',
+      }} />
+      <style>{`@keyframes kata-spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
 // ─── The 3D canvas (transparent) ──────────────────────────────────────────────
 function KataCanvas({ size = 220 }: { size?: number }) {
+  if (!webglSupported()) return <NoWebGLFallback size={size} />;
   return (
     <div style={{ width: size, height: size }}>
-      <Canvas
-        camera={{ position: [0, 1, 3], fov: 35 }}
-        dpr={[1, 1.5]}
-        gl={{ alpha: true, antialias: true, preserveDrawingBuffer: false }}
-        style={{ background: 'transparent' }}
-      >
-        <ambientLight intensity={0.75} />
-        <directionalLight position={[3, 5, 4]} intensity={1.25} />
-        <directionalLight position={[-4, 2, -3]} intensity={0.45} color={RED} />
-        <Suspense fallback={null}>
-          {/* Center + Bounds auto-fit the model regardless of its native scale. */}
-          <Bounds fit clip observe margin={1.15}>
-            <Center>
-              <KataModel />
-            </Center>
-          </Bounds>
-        </Suspense>
-      </Canvas>
+      <Safe3D fallback={<NoWebGLFallback size={size} />}>
+        <Canvas
+          camera={{ position: [0, 1, 3], fov: 35 }}
+          dpr={[1, 1.5]}
+          gl={{ alpha: true, antialias: true, preserveDrawingBuffer: false }}
+          style={{ background: 'transparent' }}
+        >
+          <ambientLight intensity={0.75} />
+          <directionalLight position={[3, 5, 4]} intensity={1.25} />
+          <directionalLight position={[-4, 2, -3]} intensity={0.45} color={RED} />
+          <Suspense fallback={null}>
+            <Bounds fit clip observe margin={1.15}>
+              <Center>
+                <KataModel />
+              </Center>
+            </Bounds>
+          </Suspense>
+        </Canvas>
+      </Safe3D>
     </div>
   );
 }
