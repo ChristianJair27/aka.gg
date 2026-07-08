@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence, useScroll, useTransform, useReducedMotion } from 'framer-motion';
-import Hls from 'hls.js';
 import { axiosInstance } from '@/lib/axios';
 import { ScrollVideoBg } from '@/components/ScrollVideoBg';
 import { Search, ArrowRight } from 'lucide-react';
@@ -113,29 +112,13 @@ export default function Home() {
     v.play().catch(() => {});
   }, []);
 
-  // HLS Video Setup for CTA
+  // CTA video: local de marca (antes era un stream HLS de Mux — dependencia
+  // externa innecesaria ahora que tenemos assets propios).
   useEffect(() => {
-    const video = hlsVideoRef.current;
-    if (!video) return;
-
-    const streamUrl = "https://stream.mux.com/8wrHPCX2dC3msyYU9ObwqNdm00u3ViXvOSHUMRYSEe5Q.m3u8";
-
-    if (Hls.isSupported()) {
-      const hls = new Hls();
-      hls.loadSource(streamUrl);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(() => {});
-      });
-      return () => {
-        hls.destroy();
-      };
-    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = streamUrl;
-      video.addEventListener("loadedmetadata", () => {
-        video.play().catch(() => {});
-      });
-    }
+    const v = hlsVideoRef.current;
+    if (!v) return;
+    v.load();
+    v.play().catch(() => {});
   }, []);
 
   const selectedRegion = REGIONS.find(r => r.value === region) || REGIONS[0];
@@ -565,13 +548,16 @@ export default function Home() {
       <section className="relative py-40 md:py-56 px-6 text-center overflow-hidden border-t border-white/[0.04]">
         
         {/* HLS Video Background */}
-        <video 
+        <video
           ref={hlsVideoRef}
-          loop 
-          muted 
+          loop
+          muted
           playsInline
+          preload="auto"
           className="absolute inset-0 w-full h-full object-cover z-0 opacity-40 pointer-events-none"
-        />
+        >
+          <source src="/video/CTA.mp4" type="video/mp4" />
+        </video>
 
         {/* Overlay dark */}
         <div className="absolute inset-0 bg-black/70 z-[1] pointer-events-none" />
