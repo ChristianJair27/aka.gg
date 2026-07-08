@@ -215,7 +215,7 @@ export default function Home() {
             className="absolute inset-0 w-full h-full object-cover"
             style={{ display: 'block', opacity: reduceMotion ? 0.55 : 1 }}
           >
-            <source src="/HomeVideo/homevid.mp4" type="video/mp4" />
+            <source src="/video/Hero.mp4" type="video/mp4" />
           </video>
         </motion.div>
 
@@ -359,13 +359,13 @@ export default function Home() {
 
               {/* Quick try options */}
               <div className="flex items-center justify-center gap-2 pt-2">
-                <span className="text-xs text-gray-500 uppercase tracking-widest font-bold">Probar:</span>
+                <span className="text-xs text-gray-400 uppercase tracking-widest font-bold">Probar:</span>
                 {QUICK_LOOKUPS.map(q => (
-                  <button 
-                    key={q} 
-                    type="button" 
+                  <button
+                    key={q}
+                    type="button"
                     onClick={() => handleQuickFill(q)}
-                    className="text-xs px-3 py-1 rounded-full border border-white/[0.08] bg-white/[0.02] text-gray-400 hover:text-white hover:border-red-500/40 hover:bg-red-500/10 transition-all"
+                    className="text-xs px-3 py-1 rounded-full border border-white/[0.12] bg-black/40 text-gray-300 hover:text-white hover:border-red-500/40 hover:bg-red-500/10 transition-all"
                   >
                     {q}
                   </button>
@@ -470,7 +470,7 @@ export default function Home() {
               playsInline
               className="w-full h-full object-cover"
             >
-              <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260325_132944_a0d124bb-eaa1-4082-aa30-2310efb42b4b.mp4" type="video/mp4" />
+              <source src="/video/mision.mp4" type="video/mp4" />
             </video>
             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black pointer-events-none" />
           </motion.div>
@@ -520,7 +520,7 @@ export default function Home() {
               playsInline
               className="w-full h-full object-cover"
             >
-              <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260325_125119_8e5ae31c-0021-4396-bc08-f7aebeb877a2.mp4" type="video/mp4" />
+              <source src="/video/solucion.mp4" type="video/mp4" />
             </video>
             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black pointer-events-none" />
           </motion.div>
