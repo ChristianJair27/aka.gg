@@ -101,8 +101,9 @@ export default function Login() {
         {/* Glass card */}
         <div className="relative rounded-2xl border border-white/[0.08] bg-[rgba(13,13,17,0.66)] backdrop-blur-xl p-8
           shadow-[0_24px_64px_rgba(0,0,0,0.6)]">
-          {/* top hairline */}
-          <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-red-500/50 to-transparent" />
+          {/* top hairline: filo rojo → oro (motivo de marca) */}
+          <div className="absolute inset-x-8 top-0 h-px"
+            style={{ background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.55) 35%, rgba(200,170,110,0.6) 65%, transparent)' }} />
 
           {/* Brand */}
           <div className="text-center mb-7">
@@ -110,10 +111,10 @@ export default function Login() {
               bg-gradient-to-br from-red-600/25 to-red-900/10 border border-red-500/30">
               <Swords className="h-6 w-6 text-red-400" />
             </div>
-            <h1 className="text-3xl font-black tracking-tight text-white">
+            <h1 className="font-serif text-3xl tracking-wide text-white">
               ATAK<span className="text-red-500">.GG</span>
             </h1>
-            <p className="text-sm text-gray-500 mt-1">Inicia sesión para continuar</p>
+            <p className="text-sm text-gray-400 mt-1.5">Inicia sesión para continuar</p>
           </div>
 
           {/* OAuth */}

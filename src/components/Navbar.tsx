@@ -82,7 +82,7 @@ export const Navbar = () => {
               <div className="absolute inset-0 rounded-full bg-red-500/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="text-lg font-black tracking-tight text-white">
+              <span className="font-serif text-lg tracking-wide text-white">
                 ATAK<span className="text-red-500">.GG</span>
               </span>
               <span className="text-[9px] font-mono text-white/40 uppercase tracking-widest">Powered by Riot API</span>
