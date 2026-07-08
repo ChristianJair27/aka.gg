@@ -192,8 +192,8 @@ function AdminPanel({ tournament, registrations }: {
   const checkedIn = registrations.filter(r=>r.checkedIn).length;
 
   return (
-    <GlassCard className="border-purple-500/20 bg-purple-500/5 mb-6 p-5">
-      <p className="text-xs text-purple-400 uppercase tracking-widest font-semibold mb-4 flex items-center gap-2">
+    <GlassCard className="border-[#c8aa6e]/20 bg-[#c8aa6e]/5 mb-6 p-5">
+      <p className="text-xs text-[#c8aa6e] uppercase tracking-widest font-semibold mb-4 flex items-center gap-2">
         <Shield className="h-4 w-4" /> Panel de Administrador
       </p>
       <div className="flex flex-wrap gap-2">
@@ -241,7 +241,7 @@ function AdminPanel({ tournament, registrations }: {
         {tournament.riotTournamentId && (
           <button disabled={codes.isPending}
             onClick={()=>codes.mutate(20)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-600
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#8a6d3b] hover:bg-[#a3823f]
               text-white text-sm font-semibold transition-all disabled:opacity-40">
             {codes.isPending?<RefreshCw className="h-4 w-4 animate-spin"/>:<Zap className="h-4 w-4"/>}
             Generar códigos ({tournament.codesAvailable})
@@ -250,7 +250,7 @@ function AdminPanel({ tournament, registrations }: {
         {(tournament.phase === 'active' || tournament.phase === 'complete') && (
           <button disabled={sync.isPending}
             onClick={() => sync.mutate()}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-600
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-800 hover:bg-teal-700
               text-white text-sm font-semibold transition-all disabled:opacity-40">
             {sync.isPending ? <RefreshCw className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4"/>}
             Sincronizar stats
@@ -557,19 +557,19 @@ export default function TournamentDetailsPage() {
           <div data-h className="flex flex-wrap items-center gap-2 mb-3">
             {tournament.riotTournamentId && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold
-                border border-purple-500/40 bg-purple-500/10 text-purple-300">
+                border border-[#c8aa6e]/40 bg-[#c8aa6e]/10 text-[#e8d5a8]">
                 <Zap className="h-3 w-3" /> Riot Oficial · ID {tournament.riotTournamentId}
               </span>
             )}
             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
               tournament.phase==='registration' ? 'border-green-500/40 bg-green-500/10 text-green-300' :
               tournament.phase==='checkin'      ? 'border-yellow-500/40 bg-yellow-500/10 text-yellow-300' :
-              tournament.phase==='active'       ? 'border-blue-500/40 bg-blue-500/10 text-blue-300' :
+              tournament.phase==='active'       ? 'border-teal-500/40 bg-teal-500/10 text-teal-300' :
                                                   'border-gray-600/40 bg-gray-500/10 text-gray-400'
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${
                 tournament.phase==='registration'?'bg-green-400':tournament.phase==='checkin'?'bg-yellow-400':
-                tournament.phase==='active'?'bg-blue-400':'bg-gray-500'}`}/>
+                tournament.phase==='active'?'bg-teal-400':'bg-gray-500'}`}/>
               {{registration:'Inscripciones abiertas',checkin:'Check-in activo',active:'En curso',complete:'Finalizado'}[tournament.phase]}
             </span>
           </div>

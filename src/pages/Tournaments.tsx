@@ -32,7 +32,7 @@ interface Tournament {
 const PHASE_CONFIG = {
   registration: { label: 'Inscripciones',  dot: 'bg-green-400',  badge: 'border-green-500/40 text-green-300 bg-green-500/10',  icon: <Users className="h-3.5 w-3.5" /> },
   checkin:      { label: 'Check-in',        dot: 'bg-yellow-400', badge: 'border-yellow-500/40 text-yellow-300 bg-yellow-500/10', icon: <CheckCircle className="h-3.5 w-3.5" /> },
-  active:       { label: 'En Curso',        dot: 'bg-blue-400',   badge: 'border-blue-500/40 text-blue-300 bg-blue-500/10',   icon: <Zap className="h-3.5 w-3.5" /> },
+  active:       { label: 'En Curso',        dot: 'bg-teal-400',   badge: 'border-teal-500/40 text-teal-300 bg-teal-500/10',   icon: <Zap className="h-3.5 w-3.5" /> },
   complete:     { label: 'Finalizado',      dot: 'bg-gray-500',   badge: 'border-gray-600/40 text-gray-400 bg-gray-500/10',   icon: <Shield className="h-3.5 w-3.5" /> },
 } as const;
 
@@ -93,7 +93,7 @@ function TournamentCard({
               </span>
               {t.riotTournamentId && (
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs
-                  border border-purple-500/40 text-purple-300 bg-purple-500/10">
+                  border border-[#c8aa6e]/40 text-[#e8d5a8] bg-[#c8aa6e]/10">
                   <Zap className="h-3 w-3" /> Riot Oficial
                 </span>
               )}
@@ -229,7 +229,7 @@ function StatBar({ tournaments }: { tournaments: Tournament[] }) {
     <div ref={ref} className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
       {[
         { label:'Total',       value: tournaments.length, color:'text-white' },
-        { label:'En curso',    value: active,             color:'text-blue-400' },
+        { label:'En curso',    value: active,             color:'text-teal-400' },
         { label:'Inscripción', value: open,               color:'text-green-400' },
         { label:'Finalizados', value: done,               color:'text-gray-400' },
       ].map(s => (
