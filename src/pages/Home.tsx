@@ -4,15 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import Hls from 'hls.js';
 import { axiosInstance } from '@/lib/axios';
 import { ScrollVideoBg } from '@/components/ScrollVideoBg';
-import {
-  Search, Trophy, Zap, BarChart3, Target,
-  ArrowRight, Globe, Users, Shield, Star,
-  Compass, Flame
-} from 'lucide-react';
+import { Search, ArrowRight } from 'lucide-react';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 const schema = z.object({
@@ -180,6 +176,20 @@ export default function Home() {
     offset: ["start end", "end start"]
   });
 
+  // Hero parallax: al scrollear, el video se aleja/oscurece y el contenido sube
+  // más lento que el scroll (momentum). Con reduced-motion todo queda estático.
+  const reduceMotion = useReducedMotion();
+  const heroRef = useRef<HTMLElement>(null);
+  const { scrollYProgress: heroProgress } = useScroll({
+    target: heroRef,
+    offset: ['start start', 'end start'],
+  });
+  const heroVideoOpacity = useTransform(heroProgress, [0, 1], [0.55, 0.12]);
+  const heroVideoScale   = useTransform(heroProgress, [0, 1], [1, 1.14]);
+  const heroContentY     = useTransform(heroProgress, [0, 1], [0, -70]);
+  const heroContentFade  = useTransform(heroProgress, [0, 0.7], [1, 0]);
+  const missionVideoY    = useTransform(scrollYProgress, [0, 1], [46, -46]);
+
   return (
     <div className="relative bg-black text-white selection:bg-red-500/30 selection:text-white">
 
@@ -189,31 +199,37 @@ export default function Home() {
       <ScrollVideoBg />
 
       {/* 1. HERO SECTION */}
-      <section className="relative min-h-screen flex flex-col justify-center items-center overflow-hidden px-6 md:px-12 pt-20 bg-black">
-        
-        {/* Background Looping Video */}
-        <div className="absolute inset-0 pointer-events-none z-0">
+      <section ref={heroRef} className="relative min-h-screen flex flex-col justify-center items-center overflow-hidden px-6 md:px-12 pt-20 bg-black">
+
+        {/* Background Looping Video — parallax scale + fade al scrollear */}
+        <motion.div
+          className="absolute inset-0 pointer-events-none z-0"
+          style={reduceMotion ? undefined : { opacity: heroVideoOpacity, scale: heroVideoScale }}
+        >
           <video
             ref={heroVideoRef}
             loop
             muted
             playsInline
             preload="auto"
-            className="absolute inset-0 w-full h-full object-cover opacity-55"
-            style={{ display: 'block' }}
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ display: 'block', opacity: reduceMotion ? 0.55 : 1 }}
           >
             <source src="/HomeVideo/homevid.mp4" type="video/mp4" />
           </video>
-        </div>
+        </motion.div>
 
         {/* Ambient Overlay */}
         <div className="absolute inset-0 bg-radial-gradient from-transparent via-black/40 to-black z-0 pointer-events-none" />
-        
+
         {/* Bottom Fade Gradient to Background */}
         <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-black to-transparent z-[1] pointer-events-none" />
 
-        {/* Content */}
-        <div className="relative z-10 max-w-4xl w-full text-center flex flex-col items-center space-y-8 mt-12">
+        {/* Content — sube más lento que el scroll (momentum) */}
+        <motion.div
+          className="relative z-10 max-w-4xl w-full text-center flex flex-col items-center space-y-8 mt-12"
+          style={reduceMotion ? undefined : { y: heroContentY, opacity: heroContentFade }}
+        >
           
           {/* Avatar subscriber row */}
           <motion.div 
@@ -357,6 +373,12 @@ export default function Home() {
               </div>
             </form>
           </motion.div>
+        </motion.div>
+
+        {/* Indicador de scroll: hilo de filo que cae */}
+        <div aria-hidden="true" className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2">
+          <span className="block w-px h-10 bg-gradient-to-b from-transparent via-red-500/70 to-transparent animate-pulse" />
+          <span className="block w-1.5 h-1.5 rotate-45 border border-[#c8aa6e]/60" />
         </div>
       </section>
 
@@ -379,44 +401,49 @@ export default function Home() {
             </motion.p>
           </div>
 
-          {/* 3 Cards Platform Grid */}
-          <div className="grid md:grid-cols-3 gap-8 text-left">
+          {/* El arsenal: filas editoriales separadas por filo (no cards) */}
+          <div className="text-left">
+            <hr className="blade-line opacity-50" />
             {[
               {
-                icon: <BarChart3 className="h-10 w-10 text-red-500" />,
                 title: "Live Game Tracker",
+                to: "/stats",
                 desc: "Análisis instantáneo de cada oponente y aliado en tu partida actual. Conoce sus rachas, campeones predilectos y debilidades al instante."
               },
               {
-                icon: <Trophy className="h-10 w-10 text-red-500" />,
                 title: "Sistema de Torneos",
-                desc: "Crea, administra y compite en torneos competitivos de LoL. Brackets automatizados, estadísticas de partidas de torneo y tablas de clasificación integradas."
+                to: "/tournaments",
+                desc: "Crea, administra y compite en torneos con códigos oficiales de Riot. Brackets automatizados, stats de cada partida y clasificación integrada."
               },
               {
-                icon: <Zap className="h-10 w-10 text-red-500" />,
-                title: "IA Coach Integrado",
-                desc: "Un coach personalizado que analiza la partida en segundo plano y te da consejos en vivo sobre builds, posicionamiento y prioridades de objetivos."
+                title: "Coach de IA en vivo",
+                to: "/stats",
+                desc: "Un coach que analiza tu partida en segundo plano y te habla con tags mínimos: builds, posicionamiento y prioridad de objetivos. Sin ruido."
               }
-            ].map((card, i) => (
-              <motion.div 
-                key={card.title}
-                {...fadeUp(i * 0.15)}
-                className="liquid-glass border border-white/[0.05] p-8 rounded-2xl flex flex-col space-y-6 hover:shadow-[0_0_24px_rgba(239,68,68,0.08)] transition-all duration-300"
-              >
-                <div className="p-3 bg-red-500/10 border border-red-500/20 w-fit rounded-xl">
-                  {card.icon}
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-bold text-lg text-white font-sans">{card.title}</h3>
-                  <p className="text-gray-400 text-sm leading-relaxed font-light">{card.desc}</p>
-                </div>
+            ].map((row, i) => (
+              <motion.div key={row.title} {...fadeUp(i * 0.12)}>
+                <button
+                  onClick={() => navigate(row.to)}
+                  className="group w-full grid md:grid-cols-[minmax(240px,1fr)_2fr_auto] gap-3 md:gap-10 items-center text-left py-9 md:py-11 transition-colors duration-300"
+                >
+                  <h3 className="font-serif text-2xl md:text-[28px] leading-tight text-white group-hover:text-red-400 transition-colors duration-300">
+                    {row.title}
+                  </h3>
+                  <p className="text-gray-400 text-[15px] leading-relaxed font-light max-w-xl">
+                    {row.desc}
+                  </p>
+                  <span className="hidden md:flex items-center justify-center w-11 h-11 rounded-full border border-white/10 text-white/40 transition-all duration-300 group-hover:border-red-500/60 group-hover:text-red-400 group-hover:translate-x-1.5">
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                </button>
+                <hr className="blade-line opacity-50" />
               </motion.div>
             ))}
           </div>
 
-          <motion.p 
+          <motion.p
             {...fadeUp(0.4)}
-            className="text-gray-500 text-sm font-mono tracking-widest uppercase"
+            className="text-gray-400 text-sm font-mono tracking-widest uppercase"
           >
             "Si no mejoras en cada partida, alguien más lo hará."
           </motion.p>
@@ -431,19 +458,22 @@ export default function Home() {
           style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 50%, rgba(0,0,0,0.65) 100%)' }} />
         <div className="max-w-5xl mx-auto flex flex-col items-center space-y-16 relative z-[1]">
 
-          {/* Centered Loop Video */}
-          <div className="relative w-full max-w-xl aspect-square rounded-3xl overflow-hidden border border-white/[0.05] shadow-2xl">
-            <video 
-              autoPlay 
-              loop 
-              muted 
+          {/* Centered Loop Video — flota contra el scroll (parallax suave) */}
+          <motion.div
+            className="relative w-full max-w-xl aspect-square rounded-3xl overflow-hidden border border-white/[0.05] shadow-2xl"
+            style={reduceMotion ? undefined : { y: missionVideoY }}
+          >
+            <video
+              autoPlay
+              loop
+              muted
               playsInline
               className="w-full h-full object-cover"
             >
               <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260325_132944_a0d124bb-eaa1-4082-aa30-2310efb42b4b.mp4" type="video/mp4" />
             </video>
             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black pointer-events-none" />
-          </div>
+          </motion.div>
 
           {/* Scroll reveal word-by-word content */}
           <div className="space-y-12 text-center md:text-left">
@@ -468,16 +498,22 @@ export default function Home() {
       <section className="py-32 md:py-48 px-6 md:px-12 border-t border-white/[0.04] bg-black">
         <div className="max-w-6xl mx-auto space-y-16">
           
-          <div className="space-y-4">
-            <span className="text-xs font-bold tracking-[4px] uppercase text-red-500">SOLUCIÓN INTEGRAL</span>
-            <h2 className="text-3xl sm:text-5xl md:text-6xl font-black leading-tight">
+          <div className="space-y-5 max-w-3xl">
+            <h2 className="text-3xl sm:text-5xl md:text-6xl font-black leading-tight" style={{ textWrap: 'balance' }}>
               La plataforma definitiva para el juego <span className="font-serif italic font-normal text-red-500">competitivo</span>
             </h2>
+            <hr className="blade-line-red w-40 opacity-80" style={{ marginLeft: 0 }} />
           </div>
 
-          {/* Panoramic Solutions Video */}
-          <div className="relative w-full aspect-[2.4/1] rounded-3xl overflow-hidden border border-white/[0.05] shadow-2xl">
-            <video 
+          {/* Panoramic Solutions Video — revela con un leve zoom-out */}
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0.6, scale: 1.035 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+            className="relative w-full aspect-[2.4/1] rounded-3xl overflow-hidden border border-white/[0.05] shadow-2xl"
+          >
+            <video
               autoPlay 
               loop 
               muted 
@@ -487,7 +523,7 @@ export default function Home() {
               <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260325_125119_8e5ae31c-0021-4396-bc08-f7aebeb877a2.mp4" type="video/mp4" />
             </video>
             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black pointer-events-none" />
-          </div>
+          </motion.div>
 
           {/* 4 Column Feature Grid */}
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -509,13 +545,13 @@ export default function Home() {
                 desc: "Rastreador de rendimiento global que genera gráficos fluidos con tus winrates, campeones preferidos y evolución competitiva."
               }
             ].map((feat, i) => (
-              <motion.div 
+              <motion.div
                 key={feat.title}
                 {...fadeUp(i * 0.1)}
-                className="space-y-3 p-4 rounded-xl border border-white/[0.02] bg-white/[0.01]"
+                className="group space-y-3 py-2 transition-transform duration-300 hover:translate-x-1"
               >
-                <h3 className="font-bold text-base text-white font-mono flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+                <h3 className="font-bold text-base text-white flex items-center gap-2.5">
+                  <span className="w-1.5 h-1.5 rotate-45 bg-[#c8aa6e] group-hover:bg-red-500 transition-colors duration-300" aria-hidden="true" />
                   {feat.title}
                 </h3>
                 <p className="text-gray-400 text-sm leading-relaxed font-light">{feat.desc}</p>
@@ -543,12 +579,13 @@ export default function Home() {
         {/* Content */}
         <div className="relative z-10 max-w-3xl mx-auto flex flex-col items-center space-y-8">
           
-          {/* Logo concentric circles */}
-          <div className="w-12 h-12 rounded-full border-2 border-red-500/50 flex items-center justify-center p-2 bg-black/60">
-            <div className="w-6 h-6 rounded-full border border-red-500 bg-red-500/20 animate-pulse" />
+          {/* Marca: diamante de filo (el mismo motivo del footer y el coach) */}
+          <div aria-hidden="true" className="flex flex-col items-center gap-3">
+            <span className="block w-2.5 h-2.5 rotate-45 bg-red-500 shadow-[0_0_18px_rgba(239,68,68,0.7)]" />
+            <hr className="blade-line w-36" />
           </div>
 
-          <h2 className="text-4xl sm:text-6xl md:text-7xl font-bold font-sans">
+          <h2 className="text-4xl sm:text-6xl md:text-7xl font-bold font-sans" style={{ textWrap: 'balance' }}>
             Comienza tu <span className="font-serif italic font-normal text-red-500">Ascenso</span>
           </h2>
           
@@ -578,20 +615,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 6. FOOTER */}
-      <footer className="py-16 px-6 md:px-12 border-t border-white/[0.04] bg-black">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="text-sm text-gray-500 font-mono flex items-center gap-3">
-            <span>© 2026 ATAK.GG. Todos los derechos reservados.</span>
-          </div>
-          
-          <div className="flex items-center gap-6 text-sm text-gray-400">
-            <a href="#" className="hover:text-white transition-colors">Privacidad</a>
-            <a href="#" className="hover:text-white transition-colors">Términos</a>
-            <a href="#" className="hover:text-white transition-colors">Contacto</a>
-          </div>
-        </div>
-      </footer>
+      {/* El footer global premium (App.tsx) cierra la página — sin duplicados. */}
     </div>
   );
 }
