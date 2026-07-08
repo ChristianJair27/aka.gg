@@ -15,6 +15,7 @@ import {
   useBestPlayers,
 } from '@/hooks/queries/stats';
 import { qk } from '@/hooks/queries/keys';
+import { axiosInstance } from '@/lib/axios';
 import { useAiInsights } from '@/hooks/queries/ai';
 import AiTags from '@/components/ai/AiTags';
 import {
@@ -402,12 +403,12 @@ export default function ProfilePage() {
   const opggQ = useQuery({
     queryKey: ['opgg', 'profile', platform, gameName, tagLine],
     queryFn: async () => {
-      const res = await fetch(
-        `http://localhost:4000/api/opgg/summoner-full?game_name=${encodeURIComponent(gameName)}&tag_line=${encodeURIComponent(tagLine)}&region=${encodeURIComponent(platform)}`
-      );
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data.ok ? data : null;
+      // axiosInstance usa VITE_API_URL — antes había un localhost:4000 hardcodeado
+      // que rompía este panel en producción (solo funcionaba con backend local).
+      const { data } = await axiosInstance.get('/api/opgg/summoner-full', {
+        params: { game_name: gameName, tag_line: tagLine, region: platform },
+      });
+      return data?.ok ? data : null;
     },
     enabled: !!gameName && !!tagLine,
     staleTime: 5 * 60 * 1000,
