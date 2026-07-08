@@ -63,9 +63,15 @@ export const Navbar = () => {
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
       scrolled || !isHome
-        ? 'bg-black/90 backdrop-blur-xl border-b border-red-900/30'
-        : 'bg-transparent border-b border-white/[0.04]'
+        ? 'bg-black/90 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.45)]'
+        : 'bg-transparent'
     }`}>
+      {/* Hairline inferior: filo rojo cuando el nav está activo, casi invisible arriba del hero */}
+      <div aria-hidden="true" className={`absolute bottom-0 left-0 right-0 transition-opacity duration-500 ${
+        scrolled || !isHome ? 'opacity-100' : 'opacity-25'
+      }`}>
+        <hr className="blade-line-red opacity-40" />
+      </div>
       <div className="max-w-7xl mx-auto px-5 md:px-10">
         <div className="flex items-center justify-between h-15 py-3">
 
@@ -79,7 +85,7 @@ export const Navbar = () => {
               <span className="text-lg font-black tracking-tight text-white">
                 ATAK<span className="text-red-500">.GG</span>
               </span>
-              <span className="text-[9px] font-mono text-white/20 uppercase tracking-widest">Powered by Riot API</span>
+              <span className="text-[9px] font-mono text-white/40 uppercase tracking-widest">Powered by Riot API</span>
             </div>
           </Link>
 
@@ -94,9 +100,13 @@ export const Navbar = () => {
                     active ? 'text-red-400' : 'text-gray-400 hover:text-white'
                   }`}>
                   {link.label}
-                  <span className={`absolute -bottom-0.5 left-0 h-0.5 bg-gradient-to-r from-red-500 to-red-400 transition-all duration-300 ${
-                    active ? 'w-full' : 'w-0 group-hover:w-full'
-                  }`} />
+                  {/* Subrayado blade: sesgado como el corte de marca, rojo → oro */}
+                  <span
+                    className={`absolute -bottom-1 left-0 h-[2px] bg-gradient-to-r from-red-500 via-red-400 to-[#c8aa6e] transition-all duration-300 ${
+                      active ? 'w-full' : 'w-0 group-hover:w-full'
+                    }`}
+                    style={{ transform: 'skewX(-14deg)' }}
+                  />
                 </Link>
               );
             })}

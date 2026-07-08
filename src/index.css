@@ -57,6 +57,28 @@ body {
   --red3:  #b91c1c;
   --dark:  #000000;
   --dark2: #080808;
+
+  /* Oro hextech — filo y prestigio. Nunca compite con el rojo: rojo = acción,
+     oro = ornamento (bordes hover, divisores, momentos). */
+  --gold:        #c8aa6e;
+  --gold-bright: #f0d891;
+  --gold-dark:   #785a28;
+
+  /* Motion tokens — ease-out exponencial, sin bounce. */
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 600ms;
+
+  /* Z-scale semántica — no usar 999/9999 arbitrarios. */
+  --z-nav: 50;
+  --z-dropdown: 60;
+  --z-wipe: 70;
+  --z-modal-backdrop: 80;
+  --z-modal: 90;
+  --z-toast: 100;
+  --z-noise: 110;
 }
 
 /* ── Glass panels — red-tinted ──────────────────────────────────────────────── */
@@ -195,13 +217,77 @@ body {
 }
 .pulse-red { animation: pulse-red 2s infinite; }
 
+/* ── El filo: motivos blade compartidos por TODA la app ─────────────────────── */
+/* Divisor blade: línea 1px que se afila hacia los extremos (dorado = prestigio). */
+.blade-line {
+  height: 1px;
+  border: none;
+  background: linear-gradient(90deg, transparent, var(--gold-dark) 18%, var(--gold) 50%, var(--gold-dark) 82%, transparent);
+}
+.blade-line-red {
+  height: 1px;
+  border: none;
+  background: linear-gradient(90deg, transparent, rgba(185,28,28,.7) 18%, var(--red) 50%, rgba(185,28,28,.7) 82%, transparent);
+}
+/* Corte diagonal de marca (~12°) para bloques hero / imágenes. */
+.blade-clip { clip-path: polygon(0 0, 100% 0, 100% calc(100% - 3rem), 0 100%); }
+
+/* ── BladeWipe: transición de ruta global (corte diagonal que barre) ────────── */
+/* Overlay decorativo montado en App; se re-dispara con key en cada navegación.
+   Con prefers-reduced-motion la animación colapsa a 0.01ms → imperceptible. */
+.blade-wipe {
+  position: fixed;
+  inset: -12% -40%;
+  z-index: var(--z-wipe);
+  pointer-events: none;
+  overflow: hidden;
+}
+.blade-wipe .panel {
+  position: absolute;
+  inset: 0;
+  transform: translateX(-118%) skewX(-14deg);
+  background: linear-gradient(105deg, #030304 0%, #0a0a0b 55%, #17090a 100%);
+  border-right: 2px solid var(--red);
+  box-shadow: 28px 0 90px rgba(239, 68, 68, 0.35);
+  animation: blade-sweep 560ms var(--ease-out-expo) forwards;
+}
+.blade-wipe .panel::after {
+  /* filo dorado que persigue al rojo */
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; right: -14px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--gold) 40%, var(--gold-bright) 50%, var(--gold) 60%, transparent);
+  opacity: 0.9;
+}
+@keyframes blade-sweep {
+  to { transform: translateX(118%) skewX(-14deg); }
+}
+
+/* Focus visible global — nunca outline:none sin reemplazo. */
+:focus-visible {
+  outline: 2px solid rgba(239, 68, 68, 0.9);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Reduced motion — obligatorio: crossfade/instantáneo en vez de coreografía. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* ── Noise texture overlay ──────────────────────────────────────────────────── */
 body::after {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 9999;
+  z-index: var(--z-noise);
   opacity: 0.018;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 }

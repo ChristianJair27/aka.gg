@@ -6,6 +6,7 @@ import { BrowserRouter } from "react-router-dom";
 import { queryClient } from "@/lib/queryClient";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { BladeWipe } from "@/components/BladeWipe";
 import { AppRouter } from "@/routes/router";
 
 const App = () => (
@@ -20,6 +21,7 @@ const App = () => (
             <AppRouter />
           </main>
           <Footer />
+          <BladeWipe />
         </div>
       </BrowserRouter>
     </TooltipProvider>
