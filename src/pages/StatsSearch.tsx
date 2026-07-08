@@ -206,7 +206,7 @@ export default function StatsSearch() {
       {/* Floating orbs */}
       <div className="fixed inset-0 overflow-hidden -z-10 pointer-events-none">
         <Orb size={600} x="-10%" y="-5%"  delay={0} color="radial-gradient(circle, rgba(185,28,28,0.25), transparent 70%)" />
-        <Orb size={400} x="70%"  y="50%"  delay={2} color="radial-gradient(circle, rgba(68,34,255,0.12), transparent 70%)" />
+        <Orb size={400} x="70%"  y="50%"  delay={2} color="radial-gradient(circle, rgba(200,170,110,0.10), transparent 70%)" />
         <Orb size={300} x="20%"  y="70%"  delay={4} color="radial-gradient(circle, rgba(185,28,28,0.15), transparent 70%)" />
       </div>
 

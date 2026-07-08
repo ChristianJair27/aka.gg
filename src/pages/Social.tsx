@@ -22,8 +22,8 @@ const TAGS = [
   { key:'general',   label:'General',    icon:<Star className="h-3.5 w-3.5"/>,      color:'text-gray-300 border-gray-600/40 bg-gray-500/10' },
   { key:'highlight', label:'Highlight',  icon:<Zap className="h-3.5 w-3.5"/>,       color:'text-yellow-300 border-yellow-500/40 bg-yellow-500/10' },
   { key:'lfg',       label:'LFG',        icon:<Users className="h-3.5 w-3.5"/>,     color:'text-green-300 border-green-500/40 bg-green-500/10' },
-  { key:'ayuda',     label:'Ayuda',      icon:<HelpCircle className="h-3.5 w-3.5"/>,color:'text-blue-300 border-blue-500/40 bg-blue-500/10' },
-  { key:'clip',      label:'Clip',       icon:<Video className="h-3.5 w-3.5"/>,     color:'text-purple-300 border-purple-500/40 bg-purple-500/10' },
+  { key:'ayuda',     label:'Ayuda',      icon:<HelpCircle className="h-3.5 w-3.5"/>,color:'text-orange-300 border-orange-500/40 bg-orange-500/10' },
+  { key:'clip',      label:'Clip',       icon:<Video className="h-3.5 w-3.5"/>,     color:'text-[#e8d5a8] border-[#c8aa6e]/40 bg-[#c8aa6e]/10' },
   { key:'torneo',    label:'Torneo',     icon:<Trophy className="h-3.5 w-3.5"/>,    color:'text-red-300 border-red-500/40 bg-red-500/10' },
 ] as const;
 
@@ -182,7 +182,7 @@ function PostCard({
 
           <Tip label="Ver comentarios">
             <button onClick={toggleComments}
-              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-blue-400 transition-colors">
+              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-400 transition-colors">
               <MessageSquare className="h-4 w-4" />
               <span className="font-medium">{post.comments_count}</span>
             </button>
@@ -392,13 +392,13 @@ export default function Social() {
         {/* Header */}
         <div ref={headerRef} className="text-center mb-10">
           <div data-h className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6
-            bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm">
+            bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
             <Users className="h-4 w-4" />
             <span>Comunidad ATAK.GG</span>
-            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
           </div>
           <h1 data-h className="text-4xl md:text-5xl font-black text-white mb-3">
-            Feed <span className="text-blue-400 [text-shadow:0_0_40px_rgba(59,130,246,0.5)]">Social</span>
+            Feed <span className="font-serif italic font-normal text-red-500">Social</span>
           </h1>
           <p data-h className="text-gray-400">
             Comparte highlights, busca duo, pide consejos y conecta con la comunidad.
@@ -420,7 +420,7 @@ export default function Social() {
             <Lock className="h-8 w-8 text-gray-600 mx-auto mb-3" />
             <p className="text-gray-400 text-sm mb-4">Inicia sesión para publicar en la comunidad</p>
             <Link to="/login"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500
                 text-white text-sm font-bold transition-all">
               <Plus className="h-4 w-4" /> Iniciar sesión
             </Link>
