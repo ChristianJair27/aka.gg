@@ -13,9 +13,11 @@ import {
   useLeagueRank,
   useRecentTeammates,
   useBestPlayers,
+  useEnemyAvg,
 } from '@/hooks/queries/stats';
 import { qk } from '@/hooks/queries/keys';
 import { axiosInstance } from '@/lib/axios';
+import { useDominantColor, tintRgba } from '@/lib/dominantColor';
 import { useAiInsights } from '@/hooks/queries/ai';
 import AiTags from '@/components/ai/AiTags';
 import {
@@ -365,7 +367,9 @@ export default function ProfilePage() {
   const { gameName, tagLine } = useMemo(() => splitNameTag(name, platform), [name, platform]);
 
   const qc = useQueryClient();
-  const [count, setCount] = useState(10);
+  // 20 partidas por defecto: el análisis (recap/IA/roles) se corta a los últimos
+  // 30 días, así que necesitamos más muestra que las 10 clásicas.
+  const [count, setCount] = useState(20);
   const [filter, setFilter] = useState<'all' | 420 | 440 | 450>('all');
 
   const champByKey = champs?.byKey;
@@ -398,6 +402,10 @@ export default function ProfilePage() {
 
   const bestPlayersQ = useBestPlayers(platform, puuid, 15);
   const bestPlayers = bestPlayersQ.data ?? null;
+
+  // Elo promedio de rivales (últimos 30 días; el backend muestrea y cachea 1h).
+  const enemyAvgQ = useEnemyAvg(platform, puuid);
+  const enemyAvg = enemyAvgQ.data ?? null;
 
   // OP.GG regional rank + champion stats (independent of PUUID — uses Riot ID directly)
   const opggQ = useQuery({
@@ -446,44 +454,56 @@ export default function ProfilePage() {
     return c ? { slug: c.id, name: c.name, id: top.championId } : null;
   }, [summary, champByKey]);
 
+  // Tinte ambiental: color dominante del splash del main → el fondo de la página
+  // y el glow del modelo 3D combinan con el campeón (fallback: rojo de marca).
+  const champTint = useDominantColor(topMasteryChamp ? dd.championSplash(topMasteryChamp.slug) : null);
+
   const filtered = useMemo(() => {
     if (filter === 'all') return matches;
     return matches.filter((m) => m.queueId === filter);
   }, [matches, filter]);
 
+  // Ventana de análisis: últimos 30 días. El listado muestra todo lo cargado,
+  // pero recap / IA / roles / campeones se calculan sobre esta ventana para que
+  // el análisis refleje el nivel ACTUAL del jugador, no partidas viejas.
+  const THIRTY_D = 30 * 86400_000;
+  const inWindow = (m: any) => !m.gameStartTimestamp || (Date.now() - m.gameStartTimestamp) <= THIRTY_D;
+  const last30 = useMemo(() => matches.filter(inWindow), [matches]);
+
   const recap = useMemo(() => {
-    if (!filtered.length) return null;
-    const wins = filtered.filter((m) => m.win).length;
-    const k = filtered.reduce((s, m) => s + (m.kills || 0), 0);
-    const d = filtered.reduce((s, m) => s + (m.deaths || 0), 0);
-    const a = filtered.reduce((s, m) => s + (m.assists || 0), 0);
+    const pool = filtered.filter(inWindow);
+    if (!pool.length) return null;
+    const wins = pool.filter((m) => m.win).length;
+    const k = pool.reduce((s, m) => s + (m.kills || 0), 0);
+    const d = pool.reduce((s, m) => s + (m.deaths || 0), 0);
+    const a = pool.reduce((s, m) => s + (m.assists || 0), 0);
     return {
-      n: filtered.length, wins, losses: filtered.length - wins,
-      wr: Math.round((wins / filtered.length) * 100),
+      n: pool.length, wins, losses: pool.length - wins,
+      wr: Math.round((wins / pool.length) * 100),
       kda: d === 0 ? (k + a).toFixed(2) : ((k + a) / d).toFixed(2),
-      k: (k / filtered.length).toFixed(1), d: (d / filtered.length).toFixed(1), a: (a / filtered.length).toFixed(1),
+      k: (k / pool.length).toFixed(1), d: (d / pool.length).toFixed(1), a: (a / pool.length).toFixed(1),
     };
   }, [filtered]);
 
-  // Role performance (from match history; Solo/Flex/normals)
+  // Role performance (últimos 30 días; Solo/Flex/normals)
   const rolePerf = useMemo(() => {
     const map: Record<Role, { games: number; wins: number }> = {
       Central: { games: 0, wins: 0 }, Jungla: { games: 0, wins: 0 }, Tirador: { games: 0, wins: 0 },
       Soporte: { games: 0, wins: 0 }, Superior: { games: 0, wins: 0 },
     };
-    for (const m of matches) {
+    for (const m of last30) {
       const r = toRole(m);
       if (!r) continue;
       map[r].games += 1;
       if (m.win) map[r].wins += 1;
     }
     return map;
-  }, [matches]);
+  }, [last30]);
 
-  // Champions table (Solo/Dúo preferred; falls back to all ranked-ish history)
+  // Champions table (últimos 30 días; Solo/Dúo preferred, falls back to ranked-ish)
   const champRows = useMemo(() => {
-    const pool = matches.filter((m) => m.queueId === 420);
-    const src = pool.length ? pool : matches.filter((m) => m.queueId === 420 || m.queueId === 440);
+    const pool = last30.filter((m) => m.queueId === 420);
+    const src = pool.length ? pool : last30.filter((m) => m.queueId === 420 || m.queueId === 440);
     const agg = new Map<number, { games: number; wins: number; k: number; d: number; a: number }>();
     for (const m of src) {
       const id = Number(m.championId);
@@ -596,8 +616,10 @@ export default function ProfilePage() {
       <style>{`
         @keyframes atak-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
         .atak-glow { background:
-          radial-gradient(900px 500px at 80% -10%, rgba(225,36,46,0.14), transparent 60%),
-          transparent; }
+          radial-gradient(900px 500px at 80% -10%, ${champTint ? tintRgba(champTint, 0.17) : 'rgba(225,36,46,0.14)'}, transparent 60%),
+          radial-gradient(700px 460px at 6% 28%, ${champTint ? tintRgba(champTint, 0.07) : 'rgba(225,36,46,0.05)'}, transparent 62%),
+          transparent;
+          transition: background 900ms ease; }
         @media (max-width: 960px){ .atak-grid{ grid-template-columns: 1fr !important; } }
       `}</style>
 
@@ -742,6 +764,8 @@ export default function ProfilePage() {
                 loading={summaryLoading && !summary}
                 leagueRank={leagueRank}
                 opggData={opggData}
+                enemyAvg={enemyAvg}
+                enemyAvgLoading={enemyAvgQ.isPending}
               />
               <RecentGames
                 matches={filtered} loading={matchesLoading && !matches.length}
@@ -761,6 +785,7 @@ export default function ProfilePage() {
                   champSlug={topMasteryChamp?.slug}
                   champId={topMasteryChamp?.id}
                   champName={topMasteryChamp?.name}
+                  accent={champTint}
                   loading={summaryLoading && !summary}
                 />
               </motion.div>
@@ -780,9 +805,11 @@ export default function ProfilePage() {
 }
 
 // ─── Personal score (featured Solo/Dúo) ─────────────────────────────────────
-function PersonalScore({ solo, flex, loading, leagueRank, opggData }: {
+function PersonalScore({ solo, flex, loading, leagueRank, opggData, enemyAvg, enemyAvgLoading }: {
   solo: RankEntry | null; flex: RankEntry | null; loading: boolean;
   leagueRank: { regionalRank: number | null; topPercent: number | null } | null;
+  enemyAvg?: { tier: string | null; rank: string | null; sample: number } | null;
+  enemyAvgLoading?: boolean;
   opggData?: any;
 }) {
   const ladderRank = opggData?.rank?.ladder_rank ?? null;
@@ -845,13 +872,7 @@ function PersonalScore({ solo, flex, loading, leagueRank, opggData }: {
       {/* 2-up: Flex + enemy avg — open sections divided by a hairline (no cards) */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 22, paddingTop: 20, borderTop: HAIRLINE }}>
         <MiniRank label="Flex" rank={flex} loading={loading} />
-        <div>
-          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 500, color: 'rgba(255,255,255,0.4)', marginBottom: 8 }}>
-            Promedio enemigos
-          </div>
-          <div style={{ fontFamily: FONT_COND, fontWeight: 600, fontSize: 18, color: 'rgba(255,255,255,0.45)' }}>—</div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>No disponible</div>
-        </div>
+        <EnemyAvgSlot data={enemyAvg} loading={enemyAvgLoading} />
       </div>
     </Panel>
   );
@@ -880,9 +901,10 @@ function FeaturedRank({ rank, leagueRank }: {
           background: `radial-gradient(circle, ${color}30 0%, transparent 70%)`,
           filter: 'blur(12px)',
         }} />
+        {/* El emblema manda: más grande que el texto del elo para que resalte. */}
         <img src={rankEmblem(rank.tier)} alt={rank.tier}
-          style={{ width: 120, height: 120, objectFit: 'contain', position: 'relative',
-            filter: `drop-shadow(0 0 18px ${color}70)` }} />
+          style={{ width: 172, height: 172, objectFit: 'contain', position: 'relative',
+            filter: `drop-shadow(0 0 26px ${color}80)` }} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: FONT_COND, fontWeight: 900, fontSize: 30, color, lineHeight: 1, letterSpacing: '-0.01em' }}>
@@ -927,8 +949,8 @@ function MiniRank({ label, rank, loading }: { label: string; rank: RankEntry | n
               filter: 'blur(8px)',
             }} />
             <img src={rankEmblem(rank.tier)} alt={rank.tier}
-              style={{ width: 72, height: 72, objectFit: 'contain', position: 'relative',
-                filter: `drop-shadow(0 0 12px ${color}70)` }} />
+              style={{ width: 96, height: 96, objectFit: 'contain', position: 'relative',
+                filter: `drop-shadow(0 0 14px ${color}75)` }} />
           </div>
           <div>
             <div style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 20, color }}>
@@ -939,6 +961,54 @@ function MiniRank({ label, rank, loading }: { label: string; rank: RankEntry | n
         </div>
       ) : (
         <div style={{ fontFamily: FONT_COND, fontWeight: 600, fontSize: 16, color: 'rgba(255,255,255,0.45)' }}>Sin clasificar</div>
+      )}
+    </div>
+  );
+}
+
+// Elo promedio de los rivales de los últimos 30 días (mismo lenguaje que MiniRank).
+function EnemyAvgSlot({ data, loading }: {
+  data?: { tier: string | null; rank: string | null; sample: number } | null;
+  loading?: boolean;
+}) {
+  const tierColor: Record<string, string> = {
+    IRON: '#6b6b6b', BRONZE: '#ad7c52', SILVER: '#9eaab8', GOLD: '#c8aa6e',
+    PLATINUM: '#5bbfa7', EMERALD: '#4cad6d', DIAMOND: '#6aa5d4',
+    MASTER: '#9d4dc4', GRANDMASTER: '#e84d4d', CHALLENGER: '#00eeff',
+  };
+  const tier = data?.tier ?? null;
+  const color = tier ? (tierColor[tier.toUpperCase()] ?? C.gold) : C.gold;
+  return (
+    <div>
+      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 500, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>
+        Promedio enemigos
+      </div>
+      {loading ? <Skeleton h={18} w="70%" /> : tier ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <div style={{
+              position: 'absolute', inset: -8,
+              background: `radial-gradient(circle, ${color}28 0%, transparent 70%)`,
+              filter: 'blur(8px)',
+            }} />
+            <img src={rankEmblem(tier)} alt={tier}
+              style={{ width: 96, height: 96, objectFit: 'contain', position: 'relative',
+                filter: `drop-shadow(0 0 14px ${color}75)` }} />
+          </div>
+          <div>
+            <div style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 20, color }}>
+              {tier[0] + tier.slice(1).toLowerCase()}{data?.rank ? ` ${data.rank}` : ''}
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
+              últimos 30 días · {data?.sample} rivales
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div style={{ fontFamily: FONT_COND, fontWeight: 600, fontSize: 16, color: 'rgba(255,255,255,0.45)' }}>—</div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>Sin ranked reciente</div>
+        </div>
       )}
     </div>
   );
@@ -1000,7 +1070,7 @@ function RecentGames({
       {recap && (
         <div style={{ display: 'flex', gap: 24, alignItems: 'center', padding: '4px 0 18px', marginBottom: 18, borderBottom: HAIRLINE, flexWrap: 'wrap' }}>
           <div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Últimas {recap.n}</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Últimos 30 días · {recap.n} partidas</div>
             <div style={{ fontFamily: FONT_COND, fontWeight: 700, fontSize: 16, marginTop: 2 }}>
               <span style={{ color: C.win }}>{recap.wins}V</span> <span style={{ color: C.loss }}>{recap.losses}D</span>
             </div>

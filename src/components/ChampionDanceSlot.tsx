@@ -127,12 +127,16 @@ export interface ChampionDanceSlotProps {
   champId?: number;
   /** Localized champion name for the caption. */
   champName?: string;
+  /** Color dominante del campeón (tiñe glow y luz de borde; fallback rojo marca). */
+  accent?: { r: number; g: number; b: number } | null;
   /** Loading state from the profile (mastery not resolved yet). */
   loading?: boolean;
   style?: React.CSSProperties;
 }
 
-export default function ChampionDanceSlot({ champSlug, champId, champName, loading, style }: ChampionDanceSlotProps) {
+export default function ChampionDanceSlot({ champSlug, champId, champName, accent, loading, style }: ChampionDanceSlotProps) {
+  const glowRgba = accent ? `rgba(${accent.r}, ${accent.g}, ${accent.b}, 0.14)` : 'rgba(225,36,46,0.10)';
+  const rimColor = accent ? `rgb(${accent.r}, ${accent.g}, ${accent.b})` : RED;
   // 'checking' → probing; 'model' → GLB confirmado (src); 'fallback' → splash art.
   const [phase, setPhase] = useState<'checking' | 'model' | 'fallback'>('checking');
   const [src, setSrc] = useState<string | null>(null);
@@ -193,10 +197,11 @@ export default function ChampionDanceSlot({ champSlug, champId, champName, loadi
         height: 240,
         borderRadius: 16,
         overflow: 'hidden',
-        // Sin borde: el panel se asienta con luz (glow radial rojo detrás del
-        // modelo) y sombra — se funde con la página en vez de encajonarse.
-        background: 'radial-gradient(ellipse 70% 60% at 50% 45%, rgba(225,36,46,0.10), rgba(0,0,0,0) 70%)',
+        // Sin borde: el panel se asienta con luz (glow radial del color del
+        // campeón) y sombra — se funde con la página en vez de encajonarse.
+        background: `radial-gradient(ellipse 70% 60% at 50% 45%, ${glowRgba}, rgba(0,0,0,0) 70%)`,
         boxShadow: '0 24px 60px -30px rgba(0,0,0,.8)',
+        transition: 'background 900ms ease',
         ...style,
       }}
     >
@@ -215,7 +220,7 @@ export default function ChampionDanceSlot({ champSlug, champId, champName, loadi
             >
               <ambientLight intensity={0.8} />
               <directionalLight position={[3, 5, 4]} intensity={1.2} />
-              <directionalLight position={[-4, 2, -3]} intensity={0.5} color={RED} />
+              <directionalLight position={[-4, 2, -3]} intensity={0.5} color={rimColor} />
               <Suspense fallback={null}>
                 <Bounds fit clip observe margin={1.12}>
                   <Center>

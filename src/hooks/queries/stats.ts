@@ -87,6 +87,23 @@ export function useMatches(continent?: string, puuid?: string, count = 10) {
   });
 }
 
+// Elo promedio de los rivales recientes (últimos 30 días, muestreo backend).
+export function useEnemyAvg(platform?: string, puuid?: string) {
+  return useQuery({
+    queryKey: qk.stats.enemyAvg(platform || "", puuid),
+    enabled: Boolean(platform && puuid),
+    staleTime: 60 * 60_000, // el backend cachea 1h — no re-pedir antes
+    queryFn: async () => {
+      const { data } = await axiosInstance.get(`/api/stats/enemy-avg/${platform}/${puuid}`);
+      return {
+        tier: (data?.tier ?? null) as string | null,
+        rank: (data?.rank ?? null) as string | null,
+        sample: (data?.sample ?? 0) as number,
+      };
+    },
+  });
+}
+
 // League regional rank + top% (apex tiers only; null otherwise — honest).
 export function useLeagueRank(platform?: string, puuid?: string) {
   return useQuery({

@@ -33,6 +33,8 @@ export const qk = {
     bestPlayers: (platform: string, puuid?: string) =>
       ["stats", "bestPlayers", platform, puuid] as const,
     seasons: (puuid?: string) => ["stats", "seasons", puuid] as const,
+    enemyAvg: (platform: string, puuid?: string) =>
+      ["stats", "enemyAvg", platform, puuid] as const,
   },
 
   ai: {
