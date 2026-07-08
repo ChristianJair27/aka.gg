@@ -442,7 +442,8 @@ export default function ProfilePage() {
     const top = (summary?.masteryTop || [])[0];
     if (!top) return null;
     const c = champByKey?.[String(top.championId)];
-    return c ? { slug: c.id, name: c.name } : null; // c.id is the DDragon slug (e.g. "Pantheon")
+    // c.id is the DDragon slug (e.g. "Pantheon"); championId habilita el modelo 3D del CDN.
+    return c ? { slug: c.id, name: c.name, id: top.championId } : null;
   }, [summary, champByKey]);
 
   const filtered = useMemo(() => {
@@ -648,7 +649,7 @@ export default function ProfilePage() {
                 <div
                   style={{
                     position: 'absolute', bottom: -10, left: '50%', transform: 'translateX(-50%)',
-                    background: '#0a0a0c', border: `1px solid ${C.border}`, borderRadius: 999,
+                    background: '#0a0a0c', border: 'none', borderRadius: 999,
                     padding: '2px 9px', fontFamily: FONT_COND, fontWeight: 700, fontSize: 12, color: C.gold, whiteSpace: 'nowrap',
                   }}
                 >
@@ -714,7 +715,7 @@ export default function ProfilePage() {
 
               {/* Season + refresh */}
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', alignSelf: 'flex-start', marginLeft: 'auto' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 10, padding: '9px 14px', fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 10, padding: '9px 14px', fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}>
                   Temporada 2026 <ChevronDown size={15} />
                 </div>
                 <Tip label="Volver a cargar los datos del invocador">
@@ -758,6 +759,7 @@ export default function ProfilePage() {
               <motion.div {...RISE_IN}>
                 <ChampionDanceSlot
                   champSlug={topMasteryChamp?.slug}
+                  champId={topMasteryChamp?.id}
                   champName={topMasteryChamp?.name}
                   loading={summaryLoading && !summary}
                 />
@@ -808,7 +810,7 @@ function PersonalScore({ solo, flex, loading, leagueRank, opggData }: {
 
       {/* OP.GG regional position card */}
       {ladderRank != null && (
-        <div style={{ marginTop: 16, padding: '10px 14px', background: 'rgba(11,196,227,0.04)', border: '1px solid rgba(11,196,227,0.12)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ marginTop: 16, padding: '10px 14px', background: 'rgba(11,196,227,0.06)', border: 'none', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(11,196,227,0.5)', fontWeight: 700, marginBottom: 2 }}>Posición regional</div>
             <div style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 20, color: '#0bc4e3', lineHeight: 1 }}>
@@ -833,8 +835,8 @@ function PersonalScore({ solo, flex, loading, leagueRank, opggData }: {
           )}
           {(isHotStreak || isVeteran) && (
             <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
-              {isHotStreak && <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.25)', color: '#f87171' }}>Racha ganadora</span>}
-              {isVeteran && <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'rgba(200,155,60,0.1)', border: '1px solid rgba(200,155,60,0.2)', color: C.gold }}>Veterano</span>}
+              {isHotStreak && <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'rgba(248,113,113,0.14)', border: 'none', color: '#f87171' }}>Racha ganadora</span>}
+              {isVeteran && <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'rgba(200,155,60,0.13)', border: 'none', color: C.gold }}>Veterano</span>}
             </div>
           )}
         </div>
@@ -978,8 +980,8 @@ function RecentGames({
                   onClick={() => setFilter(c.val)}
                   style={{
                     fontSize: 12, fontWeight: 500, padding: '4px 11px', borderRadius: 999, cursor: 'pointer',
-                    border: filter === c.val ? `1px solid ${C.red}` : '1px solid rgba(255,255,255,0.10)',
-                    background: filter === c.val ? 'rgba(225,36,46,0.18)' : 'transparent',
+                    border: filter === c.val ? `1px solid ${C.red}` : '1px solid transparent',
+                    background: filter === c.val ? 'rgba(225,36,46,0.18)' : 'rgba(255,255,255,0.05)',
                     color: filter === c.val ? C.redHover : 'rgba(255,255,255,0.55)',
                     transition: 'color .16s, border-color .16s, background .16s',
                   }}
@@ -1034,7 +1036,7 @@ function RecentGames({
           <button
             onClick={onLoadMore}
             disabled={loadingMore}
-            style={{ padding: '8px 22px', borderRadius: 999, border: `1px solid ${C.border}`, background: 'transparent', color: 'rgba(255,255,255,0.6)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+            style={{ padding: '8px 22px', borderRadius: 999, border: 'none', background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.65)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
           >
             {loadingMore ? 'Cargando…' : 'Cargar más'}
           </button>
@@ -1195,7 +1197,7 @@ function MatchRowMini({ m, champByKey, puuid, region, continent, index = 0 }: {
           {(m.items || []).slice(0, 3).map((id: number, i: number) => (
             id > 0 ? (
               <img key={i} src={dd.item(id)} alt="" onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0'; }}
-                style={{ width: 28, height: 28, borderRadius: 5, border: '1px solid rgba(255,255,255,0.10)', objectFit: 'cover', flexShrink: 0 }}
+                style={{ width: 28, height: 28, borderRadius: 5, border: 'none', objectFit: 'cover', flexShrink: 0 }}
               />
             ) : (
               <div key={i} style={{ width: 28, height: 28, borderRadius: 5, background: 'rgba(255,255,255,0.04)', flexShrink: 0 }} />
@@ -1288,7 +1290,7 @@ function PlayerTags({ tags, loading }: { tags: string[]; loading: boolean }) {
       ) : (
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
           {tags.map((t, i) => (
-            <span key={i} style={{ fontSize: 13, fontWeight: 500, padding: '6px 13px', borderRadius: 999, background: 'transparent', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.78)' }}>
+            <span key={i} style={{ fontSize: 13, fontWeight: 500, padding: '6px 13px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: 'none', color: 'rgba(255,255,255,0.78)' }}>
               {t}
             </span>
           ))}

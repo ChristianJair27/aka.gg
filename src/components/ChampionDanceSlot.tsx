@@ -20,10 +20,15 @@ import Safe3D from '@/components/Safe3D';
 
 const RED = '#e1242e';
 const GOLD = '#c8aa6e';
-const BORDER = 'rgba(255,255,255,0.07)';
 const FONT_COND = "'Saira Condensed', 'Saira', sans-serif";
 
-const modelUrl = (champKey: string) => `/models/champions/${champKey}.glb`;
+const localModelUrl = (champKey: string) => `/models/champions/${champKey}.glb`;
+// CDN de modelviewer.lol: GLB con rig + 25 clips (incluye "Dance") por campeón.
+// Patrón verificado: /lol/models/{alias-lowercase}/{championId*1000}/model.glb
+// CORS abierto (Access-Control-Allow-Origin: *). El probe HEAD valida que exista
+// antes de montar el Canvas; si el CDN cambia, caemos a splash art sin romper.
+const cdnModelUrl = (champKey: string, champId: number) =>
+  `https://cdn.modelviewer.lol/lol/models/${champKey.toLowerCase()}/${champId * 1000}/model.glb`;
 
 // ─── Error boundary: any failure inside the 3D subtree → render fallback ───────
 class GLBBoundary extends React.Component<
@@ -118,6 +123,8 @@ function ArtFallback({ champName, slug }: { champName: string; slug?: string }) 
 export interface ChampionDanceSlotProps {
   /** DDragon champion slug (e.g. "Pantheon"). When absent → icon fallback. */
   champSlug?: string;
+  /** Numeric championId (e.g. 55) — habilita el modelo del CDN de modelviewer. */
+  champId?: number;
   /** Localized champion name for the caption. */
   champName?: string;
   /** Loading state from the profile (mastery not resolved yet). */
@@ -125,34 +132,55 @@ export interface ChampionDanceSlotProps {
   style?: React.CSSProperties;
 }
 
-export default function ChampionDanceSlot({ champSlug, champName, loading, style }: ChampionDanceSlotProps) {
-  // 'checking' → probing HEAD; 'model' → GLB present; 'fallback' → use art.
+export default function ChampionDanceSlot({ champSlug, champId, champName, loading, style }: ChampionDanceSlotProps) {
+  // 'checking' → probing; 'model' → GLB confirmado (src); 'fallback' → splash art.
   const [phase, setPhase] = useState<'checking' | 'model' | 'fallback'>('checking');
+  const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {
     if (!champSlug) { setPhase('fallback'); return; }
     let cancelled = false;
     setPhase('checking');
-    const url = modelUrl(champSlug);
-    // HEAD probe — only mount the heavy 3D path when the file truly exists.
-    fetch(url, { method: 'HEAD' })
-      .then((res) => {
-        if (cancelled) return;
+
+    // Probe HEAD: el archivo debe existir Y no ser el index.html de un catch-all.
+    const probe = async (url: string) => {
+      try {
+        const res = await fetch(url, { method: 'HEAD' });
         const ct = res.headers.get('content-type') || '';
-        // Some dev servers answer 200 with index.html for missing files; reject HTML.
-        const looksLikeModel = res.ok && !ct.includes('text/html');
-        setPhase(looksLikeModel ? 'model' : 'fallback');
-        if (looksLikeModel) { try { useGLTF.preload(url); } catch { /* noop */ } }
-      })
-      .catch(() => { if (!cancelled) setPhase('fallback'); });
+        return res.ok && !ct.includes('text/html');
+      } catch { return false; }
+    };
+
+    (async () => {
+      // 1) Override local (permite reemplazar un modelo puntual en /public/models).
+      const local = localModelUrl(champSlug);
+      if (await probe(local)) {
+        if (cancelled) return;
+        setSrc(local); setPhase('model');
+        try { useGLTF.preload(local); } catch { /* noop */ }
+        return;
+      }
+      // 2) CDN de modelviewer.lol (todos los campeones, con clip "Dance").
+      if (champId) {
+        const cdn = cdnModelUrl(champSlug, champId);
+        if (await probe(cdn)) {
+          if (cancelled) return;
+          setSrc(cdn); setPhase('model');
+          try { useGLTF.preload(cdn); } catch { /* noop */ }
+          return;
+        }
+      }
+      if (!cancelled) setPhase('fallback');
+    })();
+
     return () => { cancelled = true; };
-  }, [champSlug]);
+  }, [champSlug, champId]);
 
   const name = champName || champSlug || '—';
 
   if (!webglSupported()) {
     return (
-      <div style={{ position: 'relative', height: 150, borderRadius: 16, overflow: 'hidden', ...style }}>
+      <div style={{ position: 'relative', height: 240, borderRadius: 16, overflow: 'hidden', ...style }}>
         <ArtFallback champName={name} slug={champSlug} />
       </div>
     );
@@ -162,11 +190,13 @@ export default function ChampionDanceSlot({ champSlug, champName, loading, style
     <div
       style={{
         position: 'relative',
-        height: 150,
+        height: 240,
         borderRadius: 16,
         overflow: 'hidden',
-        background: 'linear-gradient(160deg, rgba(255,255,255,0.04), rgba(255,255,255,0) 60%)',
-        boxShadow: '0 18px 50px -26px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,0.05)',
+        // Sin borde: el panel se asienta con luz (glow radial rojo detrás del
+        // modelo) y sombra — se funde con la página en vez de encajonarse.
+        background: 'radial-gradient(ellipse 70% 60% at 50% 45%, rgba(225,36,46,0.10), rgba(0,0,0,0) 70%)',
+        boxShadow: '0 24px 60px -30px rgba(0,0,0,.8)',
         ...style,
       }}
     >
@@ -174,7 +204,7 @@ export default function ChampionDanceSlot({ champSlug, champName, loading, style
         <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
           Cargando maestría…
         </div>
-      ) : phase === 'model' && champSlug ? (
+      ) : phase === 'model' && champSlug && src ? (
         <GLBBoundary fallback={<ArtFallback champName={name} slug={champSlug} />}>
           <Safe3D fallback={<ArtFallback champName={name} slug={champSlug} />}>
             <Canvas
@@ -187,9 +217,9 @@ export default function ChampionDanceSlot({ champSlug, champName, loading, style
               <directionalLight position={[3, 5, 4]} intensity={1.2} />
               <directionalLight position={[-4, 2, -3]} intensity={0.5} color={RED} />
               <Suspense fallback={null}>
-                <Bounds fit clip observe margin={1.15}>
+                <Bounds fit clip observe margin={1.12}>
                   <Center>
-                    <DanceModel url={modelUrl(champSlug)} onFail={() => setPhase('fallback')} />
+                    <DanceModel url={src} onFail={() => setPhase('fallback')} />
                   </Center>
                 </Bounds>
               </Suspense>
@@ -209,9 +239,6 @@ export default function ChampionDanceSlot({ champSlug, champName, loading, style
           {name}
         </div>
       </div>
-
-      {/* Subtle top-edge highlight to seat it in the dark page. */}
-      <div style={{ position: 'absolute', inset: 0, borderRadius: 16, border: `1px solid ${BORDER}`, pointerEvents: 'none' }} />
     </div>
   );
 }
