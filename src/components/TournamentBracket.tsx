@@ -53,7 +53,8 @@ interface TournamentBracketProps {
 const CARD_W = 208;   // px — match card width
 const STUB   = 22;    // px — horizontal connector stub on each side
 const COL_W  = CARD_W + STUB * 2;
-const ROW    = 128;   // px — vertical space allotted per first-round match
+const ROW    = 250;   // px — vertical space per first-round match (la tarjeta con
+                      // código + acciones mide ~230px; menos que eso la recorta)
 const LINE   = 'rgba(255,255,255,0.14)';
 
 function CopyCode({ code }: { code: string }) {
@@ -258,7 +259,7 @@ export function TournamentBracket({
   const bodyHeight = Math.max(firstRoundCount * ROW, ROW);
 
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-md p-5">
+    <div className="rounded-2xl bg-gradient-to-b from-white/[0.045] to-white/[0.015] p-5 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
       <div className="flex items-center gap-2 mb-5">
         <Trophy className="h-5 w-5 text-red-400" />
         <h2 className="text-xl font-bold text-white">Bracket del torneo</h2>
@@ -277,8 +278,9 @@ export function TournamentBracket({
             {champion && <div style={{ width: 168 }} className="text-center text-[11px] font-semibold text-yellow-500/70 uppercase tracking-wider pb-3">Campeón</div>}
           </div>
 
-          {/* Bracket body — equal-height columns distribute matches evenly */}
-          <div className="flex" style={{ height: bodyHeight }}>
+          {/* Bracket body — minHeight (no height fija): las tarjetas altas
+              crecen en vez de recortarse con scroll interno */}
+          <div className="flex" style={{ minHeight: bodyHeight }}>
             {rounds.map(round => {
               const matchesInRound = bracket.filter(m => m.round === round);
               const vSpan = bodyHeight / (2 * matchesInRound.length);

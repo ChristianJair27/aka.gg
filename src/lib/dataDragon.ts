@@ -1,7 +1,16 @@
 // Data Dragon & CDragon asset URL helpers
 
-const DD_VERSION = '16.13.1';
-const DD_BASE = `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}`;
+// Fallback conocido-bueno; se actualiza en runtime con la última versión real.
+// Las URLs se construyen en cada llamada, así que cuando versions.json responde
+// los siguientes renders ya usan la versión vigente (parches viejos siguen
+// sirviendo assets, pero campeones/ítems nuevos solo existen en la última).
+let ddVersion = '16.13.1';
+fetch('https://ddragon.leagueoflegends.com/api/versions.json')
+  .then(r => (r.ok ? r.json() : null))
+  .then((v: string[] | null) => { if (v?.[0]) ddVersion = v[0]; })
+  .catch(() => { /* sin red hacia DDragon: nos quedamos con el fallback */ });
+
+const DD_BASE = () => `https://ddragon.leagueoflegends.com/cdn/${ddVersion}`;
 const DD_IMG = 'https://ddragon.leagueoflegends.com/cdn/img';
 const CDRAGON_BASE = 'https://raw.communitydragon.org/latest';
 
@@ -10,11 +19,11 @@ const CDRAGON_BASE = 'https://raw.communitydragon.org/latest';
 const champKey = (name: string) => (name || '').replace(/[^a-zA-Z0-9]/g, '');
 
 export const dd = {
-  champion: (name: string) => `${DD_BASE}/img/champion/${champKey(name)}.png`,
+  champion: (name: string) => `${DD_BASE()}/img/champion/${champKey(name)}.png`,
   championSplash: (name: string, skin = 0) => `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${champKey(name)}_${skin}.jpg`,
-  item: (id: number) => id ? `${DD_BASE}/img/item/${id}.png` : '',
-  spell: (name: string) => `${DD_BASE}/img/spell/${name}.png`,
-  profileIcon: (id: number) => `${DD_BASE}/img/profileicon/${id}.png`,
+  item: (id: number) => id ? `${DD_BASE()}/img/item/${id}.png` : '',
+  spell: (name: string) => `${DD_BASE()}/img/spell/${name}.png`,
+  profileIcon: (id: number) => `${DD_BASE()}/img/profileicon/${id}.png`,
   rune: (path: string) => `${CDRAGON_BASE}/plugins/rcp-be-lol-game-data/global/default/${path.replace(/^\//, '').toLowerCase()}`,
 };
 

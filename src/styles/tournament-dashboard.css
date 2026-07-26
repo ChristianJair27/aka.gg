@@ -12,11 +12,12 @@
   --td-subcard:   #17171c;
   --td-sunken:    #1d1d23;
   --td-sunken-2:  #1e1e24;
-  /* Borders */
-  --td-border:      #1f1f26;
-  --td-border-soft: #1a1a20;
-  --td-border-hov:  #33333c;
-  --td-border-hov2: #4b4b55;
+  /* Borders — hairlines apenas visibles (estilo minimalista sin bordes duros;
+     la separación la dan degradados y sombras) */
+  --td-border:      rgba(255, 255, 255, 0.055);
+  --td-border-soft: rgba(255, 255, 255, 0.04);
+  --td-border-hov:  rgba(255, 255, 255, 0.14);
+  --td-border-hov2: rgba(255, 255, 255, 0.22);
   /* Brand red */
   --td-red:       #e8323c;
   --td-red-hover: #f4485a;

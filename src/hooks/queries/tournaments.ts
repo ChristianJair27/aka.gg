@@ -122,6 +122,23 @@ export interface TdBoardPayload {
   viewerAccess: ViewerAccess;
 }
 
+// Raw bracket (BracketMatch[] con team1/team2/gameId/matchStatus) — es el shape
+// que consumen TournamentMatchStats y la pestaña Partidas. El dashboard payload
+// solo trae rounds transformados, sin gameId.
+export function useBracket(id?: string) {
+  return useQuery({
+    queryKey: id ? qk.bracket(id) : qk.bracket("_"),
+    enabled: Boolean(id),
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<{ bracket: BracketMatch[]; phase: string; viewerAccess: ViewerAccess }>(
+        `/api/tournaments/${id}/bracket`,
+      );
+      return data;
+    },
+    refetchInterval: (query) => (query.state.data?.phase === "active" ? 20_000 : false),
+  });
+}
+
 export function useTournamentDashboard(id?: string) {
   return useQuery({
     queryKey: id ? qk.tournamentBoard(id) : qk.tournamentBoard("_"),
@@ -266,6 +283,10 @@ function invalidateTournament(qc: ReturnType<typeof useQueryClient>, id: string)
   qc.invalidateQueries({ queryKey: qk.tournament(id) });
   qc.invalidateQueries({ queryKey: qk.registrations(id) });
   qc.invalidateQueries({ queryKey: qk.tournaments() });
+  // Las vistas del detalle leen estos dos — sin invalidarlos, activar un
+  // partido o reportar un resultado no se reflejaba hasta el siguiente poll.
+  qc.invalidateQueries({ queryKey: qk.bracket(id) });
+  qc.invalidateQueries({ queryKey: qk.tournamentBoard(id) });
 }
 
 export function useCloseRegistration(id: string) {

@@ -340,7 +340,10 @@ function MatchCard({
   const [statsOpen,       setStatsOpen]       = useState(false);
   const [manualGameId,    setManualGameId]    = useState('');
   const [showGameIdInput, setShowGameIdInput] = useState(false);
-  const autoTriggeredRef = useRef(false);
+  // Refs separados: si el auto-detect falla, NO debe bloquear la carga de
+  // stats cuando el gameId llegue después por SSE (antes un solo ref lo hacía).
+  const autoLoadedRef  = useRef(false);
+  const detectTriedRef = useRef(false);
 
   const loadStats = async () => {
     setStatsLoading(true);
@@ -396,8 +399,8 @@ function MatchCard({
   useEffect(() => {
     if (match.gameId && !match.isLive &&
         (match.matchStatus === 'active' || match.matchStatus === 'complete') &&
-        !stats && !autoTriggeredRef.current) {
-      autoTriggeredRef.current = true;
+        !stats && !autoLoadedRef.current) {
+      autoLoadedRef.current = true;
       loadStats();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -406,8 +409,8 @@ function MatchCard({
   // Auto-detect: when a match that had a code becomes non-live, try to detect
   useEffect(() => {
     if (!match.isLive && match.matchStatus === 'active' && match.code &&
-        !match.gameId && !stats && !autoTriggeredRef.current) {
-      autoTriggeredRef.current = true;
+        !match.gameId && !stats && !detectTriedRef.current) {
+      detectTriedRef.current = true;
       detectAndLoadStats();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -744,8 +747,6 @@ export default function TournamentLivePage() {
     const es   = new EventSource(url);
     esRef.current = es;
 
-    es.onopen = () => { setConnected(true); setLoading(false); };
-
     es.onmessage = (event) => {
       try {
         const parsed: LiveData = JSON.parse(event.data);
@@ -761,14 +762,23 @@ export default function TournamentLivePage() {
       setLoading(false);
     };
 
+    // Mientras SSE esté caído: polling REAL cada 15s (antes se hacía un solo
+    // fetch y los datos quedaban congelados con un countdown decorativo).
+    // No cerramos el EventSource: el navegador reintenta la conexión solo, y
+    // cuando vuelve (onopen) detenemos el polling.
+    let poll: ReturnType<typeof setInterval> | null = null;
+    const stopPoll = () => { if (poll) { clearInterval(poll); poll = null; } };
+    es.onopen = () => { setConnected(true); setLoading(false); stopPoll(); };
+
     es.onerror = () => {
       setConnected(false);
-      es.close();
-      // Fall back to polling every 15s
-      fetchFallback();
+      if (!poll) {
+        fetchFallback();
+        poll = setInterval(fetchFallback, 15_000);
+      }
     };
 
-    return () => { es.close(); esRef.current = null; };
+    return () => { es.close(); esRef.current = null; stopPoll(); };
   }, [id, fetchFallback]);
 
   // ── Countdown ticker (visual only) ─────────────────────────────────────────

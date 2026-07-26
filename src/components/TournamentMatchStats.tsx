@@ -139,26 +139,32 @@ export function TournamentMatchStats({ tournamentId, match, isActive }: Tourname
   const [loading, setLoading]   = useState(false);
   const [polling, setPolling]   = useState(false);
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
+  const [error, setError]       = useState<string | null>(null);
 
   const fetchStats = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const { data } = await axiosInstance.get(`/api/tournaments/${tournamentId}/matches/${match.id}/stats`);
       setStats(data);
+      setError(null);
       setPolling(false); // Tenemos datos, detener polling
     } catch (err: any) {
-      if (err?.response?.status !== 404) console.error('[MatchStats]', err.message);
-      // 404 = aún no hay gameId, seguir polling
+      // 404 = aún no hay gameId, seguir polling en silencio
+      if (err?.response?.status !== 404) {
+        setError(err?.response?.data?.error ?? err?.message ?? 'Error al obtener stats');
+      }
     } finally {
       if (!silent) setLoading(false);
       setLastCheck(new Date());
     }
   }, [tournamentId, match.id]);
 
-  // Auto-poll cada 30s cuando el partido está activo y no tenemos stats
+  // Auto-poll cada 30s cuando el partido está activo y no tenemos stats.
+  // También partidos 'complete' sin gameId: el backend puede auto-detectarlo
+  // vía código de torneo o recuperarlo del historial del roster.
   useEffect(() => {
     if (!isActive || stats || match.matchStatus === 'pending') return;
-    if (!match.gameId && match.matchStatus !== 'active') return;
+    if (!match.gameId && match.matchStatus !== 'active' && match.matchStatus !== 'complete') return;
 
     setPolling(true);
     const interval = setInterval(() => fetchStats(true), 30_000);
@@ -206,6 +212,18 @@ export function TournamentMatchStats({ tournamentId, match, isActive }: Tourname
       {loading && !stats && (
         <div className="text-center py-8 text-gray-500 text-sm animate-pulse">
           Cargando stats...
+        </div>
+      )}
+
+      {error && !stats && !loading && (
+        <div className="text-center py-6 text-xs bg-red-950/20 rounded-xl border border-red-800/30">
+          <p className="text-red-300">{error}</p>
+          <button
+            onClick={() => fetchStats()}
+            className="mt-2 px-3 py-1 rounded-lg text-red-200 border border-red-700/40 hover:bg-red-900/30 transition"
+          >
+            Reintentar
+          </button>
         </div>
       )}
 

@@ -2,6 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { useEffect, useState } from 'react';
+import { axiosInstance } from '@/lib/axios';
 
 type ChampEntry = {
   key: string;   // id numérico como string (p.ej. "80")
@@ -103,18 +104,24 @@ export function useStaticData() {
 
       // 5) Arena augments (CDragon)
       // Nota: CDragon mantiene IDs consistentes. Si algún ID falta, muéstralo como texto.
-      const ag = await fetch('/api/static/arena-augments').then(r=>r.json());
-const augMap: Record<number, any> = {};
-ag?.augments?.forEach((a:any) => {
-  // estructura típica: { id, name, iconPath, ... }
-  augMap[a.id] = {
-    name: a.name,
-    icon: a.iconPath
-      ? `https://raw.communitydragon.org/latest/game/${a.iconPath.toLowerCase()}`
-      : undefined
-  };
-});
-setAugments(augMap);
+      // Va por axiosInstance (baseURL absoluta al backend): un fetch relativo
+      // en prod lo respondería nginx con index.html y reventaría el parseo.
+      try {
+        const { data: ag } = await axiosInstance.get('/api/static/arena-augments');
+        const augMap: Record<number, any> = {};
+        ag?.augments?.forEach((a:any) => {
+          // estructura típica: { id, name, iconPath, ... }
+          augMap[a.id] = {
+            name: a.name,
+            icon: a.iconPath
+              ? `https://raw.communitydragon.org/latest/game/${a.iconPath.toLowerCase()}`
+              : undefined
+          };
+        });
+        setAugments(augMap);
+      } catch {
+        // Sin augments no se bloquea el resto del static data (solo afecta Arena)
+      }
     })();
   }, []);
 
