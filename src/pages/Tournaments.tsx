@@ -156,8 +156,8 @@ function TournamentCard({
         <div className="flex items-center gap-3 flex-wrap">
           <Link to={`/tournaments/${t.id}`}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
-              border border-white/[0.12] text-gray-300 hover:border-red-500/40 hover:text-white
-              hover:bg-red-500/5 transition-all duration-200">
+              bg-white/[0.06] text-gray-300 hover:text-white
+              hover:bg-red-500/15 transition-all duration-200">
             Ver detalles
             <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
           </Link>
@@ -303,7 +303,8 @@ export default function TournamentsPage() {
         {/* Header */}
         <div ref={headerRef} className="text-center mb-14">
           <div data-h className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6
-            border border-white/10 bg-white/[0.03] text-muted-foreground text-xs tracking-[3px] uppercase">
+            bg-white/[0.05] backdrop-blur-md text-muted-foreground text-xs tracking-[3px] uppercase
+            shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
             <Trophy className="h-3.5 w-3.5" />
             <span>Torneos oficiales · Riot Games</span>
             <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-pulse" />
@@ -338,7 +339,7 @@ export default function TournamentsPage() {
                 className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
                   filter === f.key
                     ? 'bg-foreground text-background'
-                    : 'border border-white/[0.08] bg-white/[0.03] text-muted-foreground hover:border-white/20 hover:text-white'
+                    : 'bg-white/[0.05] text-muted-foreground hover:bg-white/[0.1] hover:text-white'
                 }`}>
                 {f.label}
                 <span className={`ml-1.5 text-xs ${filter === f.key ? 'text-background/60' : 'text-white/20'}`}>

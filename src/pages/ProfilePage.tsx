@@ -20,6 +20,7 @@ import { axiosInstance } from '@/lib/axios';
 import { useDominantColor, tintRgba } from '@/lib/dominantColor';
 import { useAiInsights } from '@/hooks/queries/ai';
 import AiTags from '@/components/ai/AiTags';
+import { ProfileComments } from '@/components/ProfileComments';
 import {
   dd,
   rankEmblem,
@@ -798,6 +799,18 @@ export default function ProfilePage() {
               <ChampionsTable rows={champRows} champByKey={champByKey} loading={matchesLoading && !matches.length} bestPlayers={bestPlayers} region={platform} opggChampStats={opggData?.champion_stats ?? null} />
             </div>
           </div>
+
+          {/* Comentarios de la comunidad — ancho completo bajo el grid.
+              (Vivía en SummonerPage, que ya no está routeada; el backend
+              /api/stats/profile-comments siempre siguió activo.) */}
+          {puuid && (
+            <motion.div {...RISE_IN} style={{ marginTop: 24 }}>
+              <Panel style={{ padding: 26 }}>
+                <SectionTitle>Comentarios de la comunidad</SectionTitle>
+                <ProfileComments puuid={puuid} />
+              </Panel>
+            </motion.div>
+          )}
         </div>
       </div>
     </div>
