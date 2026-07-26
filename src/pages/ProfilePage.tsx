@@ -152,10 +152,9 @@ const PANEL_SURFACE: React.CSSProperties = {
   // Frosted glass: a lighter translucent fill + stronger backdrop blur lets the
   // living dagger video read through, so panels feel like a thin UI layer
   // floating over the background rather than opaque stacked cards.
-  background:
-    'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 22%, rgba(255,255,255,0) 70%), rgba(13,13,17,0.26)',
-  backdropFilter: 'blur(20px) saturate(120%)',
-  WebkitBackdropFilter: 'blur(20px) saturate(120%)',
+  // Transparente sin blur: solo un velo sutilísimo para que el texto se lea
+  // sobre las zonas brillantes del video — las cards se sienten parte del fondo.
+  background: 'linear-gradient(180deg, rgba(6,6,8,0.34) 0%, rgba(6,6,8,0.16) 100%)',
   borderRadius: 18,
   // Soft ambient depth only — no heavy "floating card" drop shadow.
   boxShadow:
@@ -916,8 +915,8 @@ function FeaturedRank({ rank, leagueRank }: {
         }} />
         {/* El emblema manda: más grande que el texto del elo para que resalte. */}
         <img src={rankEmblem(rank.tier)} alt={rank.tier}
-          style={{ width: 172, height: 172, objectFit: 'contain', position: 'relative',
-            filter: `drop-shadow(0 0 26px ${color}80)` }} />
+          style={{ width: 236, height: 236, objectFit: 'contain', position: 'relative',
+            filter: `drop-shadow(0 0 34px ${color}80)` }} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: FONT_COND, fontWeight: 900, fontSize: 30, color, lineHeight: 1, letterSpacing: '-0.01em' }}>

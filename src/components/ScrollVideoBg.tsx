@@ -18,7 +18,8 @@ export function ScrollVideoBg({
   peakOpacity = 0.85,
   floorOpacity = 0.13,
   heroVh = 0.9,
-}: { src?: string; peakOpacity?: number; floorOpacity?: number; heroVh?: number }) {
+  mode = 'loop',
+}: { src?: string; peakOpacity?: number; floorOpacity?: number; heroVh?: number; mode?: 'loop' | 'scrub' }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const vidRef = useRef<HTMLVideoElement>(null);
   const [ok, setOk] = useState(true);
@@ -30,7 +31,14 @@ export function ScrollVideoBg({
     const vid = vidRef.current;
     const wrap = wrapRef.current;
     if (!vid || !wrap) return;
-    try { vid.pause(); } catch { /* noop */ }
+    // loop: reproducción ambiental continua (el clip ya viene con crossfade
+    // fin→inicio, así que el bucle no se nota). scrub: avanza con el scroll.
+    if (mode === 'loop') {
+      vid.loop = true;
+      vid.play().catch(() => { /* autoplay bloqueado: queda el primer frame */ });
+    } else {
+      try { vid.pause(); } catch { /* noop */ }
+    }
 
     const clamp = (n: number) => Math.min(1, Math.max(0, n));
     const readScroll = () => {
@@ -43,12 +51,14 @@ export function ScrollVideoBg({
       fullCur.current += (fullTarget.current - fullCur.current) * 0.1;
       heroCur.current += (heroTarget.current - heroCur.current) * 0.12;
 
-      // Scrub across the entire page so the dagger keeps moving as you scroll.
-      const d = vid.duration;
-      if (d && Number.isFinite(d)) {
-        const t = fullCur.current * d;
-        if (Math.abs(t - vid.currentTime) > 0.01) {
-          try { vid.currentTime = t; } catch { /* not seekable yet */ }
+      // Scrub across the entire page so the video keeps moving as you scroll.
+      if (mode === 'scrub') {
+        const d = vid.duration;
+        if (d && Number.isFinite(d)) {
+          const t = fullCur.current * d;
+          if (Math.abs(t - vid.currentTime) > 0.01) {
+            try { vid.currentTime = t; } catch { /* not seekable yet */ }
+          }
         }
       }
       // Ease peak → persistent floor (never fully gone → "living" background).
@@ -68,7 +78,7 @@ export function ScrollVideoBg({
       window.removeEventListener('resize', readScroll);
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [peakOpacity, floorOpacity, heroVh]);
+  }, [peakOpacity, floorOpacity, heroVh, mode]);
 
   if (!ok) return null;
 

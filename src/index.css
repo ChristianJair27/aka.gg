@@ -1,7 +1,29 @@
-@import url('https://fonts.cdnfonts.com/css/friz-quadrata-std');
 @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Cinzel:wght@500;600;700&family=Instrument+Serif:ital,wght@0,400;1,400&display=swap');
 @import "tailwindcss";
 @config "../tailwind.config.ts";
+
+/* Friz Quadrata local (antes venía de cdnfonts, CDN externo lento/inestable).
+   Archivos en public/fonts/ — la fuente display oficial de LoL. */
+@font-face {
+  font-family: "Friz Quadrata Std";
+  src: url("/fonts/friz-quadrata-std-medium.otf") format("opentype");
+  font-weight: 400 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Friz Quadrata";
+  src: url("/fonts/friz-quadrata-regular.ttf") format("truetype");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Friz Quadrata";
+  src: url("/fonts/friz-quadrata-bold.otf") format("opentype");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Friz Quadrata";
+  src: url("/fonts/friz-quadrata-italic.ttf") format("truetype");
+  font-weight: 400; font-style: italic; font-display: swap;
+}
 
 @theme {
   --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
