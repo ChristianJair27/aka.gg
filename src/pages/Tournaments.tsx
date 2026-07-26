@@ -52,6 +52,7 @@ function TournamentCard({
   onRegister: (t: { id: string; name: string }) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const phase = PHASE_CONFIG[t.phase] ?? PHASE_CONFIG.complete;
   const pct   = Math.min(100, Math.round((t.participants / t.maxParticipants) * 100));
   const date  = new Date(t.startDate).toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' });
@@ -67,8 +68,11 @@ function TournamentCard({
 
   return (
     <div ref={ref}
-      className="group relative rounded-2xl overflow-hidden transition-all duration-300
-        hover:-translate-y-0.5"
+      onClick={() => navigate(`/tournaments/${t.id}`)}
+      role="link" tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/tournaments/${t.id}`); }}
+      className="group relative rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer
+        hover:-translate-y-1 hover:scale-[1.012] hover:shadow-[0_16px_48px_-20px_rgba(225,36,46,0.35)]"
       style={{
         background:
           'linear-gradient(180deg, rgba(16,16,20,0.45) 0%, rgba(10,10,13,0.25) 100%)',
@@ -162,7 +166,7 @@ function TournamentCard({
 
           {t.phase === 'registration' && t.participants < t.maxParticipants && (
             <button
-              onClick={() => onRegister({ id: t.id, name: t.name })}
+              onClick={(e) => { e.stopPropagation(); onRegister({ id: t.id, name: t.name }); }}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
                 bg-foreground text-background hover:bg-foreground/90
                 transition-all duration-200">

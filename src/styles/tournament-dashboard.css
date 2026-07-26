@@ -39,7 +39,8 @@
   --td-font-mono: 'Space Grotesk', ui-monospace, monospace;
 
   font-family: var(--td-font-ui);
-  background: var(--td-bg);
+  /* Transparente: el video ambiental (ScrollVideoBg) se ve a través del scope */
+  background: transparent;
   color: var(--td-text);
 }
 

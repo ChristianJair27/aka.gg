@@ -1,6 +1,7 @@
 // src/pages/StatsSearch.tsx — Immersive stats search · glass/space
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ScrollVideoBg } from '@/components/ScrollVideoBg';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -198,6 +199,7 @@ export default function StatsSearch() {
 
       {/* ── Background ──────────────────────────────────────────────────── */}
       <div className="fixed inset-0 bg-black -z-20" />
+      <ScrollVideoBg peakOpacity={0.6} floorOpacity={0.35} />
       <div className="fixed inset-0 -z-10 pointer-events-none"
         style={{ background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(127,29,29,0.3) 0%, transparent 70%)' }} />
       <div className="fixed inset-0 pointer-events-none -z-10 transition-all duration-700"

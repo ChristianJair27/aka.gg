@@ -5,7 +5,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "framer-motion";
-import { Loader2, Swords, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2 } from "lucide-react";
+import { ScrollVideoBg } from "@/components/ScrollVideoBg";
+import { DaggerLogo } from "@/components/DaggerLogo";
 import { useAuth } from "@/features/auth/useAuth";
 
 const registerSchema = z.object({
@@ -69,13 +71,15 @@ const Register = () => {
 
   const shell = (children: React.ReactNode) => (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-black relative overflow-hidden">
+      <ScrollVideoBg peakOpacity={0.55} floorOpacity={0.55} />
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-1/3 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full blur-[120px]"
           style={{ background: "radial-gradient(circle, rgba(225,36,46,0.18), transparent 70%)" }} />
       </div>
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }} className="relative w-full max-w-md">
-        <div className="relative rounded-2xl border border-white/[0.08] bg-[rgba(13,13,17,0.66)] backdrop-blur-xl p-8 shadow-[0_24px_64px_rgba(0,0,0,0.6)]">
+        <div className="relative rounded-2xl p-8 shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
+          style={{ background: 'linear-gradient(180deg, rgba(16,16,20,0.78) 0%, rgba(10,10,13,0.62) 100%)' }}>
           <div className="absolute inset-x-8 top-0 h-px"
             style={{ background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.55) 35%, rgba(200,170,110,0.6) 65%, transparent)' }} />
           {children}
@@ -100,10 +104,8 @@ const Register = () => {
   return shell(
     <>
       <div className="text-center mb-7">
-        <div className="mx-auto mb-4 w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br from-red-600/25 to-red-900/10 border border-red-500/30">
-          <Swords className="h-6 w-6 text-red-400" />
-        </div>
-        <h1 className="font-serif text-3xl tracking-wide text-white">
+        <DaggerLogo className="mx-auto mb-3 h-16 w-16 drop-shadow-[0_0_18px_rgba(239,68,68,0.5)]" />
+        <h1 className="font-serif text-4xl tracking-wide text-white">
           ATAK<span className="text-red-500">.GG</span>
         </h1>
         <p className="text-sm text-gray-400 mt-1.5">Crea tu cuenta para competir</p>

@@ -25,6 +25,7 @@ import {
   Button, StatusChip, TeamBadge, StatTile, ProgressBar, FilterPills, SectionHead,
 } from '@/components/tournament/ui';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollVideoBg } from '@/components/ScrollVideoBg';
 import { dd } from '@/lib/dataDragon';
 import '@/styles/tournament-dashboard.css';
 
@@ -110,7 +111,9 @@ export default function TournamentDashboardPage() {
     setParams((prev) => { const p = new URLSearchParams(prev); p.set('tab', t); return p; }, { replace: true });
 
   return (
-    <div className="td-root">
+    <div className="td-root" style={{ position: 'relative', background: '#0a0a0c' }}>
+      {/* Mundo ambiental compartido — mismo look que el resto de la app */}
+      <ScrollVideoBg peakOpacity={0.5} floorOpacity={0.3} />
       <ResponsiveStyles />
       <div className="td-dash" style={{ maxWidth: 1560, margin: '0 auto', padding: '80px 24px 64px' }}>
         {isError ? (

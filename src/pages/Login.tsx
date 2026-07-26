@@ -5,8 +5,16 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "framer-motion";
-import { Loader2, Swords } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { ScrollVideoBg } from "@/components/ScrollVideoBg";
+import { DaggerLogo } from "@/components/DaggerLogo";
+import { dd } from "@/lib/dataDragon";
+
+// Splash art rotativo estilo lanzador de LoL — uno distinto en cada visita
+const SPLASH_POOL = [
+  'Katarina', 'Ahri', 'Yasuo', 'Jinx', 'LeeSin', 'Akali', 'Sett', 'Vi',
+  'Aatrox', 'KSante', 'Caitlyn', 'Yone', 'Riven', 'Draven', 'Samira', 'Ezreal',
+];
 import { useAuth } from "@/features/auth/useAuth";
 
 const loginSchema = z.object({
@@ -53,6 +61,8 @@ export default function Login() {
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [remember, setRemember] = useState(true);
+  const [splash] = useState(() => SPLASH_POOL[Math.floor(Math.random() * SPLASH_POOL.length)]);
 
   const from = (location.state as any)?.from?.pathname || "/dashboard";
 
@@ -71,6 +81,14 @@ export default function Login() {
     setError("");
     try {
       await login(data);
+      // "Recordar sesión": si se desmarca, la sesión muere al cerrar el navegador
+      // (axios.ts limpia el token cuando el flag existe sin sessionStorage vivo).
+      if (!remember) {
+        localStorage.setItem('atak_session_only', '1');
+        sessionStorage.setItem('atak_session_alive', '1');
+      } else {
+        localStorage.removeItem('atak_session_only');
+      }
       navigate(from, { replace: true });
     } catch (err: any) {
       setError(err?.response?.data?.msg || err?.response?.data?.message || "Credenciales inválidas");
@@ -99,22 +117,19 @@ export default function Login() {
       <motion.div
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-        className="relative w-full max-w-md"
+        className="relative w-full max-w-5xl grid lg:grid-cols-2 rounded-3xl overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.7)]"
+        style={{ background: 'linear-gradient(180deg, rgba(16,16,20,0.78) 0%, rgba(10,10,13,0.62) 100%)' }}
       >
-        {/* Glass card */}
-        <div className="relative rounded-2xl p-8 shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
-          style={{ background: 'linear-gradient(180deg, rgba(16,16,20,0.72) 0%, rgba(10,10,13,0.55) 100%)' }}>
+        {/* IZQUIERDA — formulario */}
+        <div className="relative p-8 sm:p-10">
           {/* top hairline: filo rojo → oro (motivo de marca) */}
           <div className="absolute inset-x-8 top-0 h-px"
             style={{ background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.55) 35%, rgba(200,170,110,0.6) 65%, transparent)' }} />
 
-          {/* Brand */}
+          {/* Brand: daga + wordmark Friz Quadrata */}
           <div className="text-center mb-7">
-            <div className="mx-auto mb-4 w-12 h-12 rounded-xl flex items-center justify-center
-              bg-gradient-to-br from-red-600/25 to-red-900/10 border border-red-500/30">
-              <Swords className="h-6 w-6 text-red-400" />
-            </div>
-            <h1 className="font-serif text-3xl tracking-wide text-white">
+            <DaggerLogo className="mx-auto mb-3 h-16 w-16 drop-shadow-[0_0_18px_rgba(239,68,68,0.5)]" />
+            <h1 className="font-serif text-4xl tracking-wide text-white">
               ATAK<span className="text-red-500">.GG</span>
             </h1>
             <p className="text-sm text-gray-400 mt-1.5">Inicia sesión para continuar</p>
@@ -162,6 +177,18 @@ export default function Login() {
               {errors.password && <p className="text-xs text-red-400">{errors.password.message}</p>}
             </div>
 
+            {/* Recordar sesión + olvidé contraseña */}
+            <div className="flex items-center justify-between text-sm">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-gray-400 hover:text-gray-300">
+                <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded accent-red-600" />
+                Recordar sesión
+              </label>
+              <Link to="/forgot-password" className="text-gray-500 hover:text-red-400 transition-colors">
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
+
             {error && (
               <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
                 {error}
@@ -180,6 +207,31 @@ export default function Login() {
             ¿No tienes una cuenta?{" "}
             <Link to="/register" className="text-red-400 hover:text-red-300 font-semibold">Regístrate</Link>
           </p>
+        </div>
+
+        {/* DERECHA — splash art rotativo (look lanzador de LoL) */}
+        <div className="relative hidden lg:block min-h-[560px]">
+          <motion.img
+            key={splash}
+            src={dd.championSplash(splash)}
+            alt=""
+            initial={{ opacity: 0, scale: 1.06 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-0 h-full w-full object-cover object-top"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
+          {/* Fundido hacia el formulario + oscurecido inferior */}
+          <div className="absolute inset-0" style={{
+            background:
+              'linear-gradient(90deg, rgba(12,12,15,0.98) 0%, rgba(12,12,15,0.25) 30%, transparent 60%),' +
+              'linear-gradient(180deg, transparent 55%, rgba(8,8,10,0.85) 100%)',
+          }} />
+          <div className="absolute bottom-6 left-8 right-8">
+            <div className="h-px mb-3" style={{ background: 'linear-gradient(90deg, transparent, rgba(200,170,110,0.6), transparent)' }} />
+            <p className="font-serif text-lg text-white/85 tracking-wide">{splash}</p>
+            <p className="text-xs text-gray-500 uppercase tracking-[3px]">La escena competitiva de Querétaro</p>
+          </div>
         </div>
       </motion.div>
     </div>

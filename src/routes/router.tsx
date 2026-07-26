@@ -12,6 +12,7 @@ import ProfilePage from '@/pages/ProfilePage';
 // Lazy-load everything else (split into separate chunks)
 const Login                = lazy(() => import('@/pages/Login'));
 const Register             = lazy(() => import('@/pages/Register'));
+const ForgotPassword       = lazy(() => import('@/pages/ForgotPassword'));
 const StatsSearch          = lazy(() => import('@/pages/StatsSearch'));
 const Social               = lazy(() => import('@/pages/Social'));
 const TournamentsPage      = lazy(() => import('@/pages/Tournaments'));
@@ -49,6 +50,8 @@ export const AppRouter = () => (
       {/* Lazy public */}
       <Route path="/login"                    element={<Login />} />
       <Route path="/register"                 element={<Register />} />
+      <Route path="/forgot-password"          element={<ForgotPassword />} />
+      <Route path="/reset-password"           element={<ForgotPassword />} />
       <Route path="/stats"                    element={<StatsSearch />} />
       <Route path="/match/:regional/:matchId" element={<MatchDetailPage />} />
       <Route path="/tournaments"              element={<TournamentsPage />} />

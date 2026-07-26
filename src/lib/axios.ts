@@ -3,6 +3,16 @@ import axios, { AxiosHeaders, InternalAxiosRequestConfig } from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
 
+// "Recordar sesión" desmarcado en Login: el token vive solo mientras el
+// navegador esté abierto. Al abrir una sesión nueva del navegador (no hay
+// sessionStorage vivo) limpiamos el token persistido.
+try {
+  if (localStorage.getItem('atak_session_only') === '1' && !sessionStorage.getItem('atak_session_alive')) {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('atak_session_only');
+  }
+} catch { /* SSR/privacidad: sin storage */ }
+
 export const axiosInstance = axios.create({
   baseURL: API_URL,
   withCredentials: true, // necesario para cookies de sesión
