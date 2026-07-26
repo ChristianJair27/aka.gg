@@ -71,10 +71,8 @@ function TournamentCard({
         hover:-translate-y-0.5"
       style={{
         background:
-          'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 22%, rgba(255,255,255,0) 70%), rgba(13,13,17,0.30)',
-        backdropFilter: 'blur(20px) saturate(120%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(120%)',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 44px -30px rgba(0,0,0,.6)',
+          'linear-gradient(180deg, rgba(16,16,20,0.45) 0%, rgba(10,10,13,0.25) 100%)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 44px -30px rgba(0,0,0,.6)',
       }}
     >
       {/* Subtle top glow on hover */}
@@ -190,10 +188,8 @@ function TournamentCardSkeleton() {
     <div className="rounded-2xl overflow-hidden"
       style={{
         background:
-          'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 70%), rgba(13,13,17,0.30)',
-        backdropFilter: 'blur(20px) saturate(120%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(120%)',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 44px -30px rgba(0,0,0,.6)',
+          'linear-gradient(180deg, rgba(16,16,20,0.45) 0%, rgba(10,10,13,0.25) 100%)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 44px -30px rgba(0,0,0,.6)',
       }}>
       <div className="p-6 space-y-4">
         <Skeleton width={130} height={24} style={{ borderRadius: 999 }} />
@@ -238,10 +234,8 @@ function StatBar({ tournaments }: { tournaments: Tournament[] }) {
             className="rounded-2xl p-5 text-center"
             style={{
               background:
-                'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 70%), rgba(13,13,17,0.30)',
-              backdropFilter: 'blur(20px) saturate(120%)',
-              WebkitBackdropFilter: 'blur(20px) saturate(120%)',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 44px -30px rgba(0,0,0,.6)',
+                'linear-gradient(180deg, rgba(16,16,20,0.45) 0%, rgba(10,10,13,0.25) 100%)',
+                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 44px -30px rgba(0,0,0,.6)',
             }}>
             <div className={`text-3xl font-black ${s.color}`}>{s.value}</div>
             <div className="text-xs text-gray-600 uppercase tracking-widest mt-1">{s.label}</div>

@@ -914,8 +914,11 @@ function FeaturedRank({ rank, leagueRank }: {
           filter: 'blur(12px)',
         }} />
         {/* El emblema manda: más grande que el texto del elo para que resalte. */}
+        {/* El PNG de CDragon trae ~35% de padding transparente: el scale lo
+            compensa sin romper el layout de la fila. */}
         <img src={rankEmblem(rank.tier)} alt={rank.tier}
-          style={{ width: 236, height: 236, objectFit: 'contain', position: 'relative',
+          style={{ width: 240, height: 240, objectFit: 'contain', position: 'relative',
+            transform: 'scale(1.5)', transformOrigin: 'center',
             filter: `drop-shadow(0 0 34px ${color}80)` }} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>

@@ -78,7 +78,8 @@ function Card({ children, accent, style }: { children: ReactNode; accent?: strin
     <div
       className="td-card-in"
       style={{
-        background: 'linear-gradient(180deg, #16161b 0%, #101014 100%)',
+        // Misma superficie que PANEL_SURFACE del perfil: velo translúcido sin blur
+        background: 'linear-gradient(180deg, rgba(16,16,20,0.55) 0%, rgba(10,10,13,0.35) 100%)',
         border: `1px solid ${accent ?? 'transparent'}`,
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 8px 24px rgba(0,0,0,0.35)',
         borderRadius: 16, padding: 18, ...style,
@@ -188,7 +189,7 @@ function SideNav({ value, onChange, live }: { value: Tab; onChange: (t: Tab) => 
     <nav
       aria-label="Secciones del torneo"
       style={{
-        background: 'linear-gradient(180deg, #16161b 0%, #101014 100%)',
+        background: 'linear-gradient(180deg, rgba(16,16,20,0.55) 0%, rgba(10,10,13,0.35) 100%)',
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 8px 24px rgba(0,0,0,0.35)',
         borderRadius: 16, padding: 10, display: 'flex', flexDirection: 'column', gap: 4,
       }}
