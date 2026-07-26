@@ -4,6 +4,8 @@
 // externally; this file only renders the page for route `/tournaments/:id/...`.
 import { CSSProperties, ReactNode, useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { axiosInstance } from '@/lib/axios';
 import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -378,6 +380,7 @@ function Hero({ data, onBracket, navigate }: {
           {/* chips */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
             <StatusChip kind={statusKind}>{statusLabel}</StatusChip>
+            {t.fearless && <StatusChip kind="warn" dot={false}>⚔ FEARLESS DRAFT</StatusChip>}
             {t.phase && <StatusChip kind="dim" dot={false}>{t.phase.toUpperCase()}</StatusChip>}
             {t.region && <StatusChip kind="dim" dot={false}>{t.region.toUpperCase()}</StatusChip>}
           </div>
@@ -451,10 +454,66 @@ function ResumenGrid({ data, id, navigate, onStats }: {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
         <LiveCard data={data} navigate={navigate} id={id} />
+        {data.tournament.fearless && <FearlessCard id={id} />}
         {data.myTeam && <MyTeamCard data={data} id={id} />}
         <ScheduleCard data={data} />
       </div>
     </div>
+  );
+}
+
+// ── FEARLESS: campeones bloqueados por equipo ────────────────────────────────
+function FearlessCard({ id }: { id: string }) {
+  const q = useQuery({
+    queryKey: ['tournament', id, 'fearless'],
+    queryFn: async () => (await axiosInstance.get(`/api/tournaments/${id}/fearless`)).data as {
+      gamesCounted: number;
+      teams: Array<{ team: string; usedChampions: string[] }>;
+      unassigned: string[]; allUsed: string[];
+    },
+    refetchInterval: 60_000,
+  });
+  const d = q.data;
+  return (
+    <Card accent="rgba(245,158,11,0.35)">
+      <SectionHead icon={<Swords size={14} color="var(--td-amber)" />} title="FEARLESS · CAMPEONES BLOQUEADOS" />
+      {!d ? (
+        <Block h={80} />
+      ) : d.allUsed.length === 0 ? (
+        <EmptyState>Aún no hay campeones bloqueados — se llenan al terminar cada partida</EmptyState>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {d.teams.map((tm) => (
+            <div key={tm.team}>
+              <div className="td-over" style={{ marginBottom: 6 }}>{tm.team} · {tm.usedChampions.length}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {tm.usedChampions.map((c) => (
+                  <img key={c} src={dd.champion(c)} alt={c} title={`${c} — bloqueado`} loading="lazy"
+                    style={{ width: 30, height: 30, borderRadius: 7, objectFit: 'cover',
+                      filter: 'grayscale(0.5)', boxShadow: '0 0 0 1.5px rgba(245,158,11,0.4)' }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                ))}
+              </div>
+            </div>
+          ))}
+          {d.unassigned.length > 0 && (
+            <div>
+              <div className="td-over" style={{ marginBottom: 6 }}>OTROS · {d.unassigned.length}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {d.unassigned.map((c) => (
+                  <img key={c} src={dd.champion(c)} alt={c} title={`${c} — bloqueado`} loading="lazy"
+                    style={{ width: 30, height: 30, borderRadius: 7, objectFit: 'cover', filter: 'grayscale(0.7)' }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                ))}
+              </div>
+            </div>
+          )}
+          <p style={{ margin: 0, fontSize: 11, color: 'var(--td-muted)' }}>
+            {d.gamesCounted} partida(s) contadas · el lobby no lo bloquea automáticamente — es responsabilidad de los capitanes respetarlo
+          </p>
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -1050,6 +1109,7 @@ function ReglasTab({ data }: { data: TdBoardPayload }) {
   const t = data.tournament;
   const lines = [
     `Formato: ${t.format || 'Por confirmar'}.`,
+    ...(t.fearless ? ['FEARLESS DRAFT: los campeones jugados en partidas anteriores del torneo quedan bloqueados para ambos equipos. La lista de bloqueados está en el Resumen; los capitanes son responsables de respetarla en el lobby.'] : []),
     `Parche de juego: ${t.patch || 'Por confirmar'}. Región: ${t.region || '—'}.`,
     'Todos los jugadores deben completar el check-in antes del cierre indicado; los equipos sin check-in serán descalificados.',
     'Los partidos se juegan con los códigos de torneo oficiales de Riot Games. La suplantación o el uso de cuentas no verificadas conlleva descalificación.',

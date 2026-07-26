@@ -109,6 +109,7 @@ export interface TdBoardPayload {
     format: string; patch: string; region: string; phase: string; status: string;
     prizePool: string; prizeFinal: string | null; teamsRegistered: number; teamsMax: number;
     checkinDeadline: string | null; logoUrl?: string | null; bannerUrl?: string | null;
+    fearless?: boolean;
   };
   bracket: Array<{ round: number; label: string; matches: Array<{
     id: string; round: number; matchStatus: string; teamA: TdTeamRef | null; teamB: TdTeamRef | null; winnerId: string | null; scheduledAt: string | null;
