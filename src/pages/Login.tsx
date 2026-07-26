@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "framer-motion";
 import { Loader2, Swords } from "lucide-react";
+import { ScrollVideoBg } from "@/components/ScrollVideoBg";
 import { useAuth } from "@/features/auth/useAuth";
 
 const loginSchema = z.object({
