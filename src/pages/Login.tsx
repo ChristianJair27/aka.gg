@@ -87,6 +87,8 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-black relative overflow-hidden">
+      {/* Mundo de fondo en loop — misma ambientación que el resto de la app */}
+      <ScrollVideoBg peakOpacity={0.65} floorOpacity={0.65} />
       {/* Ambient red glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-1/3 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full blur-[120px]"
@@ -99,8 +101,8 @@ export default function Login() {
         className="relative w-full max-w-md"
       >
         {/* Glass card */}
-        <div className="relative rounded-2xl border border-white/[0.08] bg-[rgba(13,13,17,0.66)] backdrop-blur-xl p-8
-          shadow-[0_24px_64px_rgba(0,0,0,0.6)]">
+        <div className="relative rounded-2xl p-8 shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
+          style={{ background: 'linear-gradient(180deg, rgba(16,16,20,0.72) 0%, rgba(10,10,13,0.55) 100%)' }}>
           {/* top hairline: filo rojo → oro (motivo de marca) */}
           <div className="absolute inset-x-8 top-0 h-px"
             style={{ background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.55) 35%, rgba(200,170,110,0.6) 65%, transparent)' }} />
@@ -138,7 +140,7 @@ export default function Login() {
           {/* Divider */}
           <div className="relative my-5 text-center">
             <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-px bg-white/[0.08]" />
-            <span className="relative px-3 bg-[rgba(13,13,17,0.66)] text-[11px] uppercase tracking-widest text-gray-600">
+            <span className="relative px-3 bg-[#101014] text-[11px] uppercase tracking-widest text-gray-600">
               o con email
             </span>
           </div>
