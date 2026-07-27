@@ -1,12 +1,14 @@
 // src/components/TournamentMatchStats.tsx
 // Auto-polls stats after each tournament match is played
 import { useEffect, useState, useCallback } from 'react';
+import { motion, animate } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import axiosInstance from '@/lib/axios';
 import { Swords, RefreshCw, Trophy, Eye, Skull, Target, Zap, Shield } from 'lucide-react';
 import { useChampions } from '@/hooks/use-ddragon';
+import { dd } from '@/lib/dataDragon';
 
 interface MatchParticipant {
   summonerName: string; tagLine?: string; championName: string; champLevel: number;
@@ -59,6 +61,23 @@ function PlayerRow({ p, isMvp, maxDmg }: { p: MatchParticipant; isMvp: boolean; 
           {isMvp && <Badge className="bg-yellow-700/50 text-yellow-300 text-xs px-1.5 py-0 h-4">MVP</Badge>}
         </div>
         <span className="text-xs text-gray-500">{p.championName}</span>
+        {/* Build: ítems comprados (slot 7 = trinket) */}
+        {p.items?.some(id => id > 0) && (
+          <div className="flex gap-1 mt-1.5">
+            {p.items.slice(0, 7).map((id, i) => id > 0 ? (
+              <motion.img
+                key={i} src={dd.item(id)} alt="" loading="lazy"
+                initial={{ opacity: 0, scale: 0.6 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.05, duration: 0.25 }}
+                className={`w-5 h-5 rounded border border-white/10 object-cover ${i === 6 ? 'ml-1 rounded-full' : ''}`}
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+              />
+            ) : (
+              <div key={i} className={`w-5 h-5 rounded bg-white/[0.04] border border-white/[0.06] ${i === 6 ? 'ml-1 rounded-full' : ''}`} />
+            ))}
+          </div>
+        )}
       </div>
       <div className="text-center w-20">
         <div className="text-sm font-bold">
@@ -124,6 +143,83 @@ function StatsTable({ team, label, color, maxDmg }: {
           <PlayerRow key={i} p={p} isMvp={i === mvpIdx} maxDmg={maxDmg} />
         ))}
       </div>
+    </div>
+  );
+}
+
+// ── Comparativa animada de totales por equipo ────────────────────────────────
+function CountUp({ value, fmt }: { value: number; fmt?: (n: number) => string }) {
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    const ctrl = animate(0, value, { duration: 1.1, ease: [0.22, 1, 0.36, 1], onUpdate: setV });
+    return () => ctrl.stop();
+  }, [value]);
+  return <>{fmt ? fmt(v) : Math.round(v).toLocaleString()}</>;
+}
+
+function TeamComparison({ team1, team2, blue, red }: {
+  team1: string; team2: string; blue: MatchParticipant[]; red: MatchParticipant[];
+}) {
+  const sum = (t: MatchParticipant[], f: (p: MatchParticipant) => number) => t.reduce((s, p) => s + f(p), 0);
+  const kFmt = (n: number) => `${(n / 1000).toFixed(1)}k`;
+  const metrics = [
+    { label: 'Kills',  icon: <Swords className="h-3.5 w-3.5" />, b: sum(blue, p => p.kills),            r: sum(red, p => p.kills) },
+    { label: 'Daño',   icon: <Target className="h-3.5 w-3.5" />, b: sum(blue, p => p.totalDamageDealt), r: sum(red, p => p.totalDamageDealt), fmt: kFmt },
+    { label: 'Oro',    icon: <Shield className="h-3.5 w-3.5" />, b: sum(blue, p => p.goldEarned),       r: sum(red, p => p.goldEarned), fmt: kFmt },
+    { label: 'Visión', icon: <Eye className="h-3.5 w-3.5" />,    b: sum(blue, p => p.visionScore),      r: sum(red, p => p.visionScore) },
+  ];
+  return (
+    <div className="rounded-xl bg-white/[0.02] p-4 space-y-3">
+      <div className="flex items-center justify-between text-xs font-semibold">
+        <span className="text-blue-300 truncate max-w-[40%]">{team1}</span>
+        <span className="text-gray-600 uppercase tracking-widest text-[10px]">Comparativa</span>
+        <span className="text-red-300 truncate max-w-[40%] text-right">{team2}</span>
+      </div>
+      {metrics.map((m, mi) => {
+        const total = Math.max(1, m.b + m.r);
+        const bluePct = (m.b / total) * 100;
+        const blueWins = m.b >= m.r;
+        return (
+          <div key={m.label}>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className={`font-bold tabular-nums ${blueWins ? 'text-blue-200' : 'text-gray-500'}`}>
+                <CountUp value={m.b} fmt={m.fmt} />
+              </span>
+              <span className="flex items-center gap-1.5 text-gray-500">{m.icon}{m.label}</span>
+              <span className={`font-bold tabular-nums ${!blueWins ? 'text-red-200' : 'text-gray-500'}`}>
+                <CountUp value={m.r} fmt={m.fmt} />
+              </span>
+            </div>
+            <div className="relative h-2.5 rounded-full bg-white/[0.05] overflow-hidden">
+              {/* lado azul (desde la izquierda) y rojo (resto), animados desde el centro */}
+              <motion.div
+                className="absolute left-0 top-0 h-full rounded-l-full"
+                style={{ background: 'linear-gradient(90deg, #1d4ed8, #60a5fa)', boxShadow: blueWins ? '0 0 12px rgba(96,165,250,0.5)' : undefined }}
+                initial={{ width: '50%' }}
+                animate={{ width: `${bluePct}%` }}
+                transition={{ duration: 1, delay: mi * 0.12, ease: [0.22, 1, 0.36, 1] }}
+              />
+              <motion.div
+                className="absolute right-0 top-0 h-full rounded-r-full"
+                style={{ background: 'linear-gradient(90deg, #f87171, #b91c1c)', boxShadow: !blueWins ? '0 0 12px rgba(248,113,113,0.5)' : undefined }}
+                initial={{ width: '50%' }}
+                animate={{ width: `${100 - bluePct}%` }}
+                transition={{ duration: 1, delay: mi * 0.12, ease: [0.22, 1, 0.36, 1] }}
+              />
+              {/* separador central brillante */}
+              <div className="absolute top-0 h-full w-px bg-white/60" style={{ left: `${bluePct}%`, transition: 'left 1s' }} />
+              {/* brillo que recorre la barra */}
+              <motion.div
+                className="absolute top-0 h-full w-16 pointer-events-none"
+                style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)' }}
+                initial={{ x: '-4rem' }}
+                animate={{ x: '110%' }}
+                transition={{ duration: 1.6, delay: 0.4 + mi * 0.12, ease: 'easeInOut' }}
+              />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -273,36 +369,11 @@ export function TournamentMatchStats({ tournamentId, match, isActive }: Tourname
             />
           </div>
 
-          {/* Team aggregates */}
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            {[
-              { team: stats.blueTeam, label: match.team1, color: 'blue' },
-              { team: stats.redTeam,  label: match.team2, color: 'red' },
-            ].map(({ team, label, color }) => {
-              const totalDmg   = team.reduce((s,p) => s+p.totalDamageDealt, 0);
-              const totalGold  = team.reduce((s,p) => s+p.goldEarned, 0);
-              const totalVis   = team.reduce((s,p) => s+p.visionScore, 0);
-              const totalKills = team.reduce((s,p) => s+p.kills, 0);
-              const bc = color === 'blue' ? 'border-blue-700/30 bg-blue-950/20' : 'border-red-700/30 bg-red-950/20';
-              const lc = color === 'blue' ? 'text-blue-300' : 'text-red-300';
-              return (
-                <div key={label} className={`rounded-lg border ${bc} p-3 space-y-1.5`}>
-                  <div className={`font-semibold ${lc} mb-2`}>{label}</div>
-                  {[
-                    { icon: <Swords className="h-3 w-3" />, label: 'Kills totales', value: totalKills },
-                    { icon: <Target className="h-3 w-3" />, label: 'Daño total',    value: `${(totalDmg/1000).toFixed(1)}k` },
-                    { icon: <Shield className="h-3 w-3" />, label: 'Oro total',     value: `${(totalGold/1000).toFixed(1)}k` },
-                    { icon: <Eye className="h-3 w-3" />,    label: 'Visión',        value: totalVis },
-                  ].map(row => (
-                    <div key={row.label} className="flex items-center justify-between text-gray-400">
-                      <span className="flex items-center gap-1">{row.icon}{row.label}</span>
-                      <span className="text-white font-medium">{row.value}</span>
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
+          {/* Comparativa por equipo — barras duales animadas + count-up */}
+          <TeamComparison
+            team1={match.team1!} team2={match.team2!}
+            blue={stats.blueTeam} red={stats.redTeam}
+          />
         </>
       )}
     </div>
