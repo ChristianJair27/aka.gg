@@ -435,10 +435,19 @@ function joinDates(start?: string | null, end?: string | null): string | null {
 // ── TILES ────────────────────────────────────────────────────────────────────
 function Tiles({ t }: { t: TdBoardPayload['tournament'] }) {
   const countdown = useCountdown(t.checkinDeadline);
+  // El tile refleja la configuración REAL (bracketType/series), no el texto libre
+  // de la descripción (mostraba "5v5 Single Elimination" en un torneo suizo).
+  const fmt = t.bracketType === 'swiss' ? 'Suizo'
+    : t.bracketType === 'round_robin' ? 'Round Robin'
+    : t.bracketType === 'single_elim' ? 'Eliminación'
+    : (t.format || '—');
+  const series = (t.seriesTo ?? 1) > 1
+    ? ` · BO${(t.seriesTo! * 2) - 1}${(t.finalSeriesTo ?? t.seriesTo)! > t.seriesTo! ? ` (F: BO${(t.finalSeriesTo! * 2) - 1})` : ''}`
+    : '';
   return (
     <div className="td-dash-tiles" style={{ marginTop: 18 }}>
       <StatTile value={`${t.teamsRegistered} / ${t.teamsMax}`} label="Equipos" icon={<Users size={15} color="var(--td-text-2)" />} />
-      <StatTile value={t.format || '—'} label="Formato" color={BLUE} icon={<Zap size={15} color={BLUE} />} />
+      <StatTile value={`${fmt}${series}`} label="Formato" color={BLUE} icon={<Zap size={15} color={BLUE} />} />
       <StatTile value={t.patch || '—'} label="Parche" color="var(--td-green)" icon={<BarChart3 size={15} color="var(--td-green)" />} />
       <StatTile value={countdown ?? '—'} label="Check-in" color={RED} icon={<Clock size={15} color={RED} />} accentBorder />
     </div>
@@ -879,50 +888,83 @@ function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo }: {
     { show: phase === 'active' && bracketType === 'swiss', label: 'FINALIZAR TORNEO', icon: <Trophy size={14} />, onClick: completeT, pending: false },
   ];
   const visible = actions.filter(a => a.show);
-  if (!visible.length) return null;
+  if (!visible.length && !canPickFormat) return null;
+
+  // Guía de fase: qué sigue, en lenguaje claro
+  const stepHint =
+    phase === 'registration' ? 'Paso 1 · Elige formato y series, y cuando el cupo esté listo cierra inscripciones o inicia directo.'
+    : phase === 'checkin' ? 'Paso 2 · Los equipos hacen check-in. Cuando estén listos, inicia el torneo (genera la ronda 1 con códigos).'
+    : phase === 'active' && bracketType === 'swiss' ? 'Torneo en curso · Al terminar todos los partidos de la ronda, genera la siguiente. Cierra el torneo tras la última ronda.'
+    : phase === 'active' ? 'Torneo en curso · Los resultados y stats se detectan solos; sincroniza si algo tarda.'
+    : 'Torneo finalizado.';
+
+  const OptionBtn = ({ active, accent, label, hint, onClick }: {
+    active: boolean; accent: string; label: string; hint: string; onClick: () => void;
+  }) => (
+    <button onClick={onClick} disabled={savingType}
+      style={{
+        flex: '1 1 130px', minWidth: 130, textAlign: 'left', cursor: 'pointer',
+        padding: '10px 12px', borderRadius: 12, border: '1px solid',
+        borderColor: active ? accent : 'var(--td-border)',
+        background: active ? 'rgba(232,50,60,0.10)' : 'rgba(255,255,255,0.02)',
+        transition: 'border-color .15s, background .15s',
+      }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <span style={{
+          width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+          background: active ? accent : 'var(--td-border-hov)',
+          boxShadow: active ? `0 0 8px ${accent}` : undefined,
+        }} />
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.5px', color: active ? '#fff' : 'var(--td-text-2)' }}>{label}</span>
+      </div>
+      <div style={{ fontSize: 10.5, color: 'var(--td-muted)', marginTop: 3, lineHeight: 1.35 }}>{hint}</div>
+    </button>
+  );
 
   return (
-    <Card accent="var(--td-red-glow)" style={{ marginTop: 16, padding: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+    <Card accent="var(--td-red-glow)" style={{ marginTop: 16, padding: 16 }}>
+      {/* Encabezado + guía de fase */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
           <Settings2 size={14} color={RED} />
           <span className="td-over" style={{ color: RED, letterSpacing: '2px' }}>PANEL DEL ORGANIZADOR</span>
         </span>
+        <span style={{ fontSize: 12, color: 'var(--td-text-2)' }}>{stepHint}</span>
+      </div>
+
+      <div className="td-admin-grid">
+        {/* Configuración (solo antes de iniciar) */}
         {canPickFormat && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span className="td-over">FORMATO</span>
-            {([['single_elim', 'ELIMINACIÓN'], ['round_robin', 'LIGA · RR'], ['swiss', 'SUIZO']] as const).map(([bt, label]) => (
-              <button key={bt} onClick={() => setType(bt, label)} disabled={savingType} className="td-pill-btn"
-                style={{
-                  padding: '5px 12px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, cursor: 'pointer',
-                  letterSpacing: '1px', border: '1px solid',
-                  borderColor: bracketType === bt ? 'var(--td-red-glow)' : 'var(--td-border)',
-                  background: bracketType === bt ? 'rgba(232,50,60,0.15)' : 'transparent',
-                  color: bracketType === bt ? '#fff' : 'var(--td-text-2)',
-                }}>
-                {label}
-              </button>
-            ))}
-            <span className="td-over" style={{ marginLeft: 8 }}>SERIES</span>
-            {([[1, 1, 'BO1'], [2, 2, 'BO3'], [2, 3, 'BO3 · FINAL BO5']] as const).map(([st, fst, label]) => {
-              const active = seriesTo === st && finalSeriesTo === fst;
-              return (
-                <button key={label} disabled={savingType}
-                  onClick={() => patchT({ seriesTo: st, finalSeriesTo: fst }, `Series: ${label}`)}
-                  style={{
-                    padding: '5px 12px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, cursor: 'pointer',
-                    letterSpacing: '1px', border: '1px solid',
-                    borderColor: active ? 'rgba(245,158,11,0.5)' : 'var(--td-border)',
-                    background: active ? 'rgba(245,158,11,0.12)' : 'transparent',
-                    color: active ? '#fff' : 'var(--td-text-2)',
-                  }}>
-                  {label}
-                </button>
-              );
-            })}
-          </span>
+          <>
+            <div>
+              <div className="td-over" style={{ marginBottom: 8 }}>FORMATO DEL TORNEO</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <OptionBtn active={bracketType === 'single_elim'} accent="var(--td-red)" label="ELIMINACIÓN"
+                  hint="Pierdes y quedas fuera. Bracket clásico." onClick={() => setType('single_elim', 'Eliminación directa')} />
+                <OptionBtn active={bracketType === 'round_robin'} accent="var(--td-red)" label="LIGA · RR"
+                  hint="Todos contra todos por jornadas." onClick={() => setType('round_robin', 'Round Robin')} />
+                <OptionBtn active={bracketType === 'swiss'} accent="var(--td-red)" label="SUIZO"
+                  hint="Pareos por récord cada ronda, sin revanchas." onClick={() => setType('swiss', 'Suizo')} />
+              </div>
+            </div>
+            <div>
+              <div className="td-over" style={{ marginBottom: 8 }}>SERIES POR ENFRENTAMIENTO</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <OptionBtn active={seriesTo === 1} accent="var(--td-amber)" label="BO1"
+                  hint="Un juego decide cada enfrentamiento." onClick={() => patchT({ seriesTo: 1, finalSeriesTo: 1 }, 'Series: Bo1')} />
+                <OptionBtn active={seriesTo === 2 && finalSeriesTo === 2} accent="var(--td-amber)" label="BO3"
+                  hint="Gana el primero en llegar a 2 victorias." onClick={() => patchT({ seriesTo: 2, finalSeriesTo: 2 }, 'Series: Bo3')} />
+                <OptionBtn active={seriesTo === 2 && finalSeriesTo === 3} accent="var(--td-amber)" label="BO3 · FINAL BO5"
+                  hint="Bo3 todo el torneo; la final a 3 victorias." onClick={() => patchT({ seriesTo: 2, finalSeriesTo: 3 }, 'Series: Bo3, final Bo5')} />
+              </div>
+            </div>
+          </>
         )}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 'auto' }}>
+      </div>
+
+      {/* Acciones */}
+      {visible.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: canPickFormat ? 14 : 0, paddingTop: canPickFormat ? 14 : 0, borderTop: canPickFormat ? '1px solid var(--td-border)' : 'none' }}>
           {visible.map((a) => (
             <Button key={a.label} variant={a.primary ? 'primary' : 'secondary'} icon={a.icon}
               disabled={a.pending} onClick={a.onClick}>
@@ -930,7 +972,7 @@ function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo }: {
             </Button>
           ))}
         </div>
-      </div>
+      )}
     </Card>
   );
 }
@@ -1259,6 +1301,10 @@ function ResponsiveStyles() {
       .td-dash-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
       .td-dash-grid { display: grid; grid-template-columns: minmax(0,1fr) 400px; gap: 16px; align-items: start; }
       .td-dash-bracket { overflow-x: auto; }
+
+      /* Panel del organizador: configuración en 2 columnas */
+      .td-admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      @media (max-width: 900px) { .td-admin-grid { grid-template-columns: 1fr; } }
 
       /* Shell: sidebar de navegación (desktop) / pills (móvil) */
       .td-shell { display: grid; grid-template-columns: 208px minmax(0, 1fr); gap: 18px; align-items: start; margin-top: 22px; }
