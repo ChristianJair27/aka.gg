@@ -162,6 +162,7 @@ export interface RosterPlayer {
 }
 
 export interface Registration {
+  id?: number;
   teamName: string;
   captainRiotId: string;
   players: RosterPlayer[];
@@ -169,6 +170,8 @@ export interface Registration {
   registeredAt: string;
   checkedIn: boolean;
   checkedInAt?: string;
+  registeredBy?: number;
+  captainUserId?: number;
 }
 
 export interface TournamentInvitation {
@@ -288,6 +291,43 @@ function invalidateTournament(qc: ReturnType<typeof useQueryClient>, id: string)
   // partido o reportar un resultado no se reflejaba hasta el siguiente poll.
   qc.invalidateQueries({ queryKey: qk.bracket(id) });
   qc.invalidateQueries({ queryKey: qk.tournamentBoard(id) });
+}
+
+// Organizador: eliminar un equipo registrado (antes de que inicie el torneo)
+export function useDeleteRegistration(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (regId: number) => {
+      const { data } = await axiosInstance.delete(`/api/tournaments/${id}/registrations/${regId}`);
+      return data as { success: boolean; teamName: string };
+    },
+    onSuccess: (data) => toast.success(`Equipo "${data.teamName}" eliminado`),
+    onError: (e: any) =>
+      toast.error("No se pudo eliminar el equipo", {
+        description: e?.response?.data?.error || e?.message,
+      }),
+    onSettled: () => invalidateTournament(qc, id),
+  });
+}
+
+// Capitán u organizador: editar el roster mientras las inscripciones están abiertas
+export function useUpdateRegistration(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { regId: number; players: RosterPlayer[] }) => {
+      const { data } = await axiosInstance.patch(
+        `/api/tournaments/${id}/registrations/${input.regId}`,
+        { players: input.players },
+      );
+      return data as { success: boolean; players: RosterPlayer[]; message: string };
+    },
+    onSuccess: (data) => toast.success(data.message || "Equipo actualizado"),
+    onError: (e: any) =>
+      toast.error("No se pudo actualizar el equipo", {
+        description: e?.response?.data?.error || e?.message,
+      }),
+    onSettled: () => invalidateTournament(qc, id),
+  });
 }
 
 export function useCloseRegistration(id: string) {

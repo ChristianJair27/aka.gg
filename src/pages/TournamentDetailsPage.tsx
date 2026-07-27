@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import {
   Trophy, Calendar, Users, ArrowLeft, Copy, Check, Zap,
   BarChart2, GitBranch, List, Play, RefreshCw, UserCheck,
-  Lock, Shield, Activity, Clock,
+  Lock, Shield, Activity, Clock, Trash2, Pencil, Plus, X,
 } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import gsap from 'gsap';
@@ -18,8 +18,11 @@ import {
   useActivateMatch,
   useReportResult,
   useSyncGames,
+  useDeleteRegistration,
+  useUpdateRegistration,
   type Registration as RegistrationType,
   type Tournament as TournamentType,
+  type RosterPlayer,
 } from '@/hooks/queries/tournaments';
 import { useAuth } from '@/features/auth/useAuth';
 import { TournamentBracket } from '@/components/TournamentBracket';
@@ -267,6 +270,105 @@ function AdminPanel({ tournament, registrations }: {
   );
 }
 
+// ─── Team edit modal (capitán u organizador, solo fase de inscripciones) ─────
+function TeamEditModal({ tournamentId, reg, onClose }: {
+  tournamentId: string; reg: Registration; onClose: () => void;
+}) {
+  const update = useUpdateRegistration(tournamentId);
+  const [players, setPlayers] = useState<RosterPlayer[]>(() => reg.players.map(p => ({ ...p })));
+
+  const setP = (i: number, patch: Partial<RosterPlayer>) =>
+    setPlayers(ps => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)));
+  const removeP = (i: number) => setPlayers(ps => ps.filter((_, j) => j !== i));
+  const addP = () => setPlayers(ps => [...ps, { name: '', riotId: '' }]);
+
+  const save = () => {
+    const payload = players.map(p => ({
+      name: p.name?.trim() || '',
+      riotId: p.inviteEmail ? undefined : (p.riotId?.trim() || undefined),
+      inviteEmail: p.inviteEmail?.trim() || undefined,
+    }));
+    update.mutate({ regId: reg.id!, players: payload as RosterPlayer[] }, { onSuccess: onClose });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
+      <GlassCard className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6 bg-[#0a0a0c]/95">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <Pencil className="h-4 w-4 text-red-400" /> Editar equipo — {reg.teamName}
+          </h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mb-5">
+          Puedes cambiar, quitar o agregar jugadores mientras las inscripciones sigan abiertas.
+          Cada jugador necesita Riot ID (Nombre#TAG) o un correo de cuenta ATAK.GG para invitarlo.
+        </p>
+
+        <div className="space-y-3">
+          {players.map((p, i) => (
+            <div key={i} className="flex flex-wrap items-end gap-2 p-3 rounded-xl border border-white/[0.06] bg-white/[0.02]">
+              <span className="w-6 text-center text-xs font-black text-red-300 pb-2.5">{i + 1}</span>
+              <div className="flex-1 min-w-32">
+                <label className="text-[10px] text-gray-500 block mb-1">Nombre</label>
+                <input value={p.name || ''} onChange={e => setP(i, { name: e.target.value })}
+                  placeholder={`Jugador ${i + 1}`}
+                  className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-2.5 py-2 text-sm text-white
+                    placeholder:text-gray-600 outline-none focus:border-red-500/50 transition-colors" />
+              </div>
+              <div className="flex-1 min-w-40">
+                <label className="text-[10px] text-gray-500 block mb-1">Riot ID</label>
+                <input value={p.riotId || ''} placeholder="Nombre#TAG"
+                  onChange={e => setP(i, { riotId: e.target.value, inviteEmail: e.target.value ? undefined : p.inviteEmail })}
+                  className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-2.5 py-2 text-sm text-white font-mono
+                    placeholder:text-gray-600 outline-none focus:border-red-500/50 transition-colors" />
+              </div>
+              <div className="flex-1 min-w-44">
+                <label className="text-[10px] text-gray-500 block mb-1">
+                  o correo ATAK.GG{p.inviteStatus === 'pending' && p.inviteEmail ? ' · invitación pendiente' : ''}
+                </label>
+                <input value={p.inviteEmail || ''} placeholder="jugador@correo.com" type="email"
+                  onChange={e => setP(i, { inviteEmail: e.target.value || undefined, riotId: e.target.value ? undefined : p.riotId })}
+                  className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-2.5 py-2 text-sm text-white
+                    placeholder:text-gray-600 outline-none focus:border-yellow-500/50 transition-colors" />
+              </div>
+              <button onClick={() => removeP(i)} disabled={players.length <= 5}
+                title={players.length <= 5 ? 'Mínimo 5 jugadores' : 'Quitar jugador'}
+                className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10
+                  disabled:opacity-30 disabled:hover:text-gray-500 disabled:hover:bg-transparent transition-all">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between mt-5">
+          <button onClick={addP} disabled={players.length >= 7}
+            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white disabled:opacity-30 transition-colors">
+            <Plus className="h-4 w-4" /> Agregar jugador ({players.length}/7)
+          </button>
+          <div className="flex gap-2">
+            <button onClick={onClose}
+              className="px-4 py-2 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08]
+                text-sm text-white transition-all">
+              Cancelar
+            </button>
+            <button onClick={save} disabled={update.isPending || players.length < 5}
+              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-red-600 hover:bg-red-500
+                text-white text-sm font-bold transition-all disabled:opacity-40">
+              {update.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              Guardar cambios
+            </button>
+          </div>
+        </div>
+      </GlassCard>
+    </div>
+  );
+}
+
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 const TABS = [
   { key:'bracket',   label:'Bracket',    icon:<GitBranch className="h-4 w-4"/> },
@@ -473,7 +575,9 @@ export default function TournamentDetailsPage() {
   // Mutations.
   const activate = useActivateMatch(id ?? '');
   const report   = useReportResult(id ?? '');
+  const deleteReg = useDeleteRegistration(id ?? '');
   const reportingMatch = report.isPending ? (report.variables?.matchId ?? null) : null;
+  const [editingReg, setEditingReg] = useState<Registration | null>(null);
 
   // Default tab once the tournament resolves (active/complete → bracket, else equipos).
   useEffect(() => {
@@ -748,6 +852,29 @@ export default function TournamentDetailsPage() {
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <span className="text-xs text-gray-600 hidden sm:inline">{reg.players.length} jug.</span>
                           <CopyButton text={reg.captainRiotId} />
+                          {tournament.phase === 'registration' && reg.id != null && userId != null &&
+                            (canManage || reg.captainUserId === userId || reg.registeredBy === userId) && (
+                            <button onClick={() => setEditingReg(reg)} title="Editar equipo"
+                              className="p-2 rounded-lg text-gray-500 hover:text-white hover:bg-white/[0.06] transition-all">
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                          {canManage && reg.id != null &&
+                            (tournament.phase === 'registration' || tournament.phase === 'checkin') && (
+                            <ConfirmButton
+                              title={`Eliminar "${reg.teamName}"`}
+                              description="Se eliminará la inscripción del equipo y sus invitaciones pendientes. Esta acción no se puede deshacer."
+                              onConfirm={() => deleteReg.mutate(reg.id!)}
+                              trigger={
+                                <button title="Eliminar equipo" disabled={deleteReg.isPending}
+                                  className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40">
+                                  {deleteReg.isPending && deleteReg.variables === reg.id
+                                    ? <RefreshCw className="h-4 w-4 animate-spin" />
+                                    : <Trash2 className="h-4 w-4" />}
+                                </button>
+                              }
+                            />
+                          )}
                         </div>
                       </div>
                     </GlassCard>
@@ -758,6 +885,10 @@ export default function TournamentDetailsPage() {
           )}
         </AnimatePresence>
       </div>
+
+      {editingReg && (
+        <TeamEditModal tournamentId={tournament.id} reg={editingReg} onClose={() => setEditingReg(null)} />
+      )}
     </div>
   );
 }
