@@ -130,7 +130,10 @@ export default function TournamentDashboardPage() {
           <>
             <Hero data={data} onBracket={() => setTab('bracket')} navigate={go} />
             <Tiles t={data.tournament} />
-            {data.viewerAccess === 'owner' && <AdminPanel id={id} phase={data.tournament.phase} bracketType={data.tournament.bracketType} />}
+            {data.viewerAccess === 'owner' && (
+              <AdminPanel id={id} phase={data.tournament.phase} bracketType={data.tournament.bracketType}
+                seriesTo={data.tournament.seriesTo} finalSeriesTo={data.tournament.finalSeriesTo} />
+            )}
             <div className="td-shell">
               <aside className="td-side">
                 <SideNav value={tab} onChange={setTab} live={data.tournament.status === 'live'} />
@@ -819,7 +822,9 @@ function ScheduleCard({ data }: { data: TdBoardPayload }) {
 }
 
 // ── ADMIN PANEL (solo organizador) ───────────────────────────────────────────
-function AdminPanel({ id, phase, bracketType }: { id: string; phase: string; bracketType?: string }) {
+function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo }: {
+  id: string; phase: string; bracketType?: string; seriesTo?: number; finalSeriesTo?: number;
+}) {
   const closeReg = useCloseRegistration(id);
   const start    = useStartTournament(id);
   const codes    = useGenerateCodes(id);
@@ -828,17 +833,41 @@ function AdminPanel({ id, phase, bracketType }: { id: string; phase: string; bra
   const [savingType, setSavingType] = useState(false);
   const canPickFormat = phase === 'registration' || phase === 'checkin';
 
-  const setType = async (bt: 'single_elim' | 'round_robin') => {
-    if (bt === bracketType || savingType) return;
+  const patchT = async (body: object, okMsg: string) => {
+    if (savingType) return;
     setSavingType(true);
     try {
-      await axiosInstance.patch(`/api/tournaments/${id}`, { bracketType: bt });
+      await axiosInstance.patch(`/api/tournaments/${id}`, body);
       qc.invalidateQueries({ queryKey: qk.tournamentBoard(id) });
       qc.invalidateQueries({ queryKey: qk.bracket(id) });
-      toast.success(bt === 'round_robin' ? 'Formato: Round Robin (liga)' : 'Formato: Eliminación directa');
+      toast.success(okMsg);
     } catch (e: any) {
-      toast.error(e?.response?.data?.error ?? 'No se pudo cambiar el formato');
+      toast.error(e?.response?.data?.error ?? 'No se pudo guardar');
     } finally { setSavingType(false); }
+  };
+  const setType = (bt: string, label: string) => bt !== bracketType && patchT({ bracketType: bt }, `Formato: ${label}`);
+
+  const [roundBusy, setRoundBusy] = useState(false);
+  const nextRound = async () => {
+    setRoundBusy(true);
+    try {
+      const { data } = await axiosInstance.post(`/api/tournaments/${id}/next-round`);
+      toast.success(`Ronda ${data.round} generada (${data.matches?.length ?? 0} partidos con código)`);
+      qc.invalidateQueries({ queryKey: qk.tournamentBoard(id) });
+      qc.invalidateQueries({ queryKey: qk.bracket(id) });
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error ?? 'No se pudo generar la ronda');
+    } finally { setRoundBusy(false); }
+  };
+  const completeT = async () => {
+    if (!window.confirm('¿Cerrar el torneo? El líder de la clasificación queda como campeón.')) return;
+    try {
+      const { data } = await axiosInstance.post(`/api/tournaments/${id}/complete`);
+      toast.success(data.champion ? `🏆 Campeón: ${data.champion}` : 'Torneo finalizado');
+      qc.invalidateQueries({ queryKey: qk.tournamentBoard(id) });
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error ?? 'No se pudo finalizar');
+    }
   };
 
   const actions: Array<{ show: boolean; label: string; icon: ReactNode; onClick: () => void; pending: boolean; primary?: boolean }> = [
@@ -846,6 +875,8 @@ function AdminPanel({ id, phase, bracketType }: { id: string; phase: string; bra
     { show: phase === 'registration' || phase === 'checkin', label: 'INICIAR TORNEO', icon: <Play size={14} />, onClick: () => start.mutate(), pending: start.isPending, primary: true },
     { show: phase === 'active', label: 'GENERAR CÓDIGOS', icon: <KeySquare size={14} />, onClick: () => codes.mutate(20), pending: codes.isPending },
     { show: phase === 'active' || phase === 'complete', label: 'SINCRONIZAR PARTIDAS', icon: <FolderSync size={14} />, onClick: () => sync.mutate(), pending: sync.isPending, primary: phase === 'active' },
+    { show: phase === 'active' && bracketType === 'swiss', label: 'SIGUIENTE RONDA', icon: <ArrowRight size={14} />, onClick: nextRound, pending: roundBusy, primary: true },
+    { show: phase === 'active' && bracketType === 'swiss', label: 'FINALIZAR TORNEO', icon: <Trophy size={14} />, onClick: completeT, pending: false },
   ];
   const visible = actions.filter(a => a.show);
   if (!visible.length) return null;
@@ -858,10 +889,10 @@ function AdminPanel({ id, phase, bracketType }: { id: string; phase: string; bra
           <span className="td-over" style={{ color: RED, letterSpacing: '2px' }}>PANEL DEL ORGANIZADOR</span>
         </span>
         {canPickFormat && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <span className="td-over">FORMATO</span>
-            {([['single_elim', 'ELIMINACIÓN'], ['round_robin', 'LIGA · RR']] as const).map(([bt, label]) => (
-              <button key={bt} onClick={() => setType(bt)} disabled={savingType}
+            {([['single_elim', 'ELIMINACIÓN'], ['round_robin', 'LIGA · RR'], ['swiss', 'SUIZO']] as const).map(([bt, label]) => (
+              <button key={bt} onClick={() => setType(bt, label)} disabled={savingType} className="td-pill-btn"
                 style={{
                   padding: '5px 12px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, cursor: 'pointer',
                   letterSpacing: '1px', border: '1px solid',
@@ -872,6 +903,23 @@ function AdminPanel({ id, phase, bracketType }: { id: string; phase: string; bra
                 {label}
               </button>
             ))}
+            <span className="td-over" style={{ marginLeft: 8 }}>SERIES</span>
+            {([[1, 1, 'BO1'], [2, 2, 'BO3'], [2, 3, 'BO3 · FINAL BO5']] as const).map(([st, fst, label]) => {
+              const active = seriesTo === st && finalSeriesTo === fst;
+              return (
+                <button key={label} disabled={savingType}
+                  onClick={() => patchT({ seriesTo: st, finalSeriesTo: fst }, `Series: ${label}`)}
+                  style={{
+                    padding: '5px 12px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, cursor: 'pointer',
+                    letterSpacing: '1px', border: '1px solid',
+                    borderColor: active ? 'rgba(245,158,11,0.5)' : 'var(--td-border)',
+                    background: active ? 'rgba(245,158,11,0.12)' : 'transparent',
+                    color: active ? '#fff' : 'var(--td-text-2)',
+                  }}>
+                  {label}
+                </button>
+              );
+            })}
           </span>
         )}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 'auto' }}>
@@ -917,13 +965,15 @@ function BracketTab({ id, data }: { id: string; data: TdBoardPayload }) {
   const access = br.viewerAccess ?? data.viewerAccess;
 
   const isRR = br.bracketType === 'round_robin';
+  const isSwiss = br.bracketType === 'swiss';
 
-  // Lista vertical: en móvil (el árbol no cabe) y SIEMPRE en round robin
-  // (una liga no tiene árbol de avance — son jornadas).
-  if (narrow || isRR) {
+  // Lista vertical: en móvil (el árbol no cabe) y SIEMPRE en liga/suizo
+  // (no hay árbol de avance — son jornadas/rondas por récord).
+  if (narrow || isRR || isSwiss) {
     const maxRound = Math.max(...bracket.map((m) => m.round));
     const rlabel = (r: number) => {
       if (isRR) return `Jornada ${r}`;
+      if (isSwiss) return `Ronda ${r}`;
       const d = maxRound - r;
       return d === 0 ? 'Final' : d === 1 ? 'Semifinales' : d === 2 ? 'Cuartos' : `Ronda ${r}`;
     };
@@ -1046,6 +1096,7 @@ function PartidasTab({ id }: { id: string }) {
   const maxRound = Math.max(...matches.map((m) => m.round));
   const rlabel = (r: number) => {
     if (data.bracketType === 'round_robin') return `Jornada ${r}`;
+    if (data.bracketType === 'swiss') return `Ronda ${r}`;
     const d = maxRound - r;
     return d === 0 ? 'Final' : d === 1 ? 'Semifinales' : d === 2 ? 'Cuartos' : `Ronda ${r}`;
   };

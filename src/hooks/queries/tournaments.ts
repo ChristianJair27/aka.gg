@@ -110,7 +110,8 @@ export interface TdBoardPayload {
     prizePool: string; prizeFinal: string | null; teamsRegistered: number; teamsMax: number;
     checkinDeadline: string | null; logoUrl?: string | null; bannerUrl?: string | null;
     fearless?: boolean;
-    bracketType?: 'single_elim' | 'round_robin';
+    bracketType?: 'single_elim' | 'round_robin' | 'swiss';
+    seriesTo?: number; finalSeriesTo?: number;
   };
   bracket: Array<{ round: number; label: string; matches: Array<{
     id: string; round: number; matchStatus: string; teamA: TdTeamRef | null; teamB: TdTeamRef | null; winnerId: string | null; scheduledAt: string | null;
@@ -132,7 +133,7 @@ export function useBracket(id?: string) {
     queryKey: id ? qk.bracket(id) : qk.bracket("_"),
     enabled: Boolean(id),
     queryFn: async () => {
-      const { data } = await axiosInstance.get<{ bracket: BracketMatch[]; phase: string; viewerAccess: ViewerAccess; bracketType?: 'single_elim' | 'round_robin' }>(
+      const { data } = await axiosInstance.get<{ bracket: BracketMatch[]; phase: string; viewerAccess: ViewerAccess; bracketType?: 'single_elim' | 'round_robin' | 'swiss' }>(
         `/api/tournaments/${id}/bracket`,
       );
       return data;
