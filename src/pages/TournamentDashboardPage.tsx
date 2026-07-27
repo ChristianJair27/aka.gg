@@ -4,8 +4,9 @@
 // externally; this file only renders the page for route `/tournaments/:id/...`.
 import { CSSProperties, ReactNode, useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { axiosInstance } from '@/lib/axios';
+import { qk } from '@/hooks/queries/keys';
 import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -129,7 +130,7 @@ export default function TournamentDashboardPage() {
           <>
             <Hero data={data} onBracket={() => setTab('bracket')} navigate={go} />
             <Tiles t={data.tournament} />
-            {data.viewerAccess === 'owner' && <AdminPanel id={id} phase={data.tournament.phase} />}
+            {data.viewerAccess === 'owner' && <AdminPanel id={id} phase={data.tournament.phase} bracketType={data.tournament.bracketType} />}
             <div className="td-shell">
               <aside className="td-side">
                 <SideNav value={tab} onChange={setTab} live={data.tournament.status === 'live'} />
@@ -818,11 +819,27 @@ function ScheduleCard({ data }: { data: TdBoardPayload }) {
 }
 
 // ── ADMIN PANEL (solo organizador) ───────────────────────────────────────────
-function AdminPanel({ id, phase }: { id: string; phase: string }) {
+function AdminPanel({ id, phase, bracketType }: { id: string; phase: string; bracketType?: string }) {
   const closeReg = useCloseRegistration(id);
   const start    = useStartTournament(id);
   const codes    = useGenerateCodes(id);
   const sync     = useSyncGames(id);
+  const qc       = useQueryClient();
+  const [savingType, setSavingType] = useState(false);
+  const canPickFormat = phase === 'registration' || phase === 'checkin';
+
+  const setType = async (bt: 'single_elim' | 'round_robin') => {
+    if (bt === bracketType || savingType) return;
+    setSavingType(true);
+    try {
+      await axiosInstance.patch(`/api/tournaments/${id}`, { bracketType: bt });
+      qc.invalidateQueries({ queryKey: qk.tournamentBoard(id) });
+      qc.invalidateQueries({ queryKey: qk.bracket(id) });
+      toast.success(bt === 'round_robin' ? 'Formato: Round Robin (liga)' : 'Formato: Eliminación directa');
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error ?? 'No se pudo cambiar el formato');
+    } finally { setSavingType(false); }
+  };
 
   const actions: Array<{ show: boolean; label: string; icon: ReactNode; onClick: () => void; pending: boolean; primary?: boolean }> = [
     { show: phase === 'registration', label: 'CERRAR INSCRIPCIONES', icon: <Lock size={14} />, onClick: () => closeReg.mutate(), pending: closeReg.isPending },
@@ -840,6 +857,23 @@ function AdminPanel({ id, phase }: { id: string; phase: string }) {
           <Settings2 size={14} color={RED} />
           <span className="td-over" style={{ color: RED, letterSpacing: '2px' }}>PANEL DEL ORGANIZADOR</span>
         </span>
+        {canPickFormat && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span className="td-over">FORMATO</span>
+            {([['single_elim', 'ELIMINACIÓN'], ['round_robin', 'LIGA · RR']] as const).map(([bt, label]) => (
+              <button key={bt} onClick={() => setType(bt)} disabled={savingType}
+                style={{
+                  padding: '5px 12px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, cursor: 'pointer',
+                  letterSpacing: '1px', border: '1px solid',
+                  borderColor: bracketType === bt ? 'var(--td-red-glow)' : 'var(--td-border)',
+                  background: bracketType === bt ? 'rgba(232,50,60,0.15)' : 'transparent',
+                  color: bracketType === bt ? '#fff' : 'var(--td-text-2)',
+                }}>
+                {label}
+              </button>
+            ))}
+          </span>
+        )}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 'auto' }}>
           {visible.map((a) => (
             <Button key={a.label} variant={a.primary ? 'primary' : 'secondary'} icon={a.icon}
@@ -882,11 +916,14 @@ function BracketTab({ id, data }: { id: string; data: TdBoardPayload }) {
 
   const access = br.viewerAccess ?? data.viewerAccess;
 
-  // En pantallas angostas el árbol con conectores no cabe (ancho fijo por
-  // columna): mostramos las rondas como lista vertical, mismo contenido.
-  if (narrow) {
+  const isRR = br.bracketType === 'round_robin';
+
+  // Lista vertical: en móvil (el árbol no cabe) y SIEMPRE en round robin
+  // (una liga no tiene árbol de avance — son jornadas).
+  if (narrow || isRR) {
     const maxRound = Math.max(...bracket.map((m) => m.round));
     const rlabel = (r: number) => {
+      if (isRR) return `Jornada ${r}`;
       const d = maxRound - r;
       return d === 0 ? 'Final' : d === 1 ? 'Semifinales' : d === 2 ? 'Cuartos' : `Ronda ${r}`;
     };
@@ -1008,6 +1045,7 @@ function PartidasTab({ id }: { id: string }) {
 
   const maxRound = Math.max(...matches.map((m) => m.round));
   const rlabel = (r: number) => {
+    if (data.bracketType === 'round_robin') return `Jornada ${r}`;
     const d = maxRound - r;
     return d === 0 ? 'Final' : d === 1 ? 'Semifinales' : d === 2 ? 'Cuartos' : `Ronda ${r}`;
   };
