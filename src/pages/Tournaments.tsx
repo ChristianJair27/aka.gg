@@ -27,6 +27,7 @@ interface Tournament {
   status: string; participants: number; maxParticipants: number;
   prize: string; startDate: string; format: string; description: string;
   riotTournamentId?: number; codesAvailable?: number;
+  registrationUrl?: string; rulesUrl?: string;
 }
 
 const PHASE_CONFIG = {
@@ -165,14 +166,26 @@ function TournamentCard({
           </Link>
 
           {t.phase === 'registration' && t.participants < t.maxParticipants && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onRegister({ id: t.id, name: t.name }); }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
-                bg-foreground text-background hover:bg-foreground/90
-                transition-all duration-200">
-              <Plus className="h-4 w-4" />
-              Inscribirse
-            </button>
+            t.registrationUrl ? (
+              // Registro externo (formulario oficial de la liga)
+              <a href={t.registrationUrl} target="_blank" rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
+                  bg-foreground text-background hover:bg-foreground/90
+                  transition-all duration-200">
+                <Plus className="h-4 w-4" />
+                Inscribirse
+              </a>
+            ) : (
+              <button
+                onClick={(e) => { e.stopPropagation(); onRegister({ id: t.id, name: t.name }); }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
+                  bg-foreground text-background hover:bg-foreground/90
+                  transition-all duration-200">
+                <Plus className="h-4 w-4" />
+                Inscribirse
+              </button>
+            )
           )}
           {t.phase === 'checkin' && (
             <Link to={`/tournaments/${t.id}`}

@@ -112,6 +112,7 @@ export interface TdBoardPayload {
     fearless?: boolean;
     bracketType?: 'single_elim' | 'round_robin' | 'swiss';
     seriesTo?: number; finalSeriesTo?: number;
+    registrationUrl?: string | null; rulesUrl?: string | null;
   };
   bracket: Array<{ round: number; label: string; matches: Array<{
     id: string; round: number; matchStatus: string; teamA: TdTeamRef | null; teamB: TdTeamRef | null; winnerId: string | null; scheduledAt: string | null;

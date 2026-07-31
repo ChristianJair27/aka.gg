@@ -409,10 +409,13 @@ function Hero({ data, onBracket, navigate }: {
               {t.prizePool || '—'}
             </div>
           </div>
-          {/* La inscripción vive en el listado (/tournaments) — navegar a la
-              misma página era un no-op. Solo se muestra durante inscripciones. */}
+          {/* Con registro externo (formulario de la liga) el botón manda ahí;
+              sin él, al listado donde vive el modal de inscripción. */}
           {t.status === 'registration' && (
-            <Button variant="primary" icon={<Zap size={15} />} full onClick={() => navigate('/tournaments')}>
+            <Button variant="primary" icon={<Zap size={15} />} full
+              onClick={() => t.registrationUrl
+                ? window.open(t.registrationUrl, '_blank', 'noopener')
+                : navigate('/tournaments')}>
               INSCRIBIR EQUIPO
             </Button>
           )}
@@ -1248,12 +1251,31 @@ function ReglasTab({ data }: { data: TdBoardPayload }) {
   ];
   return (
     <Card>
-      <SectionHead icon={<BarChart3 size={14} color={RED} />} title="REGLAS DEL TORNEO" />
+      <SectionHead
+        icon={<BarChart3 size={14} color={RED} />}
+        title="REGLAS DEL TORNEO"
+        right={t.rulesUrl ? (
+          <Button variant="secondary" icon={<ScrollText size={14} />}
+            onClick={() => window.open(t.rulesUrl!, '_blank', 'noopener')}>
+            ABRIR PDF
+          </Button>
+        ) : undefined}
+      />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {lines.map((l, i) => (
           <p key={i} style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: 'var(--td-text-2)' }}>{l}</p>
         ))}
       </div>
+      {/* Reglamento oficial embebido (PDF) */}
+      {t.rulesUrl && (
+        <div style={{ marginTop: 16, borderRadius: 12, overflow: 'hidden', background: '#1a1a20' }}>
+          <iframe
+            src={`${t.rulesUrl}#view=FitH`}
+            title="Reglamento oficial"
+            style={{ width: '100%', height: '75vh', border: 'none', display: 'block' }}
+          />
+        </div>
+      )}
     </Card>
   );
 }
