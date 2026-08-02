@@ -6,6 +6,7 @@ import { useAuth } from '@/features/auth/useAuth';
 
 const NAV_LINKS = [
   { label: 'Stats',       href: '/stats'      },
+  { label: 'Meta',        href: '/meta'       },
   { label: 'Tournaments', href: '/tournaments' },
   { label: 'Social',      href: '/social'      },
 ];
