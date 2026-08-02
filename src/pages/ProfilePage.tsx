@@ -604,7 +604,18 @@ export default function ProfilePage() {
   // self-hosted que generaba estas etiquetas ya no está desplegado y producía
   // tags desactualizadas). `tags` ya combina racha, WR, KDA, main y rol.
   void aiInput; // conservado por si volvemos a activar el coach de IA
-  const aiTags = tags.filter((t) => t !== 'Sin datos suficientes').slice(0, 6);
+  // AiTags espera { label, kind } — mapear el string a su intención de color
+  const aiTags = useMemo(() => {
+    const kindOf = (t: string): 'pos' | 'warn' | 'gold' | 'dim' =>
+      t.startsWith('Racha') || t === 'En racha' || t === 'Juega seguro' ? 'pos'
+      : t === 'En slump' ? 'warn'
+      : t.startsWith('Main') || t === 'KDA alto' || t === 'Veterano' ? 'gold'
+      : 'dim';
+    return tags
+      .filter((t) => t !== 'Sin datos suficientes')
+      .slice(0, 6)
+      .map((label) => ({ label, kind: kindOf(label) }));
+  }, [tags]);
   const aiUnavailable = false;
   // Puntos de carga SOLO mientras no haya nada que mostrar Y algo siga cargando.
   // (Antes quedaba atorado en "..." si la query de partidas tardaba/fallaba,
