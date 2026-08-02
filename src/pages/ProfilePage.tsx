@@ -606,7 +606,10 @@ export default function ProfilePage() {
   void aiInput; // conservado por si volvemos a activar el coach de IA
   const aiTags = tags.filter((t) => t !== 'Sin datos suficientes').slice(0, 6);
   const aiUnavailable = false;
-  const aiLoading = matchesLoading && !matches.length;
+  // Puntos de carga SOLO mientras no haya nada que mostrar Y algo siga cargando.
+  // (Antes quedaba atorado en "..." si la query de partidas tardaba/fallaba,
+  // aunque las etiquetas de OP.GG ya estuvieran listas.)
+  const aiLoading = aiTags.length === 0 && (opggQ.isLoading || (matchesLoading && !matches.length));
 
   const profileIconUrl = summary?.summoner?.profileIconId != null ? dd.profileIcon(summary.summoner.profileIconId) : '';
 
@@ -1367,12 +1370,24 @@ function MatchRowMini({ m, champByKey, puuid, region, continent, index = 0 }: {
 // ─── Player tags ────────────────────────────────────────────────────────────
 // ─── Historial de temporadas (OP.GG MCP: elo final por season) ──────────────
 const ROMAN = ['', 'I', 'II', 'III', 'IV'];
-function SeasonHistory({ seasons, loading }: {
-  seasons: Array<{ season_id: number; display?: string; tier: string | null; division: number | null; lp: number | null; tier_image_url?: string | null }>;
-  loading: boolean;
-}) {
+const TIER_ORDER: Record<string, number> = {
+  CHALLENGER: 10, GRANDMASTER: 9, MASTER: 8, DIAMOND: 7, EMERALD: 6,
+  PLATINUM: 5, GOLD: 4, SILVER: 3, BRONZE: 2, IRON: 1,
+};
+type SeasonEntry = { season_id: number; display?: string; tier: string | null; division: number | null; lp: number | null; tier_image_url?: string | null };
+// Valor comparable: tier > división (menor es mejor) > LP
+const seasonScore = (s: SeasonEntry) =>
+  (TIER_ORDER[s.tier ?? ''] ?? 0) * 10_000 + (5 - (s.division ?? 4)) * 1_000 + (s.lp ?? 0);
+
+function SeasonHistory({ seasons, loading }: { seasons: SeasonEntry[]; loading: boolean }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const peakId = useMemo(() => {
+    if (!seasons.length) return null;
+    return [...seasons].sort((a, b) => seasonScore(b) - seasonScore(a))[0].season_id;
+  }, [seasons]);
   if (!loading && !seasons.length) return null;
   const fmtTier = (t: string | null) => t ? t[0] + t.slice(1).toLowerCase() : '—';
+
   return (
     <Panel style={{ padding: 26 }}>
       <SectionTitle>Historial de temporadas</SectionTitle>
@@ -1382,28 +1397,54 @@ function SeasonHistory({ seasons, loading }: {
         </div>
       ) : (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {seasons.map((s, i) => (
-            <motion.div key={s.season_id}
-              initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }} transition={{ delay: Math.min(i * 0.05, 0.4) }}
-              title={`Season ${s.display || s.season_id}: ${fmtTier(s.tier)} ${ROMAN[s.division ?? 0] ?? s.division ?? ''} · ${s.lp ?? 0} LP`}
-              style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                padding: '10px 14px', borderRadius: 12, minWidth: 84,
-                background: 'rgba(255,255,255,0.03)',
-              }}>
-              <span style={{ fontSize: 10, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' }}>
-                S{s.display || s.season_id}
-              </span>
-              {s.tier_image_url
-                ? <img src={s.tier_image_url} alt={s.tier ?? ''} loading="lazy" style={{ width: 34, height: 34, objectFit: 'contain' }}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = rankEmblem(s.tier ?? ''); }} />
-                : <img src={rankEmblem(s.tier ?? '')} alt="" style={{ width: 34, height: 34, objectFit: 'contain' }} />}
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
-                {fmtTier(s.tier)} {ROMAN[s.division ?? 0] ?? ''}
-              </span>
-            </motion.div>
-          ))}
+          {seasons.map((s, i) => {
+            const isPeak = s.season_id === peakId;
+            return (
+              <motion.div key={s.season_id}
+                initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ delay: Math.min(i * 0.05, 0.4) }}
+                onMouseEnter={() => setHover(s.season_id)} onMouseLeave={() => setHover(null)}
+                style={{
+                  position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                  padding: '10px 14px', borderRadius: 12, minWidth: 84, cursor: 'default',
+                  background: isPeak ? 'linear-gradient(180deg, rgba(200,170,110,0.12), rgba(200,170,110,0.03))' : 'rgba(255,255,255,0.03)',
+                  boxShadow: isPeak ? '0 0 0 1px rgba(200,170,110,0.45), 0 0 18px rgba(200,170,110,0.15)' : undefined,
+                }}>
+                {isPeak && (
+                  <span style={{
+                    position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)',
+                    padding: '1px 8px', borderRadius: 999, fontSize: 8.5, fontWeight: 900, letterSpacing: '0.14em',
+                    background: 'linear-gradient(90deg, #c8aa6e, #e8d5a8)', color: '#1a1205',
+                  }}>PEAK</span>
+                )}
+                <span style={{ fontSize: 10, letterSpacing: '0.12em', color: isPeak ? 'rgba(232,213,168,0.8)' : 'rgba(255,255,255,0.35)', textTransform: 'uppercase' }}>
+                  S{s.display || s.season_id}
+                </span>
+                {s.tier_image_url
+                  ? <img src={s.tier_image_url} alt={s.tier ?? ''} loading="lazy" style={{ width: 34, height: 34, objectFit: 'contain' }}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = rankEmblem(s.tier ?? ''); }} />
+                  : <img src={rankEmblem(s.tier ?? '')} alt="" style={{ width: 34, height: 34, objectFit: 'contain' }} />}
+                <span style={{ fontSize: 12, fontWeight: 700, color: isPeak ? '#e8d5a8' : 'rgba(255,255,255,0.8)' }}>
+                  {fmtTier(s.tier)} {ROMAN[s.division ?? 0] ?? ''}
+                </span>
+
+                {/* Tooltip con detalle (OP.GG solo conserva Solo/Dúo por temporada) */}
+                {hover === s.season_id && (
+                  <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                    style={{
+                      position: 'absolute', bottom: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)',
+                      zIndex: 30, whiteSpace: 'nowrap', padding: '8px 12px', borderRadius: 10,
+                      background: 'rgba(8,8,10,0.96)', boxShadow: '0 8px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08)',
+                      fontSize: 11.5, lineHeight: 1.7, textAlign: 'left',
+                    }}>
+                    <div style={{ fontWeight: 700, color: '#fff' }}>Season {s.display || s.season_id}{isPeak ? ' · 🏔 Peak histórico' : ''}</div>
+                    <div style={{ color: 'rgba(255,255,255,0.75)' }}>Solo/Dúo: <b style={{ color: '#e8d5a8' }}>{fmtTier(s.tier)} {ROMAN[s.division ?? 0] ?? ''}</b> · {s.lp ?? 0} LP</div>
+                    <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10.5 }}>Flex: sin histórico (OP.GG solo conserva Solo/Dúo)</div>
+                  </motion.div>
+                )}
+              </motion.div>
+            );
+          })}
         </div>
       )}
     </Panel>
