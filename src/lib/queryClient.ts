@@ -9,7 +9,9 @@ export const queryClient = new QueryClient({
       staleTime: 60_000, // 1 min — treat data as fresh, no refetch
       gcTime: 5 * 60_000, // 5 min — keep unused cache around
       refetchOnWindowFocus: false,
-      retry: 1,
+      // Nunca reintentar un 429 (rate limit de Riot): reintentarlo lo agrava.
+      retry: (failureCount, error: any) =>
+        error?.response?.status !== 429 && failureCount < 1,
     },
   },
 });
