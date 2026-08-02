@@ -18,7 +18,6 @@ import {
 import { qk } from '@/hooks/queries/keys';
 import { axiosInstance } from '@/lib/axios';
 import { useDominantColor, tintRgba } from '@/lib/dominantColor';
-import { useAiInsights } from '@/hooks/queries/ai';
 import AiTags from '@/components/ai/AiTags';
 import { ProfileComments } from '@/components/ProfileComments';
 import {
@@ -601,12 +600,13 @@ export default function ProfilePage() {
     };
   }, [hasRiotId, recap, soloRank, flexRank, champRows, champByKey, gameName, tagLine, platform, opggData]);
 
-  const aiInsightsQ = useAiInsights(aiInput);
-  const aiTags = aiInsightsQ.data?.tags ?? [];
-  const aiUnavailable = aiInsightsQ.data?.unavailable;
-  // Skeleton while the insight is in flight, or while the recap it depends on
-  // is still loading. Once matches resolve with no data we simply render nothing.
-  const aiLoading = aiInput ? aiInsightsQ.isPending : (matchesLoading && !matches.length);
+  // Insights determinísticos desde datos reales de OP.GG MCP (el Ollama
+  // self-hosted que generaba estas etiquetas ya no está desplegado y producía
+  // tags desactualizadas). `tags` ya combina racha, WR, KDA, main y rol.
+  void aiInput; // conservado por si volvemos a activar el coach de IA
+  const aiTags = tags.filter((t) => t !== 'Sin datos suficientes').slice(0, 6);
+  const aiUnavailable = false;
+  const aiLoading = matchesLoading && !matches.length;
 
   const profileIconUrl = summary?.summoner?.profileIconId != null ? dd.profileIcon(summary.summoner.profileIconId) : '';
 
@@ -727,7 +727,7 @@ export default function ProfilePage() {
 
                 {/* ATAK AI — compact insight chips derived from the loaded stats */}
                 <AiTags
-                  label="ATAK AI"
+                  label="ATAK INSIGHTS"
                   tags={aiTags}
                   loading={aiLoading}
                   unavailable={aiUnavailable}
@@ -790,6 +790,7 @@ export default function ProfilePage() {
                 />
               </motion.div>
               <PlayerTags tags={tags} loading={matchesLoading && !matches.length} />
+              <SeasonHistory seasons={(opggData as any)?.previous_seasons ?? []} loading={opggQ.isLoading} />
               <RecentlyPlayedWith
                 players={teammates} loading={teammatesLoading}
                 champByKey={champByKey} region={platform}
@@ -1364,6 +1365,51 @@ function MatchRowMini({ m, champByKey, puuid, region, continent, index = 0 }: {
 }
 
 // ─── Player tags ────────────────────────────────────────────────────────────
+// ─── Historial de temporadas (OP.GG MCP: elo final por season) ──────────────
+const ROMAN = ['', 'I', 'II', 'III', 'IV'];
+function SeasonHistory({ seasons, loading }: {
+  seasons: Array<{ season_id: number; display?: string; tier: string | null; division: number | null; lp: number | null; tier_image_url?: string | null }>;
+  loading: boolean;
+}) {
+  if (!loading && !seasons.length) return null;
+  const fmtTier = (t: string | null) => t ? t[0] + t.slice(1).toLowerCase() : '—';
+  return (
+    <Panel style={{ padding: 26 }}>
+      <SectionTitle>Historial de temporadas</SectionTitle>
+      {loading ? (
+        <div style={{ display: 'flex', gap: 10 }}>
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} h={64} w={86} style={{ borderRadius: 12 }} />)}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {seasons.map((s, i) => (
+            <motion.div key={s.season_id}
+              initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }} transition={{ delay: Math.min(i * 0.05, 0.4) }}
+              title={`Season ${s.display || s.season_id}: ${fmtTier(s.tier)} ${ROMAN[s.division ?? 0] ?? s.division ?? ''} · ${s.lp ?? 0} LP`}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                padding: '10px 14px', borderRadius: 12, minWidth: 84,
+                background: 'rgba(255,255,255,0.03)',
+              }}>
+              <span style={{ fontSize: 10, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' }}>
+                S{s.display || s.season_id}
+              </span>
+              {s.tier_image_url
+                ? <img src={s.tier_image_url} alt={s.tier ?? ''} loading="lazy" style={{ width: 34, height: 34, objectFit: 'contain' }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = rankEmblem(s.tier ?? ''); }} />
+                : <img src={rankEmblem(s.tier ?? '')} alt="" style={{ width: 34, height: 34, objectFit: 'contain' }} />}
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
+                {fmtTier(s.tier)} {ROMAN[s.division ?? 0] ?? ''}
+              </span>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 function PlayerTags({ tags, loading }: { tags: string[]; loading: boolean }) {
   return (
     <Panel style={{ padding: 26 }}>
