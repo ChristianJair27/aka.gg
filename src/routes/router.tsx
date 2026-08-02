@@ -14,6 +14,7 @@ const Login                = lazy(() => import('@/pages/Login'));
 const Register             = lazy(() => import('@/pages/Register'));
 const ForgotPassword       = lazy(() => import('@/pages/ForgotPassword'));
 const MetaPage             = lazy(() => import('@/pages/MetaPage'));
+const ChampionPage         = lazy(() => import('@/pages/ChampionPage'));
 const StatsSearch          = lazy(() => import('@/pages/StatsSearch'));
 const Social               = lazy(() => import('@/pages/Social'));
 const TournamentsPage      = lazy(() => import('@/pages/Tournaments'));
@@ -55,6 +56,7 @@ export const AppRouter = () => (
       <Route path="/reset-password"           element={<ForgotPassword />} />
       <Route path="/stats"                    element={<StatsSearch />} />
       <Route path="/meta"                     element={<MetaPage />} />
+      <Route path="/champion/:slug"           element={<ChampionPage />} />
       <Route path="/match/:regional/:matchId" element={<MatchDetailPage />} />
       <Route path="/tournaments"              element={<TournamentsPage />} />
       <Route path="/tournaments/:id"          element={<TournamentDashboardPage />} />

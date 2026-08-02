@@ -803,7 +803,7 @@ export default function ProfilePage() {
                   loading={summaryLoading && !summary}
                 />
               </motion.div>
-              <PlayerTags tags={tags} loading={matchesLoading && !matches.length} />
+              {/* Etiquetas solo en el hero (ATAK INSIGHTS) — la card duplicada se quitó */}
               <SeasonHistory seasons={(opggData as any)?.previous_seasons ?? []} loading={opggQ.isLoading} />
               <RecentlyPlayedWith
                 players={teammates} loading={teammatesLoading}
@@ -1679,7 +1679,12 @@ function ChampionsTable({ rows, champByKey, loading, bestPlayers, region, opggCh
             return (
               <div
                 key={r.championName + idx}
-                style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 1fr 0.8fr', alignItems: 'center', gap: 8, padding: '10px 6px', borderBottom: HAIRLINE, transition: 'background .16s', cursor: 'default' }}
+                style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 1fr 0.8fr', alignItems: 'center', gap: 8, padding: '10px 6px', borderBottom: HAIRLINE, transition: 'background .16s', cursor: c ? 'pointer' : 'default' }}
+                title={c ? `Ver análisis de ${c.name}` : undefined}
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('a')) return; // respeta el link de "mejor jugador"
+                  if (c?.id) window.location.assign(`/champion/${c.id}`);
+                }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
               >

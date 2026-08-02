@@ -1,6 +1,7 @@
 // src/pages/MetaPage.tsx — Meta diaria potenciada por OP.GG MCP:
 // tier list por línea, calendario esports y skins en oferta.
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { axiosInstance } from '@/lib/axios';
@@ -36,8 +37,11 @@ function tierBadge(tier: number) {
   return <span className={`px-2 py-0.5 rounded-md text-xs font-black ${cls}`}>{label}</span>;
 }
 
+const LANE_POS: Record<string, string> = { top: 'TOP', jungle: 'JUNGLE', mid: 'MIDDLE', bottom: 'ADC', support: 'SUPPORT' };
+
 function TierListTab() {
   const [lane, setLane] = useState<(typeof LANES)[number]['key']>('mid');
+  const navigate = useNavigate();
   const { data: champs } = useChampions();
   const q = useQuery({
     queryKey: ['opgg', 'tier', lane],
@@ -70,7 +74,9 @@ function TierListTab() {
                 <motion.div key={p.name}
                   initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: Math.min(i * 0.03, 0.5) }}
-                  className={`${SURFACE} flex items-center gap-3 px-4 py-2.5`} style={SURFACE_BG}>
+                  onClick={() => slug && navigate(`/champion/${slug}?pos=${LANE_POS[lane]}`)}
+                  role="link" tabIndex={0}
+                  className={`${SURFACE} flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-white/[0.04] hover:scale-[1.01] transition`} style={SURFACE_BG}>
                   <span className="w-6 text-center text-sm font-black text-white/40">{i + 1}</span>
                   <img src={slug ? dd.champion(slug) : ''} alt={p.name}
                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
