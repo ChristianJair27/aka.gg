@@ -129,6 +129,7 @@ export default function TournamentDashboardPage() {
         ) : (
           <>
             <Hero data={data} onBracket={() => setTab('bracket')} navigate={go} />
+            <BroadcastBanner channel={id} navigate={go} />
             <Tiles t={data.tournament} />
             {data.viewerAccess === 'owner' && (
               <AdminPanel id={id} phase={data.tournament.phase} bracketType={data.tournament.bracketType}
@@ -164,6 +165,51 @@ export default function TournamentDashboardPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// ── BROADCAST BANNER ─────────────────────────────────────────────────────────
+// Si el Spectator Companion está transmitiendo en el canal de este torneo
+// (canal = id del torneo), aparece el acceso directo al broadcast en vivo.
+// Chequeo ligero cada 30s; si no hay transmisión no se renderiza nada.
+function BroadcastBanner({ channel, navigate }: { channel: string; navigate: (to: string) => void }) {
+  const feedQ = useQuery({
+    queryKey: ['broadcast-check', channel],
+    enabled: !!channel,
+    refetchInterval: 30_000,
+    retry: false,
+    queryFn: async () => {
+      const { data, status } = await axiosInstance.get(`/api/live-feed/${channel}`, {
+        validateStatus: (s) => s < 500,
+      });
+      return status === 200 && data?.ok
+        ? { label: String(data.matchLabel || ''), hasVideo: Boolean(data.streamUrl) }
+        : null;
+    },
+  });
+  const feed = feedQ.data;
+  if (!feed) return null;
+  return (
+    <button
+      onClick={() => navigate(`/broadcast/${channel}`)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12, width: '100%', margin: '14px 0 0',
+        padding: '13px 18px', borderRadius: 14, border: '1px solid rgba(232,50,60,0.4)',
+        background: 'linear-gradient(90deg, rgba(232,50,60,0.16), rgba(232,50,60,0.05))',
+        color: 'var(--td-text)', cursor: 'pointer', textAlign: 'left',
+      }}
+    >
+      <span className="td-dot-pulse" style={{ width: 9, height: 9, borderRadius: '50%', background: RED, boxShadow: `0 0 12px ${RED}`, flexShrink: 0 }} />
+      <span style={{ fontWeight: 800, fontSize: 14, letterSpacing: 0.4, color: RED, flexShrink: 0 }}>
+        📡 TRANSMISIÓN EN VIVO
+      </span>
+      <span style={{ fontSize: 13.5, color: 'var(--td-text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {feed.label || 'Partida del torneo en curso'}{feed.hasVideo ? ' · con video' : ''}
+      </span>
+      <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 700, color: 'var(--td-text)', flexShrink: 0 }}>
+        Ver broadcast →
+      </span>
+    </button>
   );
 }
 
