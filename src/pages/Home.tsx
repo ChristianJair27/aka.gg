@@ -376,12 +376,41 @@ export default function Home() {
             >
               Las estadísticas han <span className="font-serif italic font-normal text-red-500">cambiado.</span> ¿Y tú?
             </motion.h2>
-            <motion.p 
+            <motion.p
               {...fadeUp(0.25)}
               className="text-gray-400 text-lg max-w-2xl mx-auto font-light leading-relaxed"
             >
               Las webs convencionales solo te muestran el pasado. ATAK.GG rastrea tus partidas actuales en tiempo real, crea torneos a medida y te entrena mediante IA.
             </motion.p>
+          </div>
+
+          {/* Diferenciadores — responden a las 3 quejas más repetidas de la
+              comunidad sobre las herramientas de stats dominantes: anuncios
+              invasivos, overlays/instalaciones que tumban FPS, y datos frágiles
+              no oficiales. Nuestro posicionamiento, en una línea cada uno. */}
+          <div className="grid sm:grid-cols-3 gap-10 md:gap-6 text-left">
+            {[
+              {
+                title: "Sin anuncios. Nunca.",
+                desc: "Otras plataformas tapan las builds con banners. Aquí tus stats están limpias, en cada página, en cada dispositivo."
+              },
+              {
+                title: "Todo en tu navegador",
+                desc: "Stats, torneos y modo espectador corren en la web. Sin lanzadores pesados ni overlays que tumban tus FPS."
+              },
+              {
+                title: "Datos oficiales de Riot",
+                desc: "Perfiles y códigos de torneo vía la API oficial. Nada de trucos frágiles que mueren con cada parche."
+              }
+            ].map((p, i) => (
+              <motion.div key={p.title} {...fadeUp(0.15 + i * 0.12)} className="space-y-3">
+                <h3 className="font-serif text-xl md:text-2xl text-white flex items-center gap-3">
+                  <span className="w-1.5 h-1.5 rotate-45 bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.6)] flex-shrink-0" aria-hidden="true" />
+                  {p.title}
+                </h3>
+                <p className="text-gray-400 text-sm leading-relaxed font-light pl-[18px]">{p.desc}</p>
+              </motion.div>
+            ))}
           </div>
 
           {/* El arsenal: filas editoriales separadas por filo (no cards) */}

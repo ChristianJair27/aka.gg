@@ -10,6 +10,7 @@ import { KataLoaderOverlay } from '@/components/KataLoader';
 import { useMatchStats } from '@/hooks/queries/stats';
 import { useAiMatchTags, type AiMatchData } from '@/hooks/queries/ai';
 import AiTags from '@/components/ai/AiTags';
+import MatchReplay2D from '@/components/MatchReplay2D';
 
 const C = {
   bg: '#0a0a0c', panel: '#131316', border: 'rgba(255,255,255,0.07)',
@@ -121,6 +122,18 @@ export default function MatchDetailPage() {
             team2="Equipo Rojo"
           />
         </div>
+
+        {/* Repetición 2D estilo broadcast (Match-V5 Timeline oficial) */}
+        {roster.length > 0 && (
+          <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 18, marginTop: 16 }}>
+            <MatchReplay2D
+              regional={regional}
+              matchId={matchId}
+              roster={roster as any}
+              queueId={(stats as any)?.queueId}
+            />
+          </div>
+        )}
 
         {/* Clickable roster — jump to any player's profile */}
         {roster.length > 0 && (

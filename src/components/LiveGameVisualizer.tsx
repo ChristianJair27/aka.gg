@@ -11,6 +11,7 @@ import {
 
 interface Participant {
   summonerName: string;
+  riotId?: string | null;
   championId: number;
   teamId: number;
   puuid?: string;
@@ -21,12 +22,19 @@ interface Participant {
     primaryStyle?: number;
     subStyle?: number;
   };
-  rank?: { tier: string; rank: string; lp: number } | null;
+  rank?: {
+    tier: string; rank: string; lp: number;
+    wins?: number; losses?: number; winRate?: number | null; hotStreak?: boolean;
+  } | null;
+  /** Maestría con el campeón que está jugando EN ESTA partida (points 0 = primera vez). */
+  mastery?: { points: number; level: number } | null;
 }
 
 interface LiveGameData {
   gameId: number;
   platformId?: string;
+  /** Plataforma donde el backend encontró la partida (puede diferir de la página). */
+  platformUsed?: string;
   gameMode: string;
   gameLength: number;
   queueId?: number;
@@ -78,6 +86,54 @@ const SPELL_ID_TO_KEY: Record<number, string> = {
   21: 'Barrier', 32: 'Snowball',
 };
 
+// Nombre humano por cola (el gameMode crudo dice cosas como "KIWI" o "CHERRY").
+const QUEUE_LABELS: Record<number, string> = {
+  420: 'Clasificatoria Solo/Dúo', 440: 'Clasificatoria Flex',
+  400: 'Normal (Draft)', 430: 'Normal (Blind)', 490: 'Quickplay', 480: 'Swiftplay',
+  450: 'ARAM', 2400: 'ARAM: Mayhem', 2300: 'Brawl',
+  1700: 'Arena', 1710: 'Arena', 1900: 'URF', 900: 'URF', 700: 'Clash',
+  830: 'Co-op vs IA', 840: 'Co-op vs IA', 850: 'Co-op vs IA',
+};
+const GAMEMODE_LABELS: Record<string, string> = {
+  CLASSIC: 'Grieta del Invocador', ARAM: 'ARAM', KIWI: 'ARAM: Mayhem',
+  CHERRY: 'Arena', URF: 'URF', TUTORIAL: 'Tutorial', PRACTICETOOL: 'Herramienta de práctica',
+};
+// Modos donde los jugadores eligen AUGMENTS dentro de la partida (no runas
+// completas): el spectator no expone esas elecciones.
+const AUGMENT_QUEUES = new Set([1700, 1710, 2400]);
+const AUGMENT_MODES = new Set(['KIWI', 'CHERRY']);
+
+// ── Elo + afinidad campeón-jugador ───────────────────────────────────────────
+const TIER_COLORS: Record<string, string> = {
+  IRON: '#8a8a8a', BRONZE: '#a97142', SILVER: '#b8c4c4', GOLD: '#e8c063',
+  PLATINUM: '#4fd1c5', EMERALD: '#2ecc71', DIAMOND: '#7fb8ff',
+  MASTER: '#c084fc', GRANDMASTER: '#ef4444', CHALLENGER: '#facc15',
+};
+const TIER_SHORT: Record<string, string> = {
+  IRON: 'Hierro', BRONZE: 'Bronce', SILVER: 'Plata', GOLD: 'Oro', PLATINUM: 'Plat',
+  EMERALD: 'Esm', DIAMOND: 'Dia', MASTER: 'Master', GRANDMASTER: 'GM', CHALLENGER: 'Chall',
+};
+const crestUrl = (tier: string) =>
+  `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-shared-components/global/default/${tier.toLowerCase()}.png`;
+
+const fmtPts = (n: number) =>
+  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1).replace('.0', '')}M`
+  : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n);
+
+// Etiquetas que cruzan al JUGADOR con el CAMPEÓN de esta partida.
+function championTags(p: Participant): Array<{ text: string; cls: string }> {
+  const tags: Array<{ text: string; cls: string }> = [];
+  const m = p.mastery;
+  if (m) {
+    if (m.points >= 300_000) tags.push({ text: `Main · ${fmtPts(m.points)} pts`, cls: 'text-amber-300 border-amber-400/30 bg-amber-400/10' });
+    else if (m.points >= 60_000) tags.push({ text: `Experimentado · ${fmtPts(m.points)}`, cls: 'text-emerald-300 border-emerald-400/25 bg-emerald-400/10' });
+    else if (m.points > 0 && m.points < 6_000) tags.push({ text: 'Poco jugado', cls: 'text-white/55 border-white/15 bg-white/5' });
+    else if (m.points === 0) tags.push({ text: 'Primera vez', cls: 'text-sky-300 border-sky-400/25 bg-sky-400/10' });
+  }
+  if (p.rank?.hotStreak) tags.push({ text: '🔥 Racha', cls: 'text-red-300 border-red-400/30 bg-red-400/10' });
+  return tags.slice(0, 2);
+}
+
 function getSpellIcon(version: string, spellId: number) {
   const key = SPELL_ID_TO_KEY[spellId] || 'Flash';
   return `https://ddragon.leagueoflegends.com/cdn/${version}/img/spell/Summoner${key}.png`;
@@ -113,14 +169,18 @@ function calculateObjectiveTimers(gameLength: number) {
 }
 
 function PlayerRow({
-  p, side, champs, version, runes, spells, isMe,
+  p, side, champs, version, runes, spells, isMe, platform, augmentMode,
 }: {
   p: Participant; side: 'blue' | 'red'; champs: any; version: string;
-  runes?: any; spells?: any; isMe: boolean;
+  runes?: any; spells?: any; isMe: boolean; platform?: string; augmentMode?: boolean;
 }) {
   const champ = getChampion(champs, p.championId);
   const keystone = p.perks?.keystone;
   const runeData = keystone && runes ? runes[keystone] : null;
+  // Link al perfil del jugador (formato de ruta: /profile/:region/Nombre-TAG)
+  const profileHref = p.riotId && platform
+    ? `/profile/${platform}/${encodeURIComponent(p.riotId.replace('#', '-'))}`
+    : null;
 
   const spell1Cd = SPELL_COOLDOWNS[p.spell1Id] || 180;
   const spell2Cd = SPELL_COOLDOWNS[p.spell2Id] || 300;
@@ -143,11 +203,39 @@ function PlayerRow({
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between">
-          <div className="font-semibold text-sm truncate pr-2">
-            {p.summonerName || 'Invocador'}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {profileHref ? (
+              <a href={profileHref} target="_blank" rel="noopener noreferrer"
+                className="font-semibold text-sm truncate hover:text-red-400 hover:underline underline-offset-2 transition-colors">
+                {p.summonerName || 'Invocador'}
+              </a>
+            ) : (
+              <div className="font-semibold text-sm truncate">
+                {p.summonerName || 'Invocador'}
+              </div>
+            )}
+            {/* Elo del jugador (crest oficial + tier corto + LP + WR temporada) */}
+            {p.rank?.tier && (
+              <span
+                className="flex items-center gap-1 rounded-full border px-1.5 py-0.5 flex-shrink-0"
+                style={{ borderColor: `${TIER_COLORS[p.rank.tier] || '#888'}55`, background: `${TIER_COLORS[p.rank.tier] || '#888'}14` }}
+                title={`${p.rank.tier} ${p.rank.rank} · ${p.rank.lp} LP${p.rank.winRate != null ? ` · ${p.rank.winRate}% WR (${p.rank.wins}V ${p.rank.losses}D)` : ''}`}
+              >
+                <img src={crestUrl(p.rank.tier)} className="w-4 h-4 object-contain" alt=""
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                <span className="text-[10px] font-bold" style={{ color: TIER_COLORS[p.rank.tier] || '#ccc' }}>
+                  {TIER_SHORT[p.rank.tier] || p.rank.tier} {p.rank.rank}
+                </span>
+                {p.rank.winRate != null && (
+                  <span className={`text-[9px] font-mono ${p.rank.winRate >= 50 ? 'text-teal-300/80' : 'text-white/40'}`}>
+                    {p.rank.winRate}%
+                  </span>
+                )}
+              </span>
+            )}
           </div>
-          {champ && <div className="text-[10px] text-white/50 font-mono truncate">{champ.name}</div>}
+          {champ && <div className="text-[10px] text-white/50 font-mono truncate flex-shrink-0">{champ.name}</div>}
         </div>
 
         {/* Spells + Runes row */}
@@ -170,13 +258,25 @@ function PlayerRow({
             })}
           </div>
 
-          {/* Keystone */}
-          {runeData && (
+          {/* Keystone — en modos con augments (Mayhem/Arena) las elecciones se
+              hacen dentro de la partida y el spectator no las expone. */}
+          {augmentMode ? (
+            <div className="flex items-center gap-1.5 rounded bg-purple-500/10 border border-purple-500/25 px-1.5 py-0.5 text-purple-300">
+              <span className="text-[10px]">Augments en partida</span>
+            </div>
+          ) : runeData ? (
             <div className="flex items-center gap-1.5 text-white/80">
               <img src={runeData.icon} className="w-4 h-4" alt="" />
               <span className="text-[10px] truncate max-w-[92px]">{runeData.name}</span>
             </div>
-          )}
+          ) : null}
+
+          {/* Afinidad jugador↔campeón de ESTA partida (maestría) + racha */}
+          {championTags(p).map((tag, i) => (
+            <span key={i} className={`rounded-full border px-1.5 py-0.5 text-[10px] whitespace-nowrap ${tag.cls}`}>
+              {tag.text}
+            </span>
+          ))}
         </div>
       </div>
     </div>
@@ -206,7 +306,14 @@ export default function LiveGameVisualizer({
 
   const objectiveTimers = useMemo(() => calculateObjectiveTimers(liveGame.gameLength || 0), [liveGame.gameLength]);
 
-  const gameModeLabel = liveGame.gameMode === 'CLASSIC' ? 'Clasificatoria' : (liveGame.gameMode || 'Partida');
+  // Etiqueta humana del modo: primero por queueId (más preciso), luego gameMode.
+  const gameModeLabel =
+    QUEUE_LABELS[liveGame.queueId ?? -1] ||
+    GAMEMODE_LABELS[liveGame.gameMode || ''] ||
+    liveGame.gameMode || 'Partida';
+  const augmentMode = AUGMENT_QUEUES.has(liveGame.queueId ?? -1) || AUGMENT_MODES.has(liveGame.gameMode || '');
+  // Los timers de dragón/heraldo/barón solo aplican a la Grieta del Invocador.
+  const showObjectives = (liveGame.gameMode === 'CLASSIC') || [420, 440, 400, 430, 490, 480, 700].includes(liveGame.queueId ?? -1);
 
   // Show if the live game was detected on a different platform than the page (common with multi-region accounts)
   const detectedOnDifferentPlatform = liveGame.platformUsed && liveGame.platformUsed.toLowerCase() !== platform.toLowerCase();
@@ -276,9 +383,7 @@ export default function LiveGameVisualizer({
             <span className="font-mono tabular-nums">{formatTime(liveGame.gameLength || 0)}</span>
           </div>
 
-          <div className="text-xs text-white/60">
-            {gameModeLabel} • {liveGame.queueId === 420 ? 'Solo/Duo' : liveGame.queueId === 440 ? 'Flex' : 'Normal'}
-          </div>
+          <div className="text-xs text-white/60">{gameModeLabel}</div>
 
           {detectedOnDifferentPlatform && (
             <div className="text-[10px] px-2 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/30 text-yellow-400">
@@ -331,7 +436,7 @@ export default function LiveGameVisualizer({
                 </div>
                 <div className="space-y-2">
                   {blue.map((p, i) => (
-                    <PlayerRow key={i} p={p} side="blue" champs={champs} version={version} runes={runes} spells={spells} isMe={isMe(p)} />
+                    <PlayerRow key={i} p={p} side="blue" champs={champs} version={version} runes={runes} spells={spells} isMe={isMe(p)} platform={(liveGame.platformUsed || platform).toLowerCase()} augmentMode={augmentMode} />
                   ))}
                 </div>
 
@@ -365,7 +470,7 @@ export default function LiveGameVisualizer({
                 </div>
                 <div className="space-y-2">
                   {red.map((p, i) => (
-                    <PlayerRow key={i} p={p} side="red" champs={champs} version={version} runes={runes} spells={spells} isMe={isMe(p)} />
+                    <PlayerRow key={i} p={p} side="red" champs={champs} version={version} runes={runes} spells={spells} isMe={isMe(p)} platform={(liveGame.platformUsed || platform).toLowerCase()} augmentMode={augmentMode} />
                   ))}
                 </div>
 
@@ -403,22 +508,30 @@ export default function LiveGameVisualizer({
                   </div>
                 </div>
 
-                {/* Objective Timers - Very Stats Focused */}
+                {/* Objective Timers — solo Grieta del Invocador (en ARAM/Arena no hay dragón/heraldo/barón) */}
                 <div>
                   <div className="uppercase text-[10px] tracking-[1px] text-white/50 mb-2 font-medium flex items-center gap-1.5">
                     <Target className="h-3.5 w-3.5" /> OBJETIVOS (ESTIMADOS)
                   </div>
-                  <div className="space-y-1.5 text-sm">
-                    {objectiveTimers.map((obj, idx) => (
-                      <div key={idx} className="flex justify-between items-center rounded bg-white/[0.025] px-3 py-1">
-                        <span className="text-white/80">{obj.name}</span>
-                        <span className={`font-mono text-xs ${obj.status === 'active' ? 'text-emerald-400' : 'text-white/70'}`}>
-                          {obj.status === 'active' ? 'ACTIVO AHORA' : obj.time > 0 ? `~${formatTime(obj.time)}` : '—'}
-                        </span>
+                  {showObjectives ? (
+                    <>
+                      <div className="space-y-1.5 text-sm">
+                        {objectiveTimers.map((obj, idx) => (
+                          <div key={idx} className="flex justify-between items-center rounded bg-white/[0.025] px-3 py-1">
+                            <span className="text-white/80">{obj.name}</span>
+                            <span className={`font-mono text-xs ${obj.status === 'active' ? 'text-emerald-400' : 'text-white/70'}`}>
+                              {obj.status === 'active' ? 'ACTIVO AHORA' : obj.time > 0 ? `~${formatTime(obj.time)}` : '—'}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                  <div className="text-[10px] text-white/40 mt-1.5">Los tiempos son aproximados basados en la duración.</div>
+                      <div className="text-[10px] text-white/40 mt-1.5">Los tiempos son aproximados basados en la duración.</div>
+                    </>
+                  ) : (
+                    <div className="text-xs text-white/45 rounded bg-white/[0.025] px-3 py-2">
+                      {gameModeLabel}: sin objetivos neutrales (dragón/heraldo/barón).
+                    </div>
+                  )}
                 </div>
 
                 {/* Quick Team Stats */}

@@ -34,6 +34,7 @@ import { motion } from 'framer-motion';
 import ChampionDanceSlot from '@/components/ChampionDanceSlot';
 import { ScrollVideoBg } from '@/components/ScrollVideoBg';
 import { Tip } from '@/components/ui/Tip';
+import { ShareProfileButton } from '@/components/ShareProfileCard';
 
 // ─── Brand tokens ───────────────────────────────────────────────────────────
 const C = {
@@ -148,16 +149,11 @@ const masteryColor = (level: number): string => {
 // background gradient + layered shadows + a faint inset top highlight, so the
 // panels read as embedded into the dark page rather than boxes on top of it.
 const PANEL_SURFACE: React.CSSProperties = {
-  // Frosted glass: a lighter translucent fill + stronger backdrop blur lets the
-  // living dagger video read through, so panels feel like a thin UI layer
-  // floating over the background rather than opaque stacked cards.
-  // Transparente sin blur: solo un velo sutilísimo para que el texto se lea
-  // sobre las zonas brillantes del video — las cards se sienten parte del fondo.
-  background: 'linear-gradient(180deg, rgba(6,6,8,0.34) 0%, rgba(6,6,8,0.16) 100%)',
+  // Sin tarjetas: las secciones son transparentes y fluyen sobre el fondo como
+  // una sola página. La legibilidad sobre el video la da el velo del contenedor
+  // (.atak-glow), no un fill por sección — así nada se lee como "caja".
+  background: 'transparent',
   borderRadius: 18,
-  // Soft ambient depth only — no heavy "floating card" drop shadow.
-  boxShadow:
-    'inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 44px -30px rgba(0,0,0,.6)',
 };
 
 // Inner "sub-cards": kept minimal and reserved for the rare place a subtle lift
@@ -422,6 +418,25 @@ export default function ProfilePage() {
   });
   const opggData = opggQ.data ?? null;
 
+  // ¿Está en partida AHORA? Chequeo ligero (Spectator-V5) → botón EN VIVO que
+  // lleva al espectador universal /live/:region/:name. Re-chequea cada 60s.
+  const liveCheckQ = useQuery({
+    queryKey: ['live-check', platform, puuid],
+    enabled: !!puuid,
+    staleTime: 55_000,
+    refetchInterval: 60_000,
+    retry: false,
+    queryFn: async () => {
+      const { data, status } = await axiosInstance.get(`/api/stats/spectator/${platform}/${puuid}`, {
+        params: { rank: 0 },
+        validateStatus: (s) => s < 500,
+        timeout: 12000,
+      });
+      return status === 200 && Array.isArray(data?.participants) && data.participants.length > 0;
+    },
+  });
+  const isLive = liveCheckQ.data === true;
+
   const loadMore = () => setCount((n) => n + 10);
 
   // "Actualizar" — invalidate every stats query for this invocador (resolve
@@ -624,15 +639,88 @@ export default function ProfilePage() {
 
   const profileIconUrl = summary?.summoner?.profileIconId != null ? dd.profileIcon(summary.summoner.profileIconId) : '';
 
+  // ── Datos para la share card ───────────────────────────────────────────────
+  // Nombre visible → entry de DDragon (champion_stats de OP.GG solo trae nombre).
+  const champByName = useMemo(() => {
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const m: Record<string, { key: string; name: string }> = {};
+    for (const e of Object.values(champs?.byId || {})) m[norm(e.name)] = e;
+    return { get: (name: string) => m[norm(name)] };
+  }, [champs]);
+
+  const shareData = useMemo(() => {
+    // Temporada ranked completa (totales de OP.GG) — muestra mucho mayor que 30d.
+    const cs: any[] = opggData?.champion_stats || [];
+    const r: any = opggData?.rank;
+    let season: { games: number; wr: number; kda: string; wins: number; losses: number } | null = null;
+    if (cs.length) {
+      const games = cs.reduce((s, c) => s + (c.play || 0), 0);
+      const k = cs.reduce((s, c) => s + (c.kill || 0), 0);
+      const d = cs.reduce((s, c) => s + (c.death || 0), 0);
+      const a = cs.reduce((s, c) => s + (c.assist || 0), 0);
+      const wins = r?.wins ?? cs.reduce((s, c) => s + (c.win || 0), 0);
+      const losses = r?.losses ?? cs.reduce((s, c) => s + (c.lose || 0), 0);
+      if (games > 0) {
+        season = {
+          games,
+          wr: wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : 0,
+          kda: d === 0 ? (k + a).toFixed(2) : ((k + a) / d).toFixed(2),
+          wins, losses,
+        };
+      }
+    }
+
+    // Top campeones: temporada completa si hay OP.GG; si no, últimos 30 días.
+    const champIcon = (key?: string | number) =>
+      key != null ? `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${key}.png` : '';
+    const topChamps = cs.length
+      ? cs.slice(0, 3).map((c) => ({
+          iconUrl: champIcon(champByName.get(c.champion_name || '')?.key),
+          name: c.champion_name || '',
+          games: c.play || 0,
+          wr: c.play ? Math.round(((c.win || 0) / c.play) * 100) : 0,
+        }))
+      : champRows.map((row) => ({
+          iconUrl: champIcon(row.id),
+          name: champByKey?.[String(row.id)]?.name || `Campeón ${row.id}`,
+          games: row.games,
+          wr: row.wr,
+        }));
+
+    // Maestría del main: puntos DE POR VIDA (único total de carrera que da Riot).
+    const m0: any = (summary?.masteryTop || [])[0];
+    const mChamp = m0 ? champByKey?.[String(m0.championId)] : null;
+    const mastery = m0 && mChamp && m0.points ? { champ: mChamp.name, points: Number(m0.points) } : null;
+
+    // Mejor daño a campeones dentro de las partidas cargadas.
+    let bestDamage: { value: number; champ: string } | null = null;
+    for (const m of matches) {
+      const dmg = m?.totalDamageDealtToChampions;
+      if (dmg != null && (!bestDamage || dmg > bestDamage.value)) {
+        bestDamage = { value: dmg, champ: champByKey?.[String(m.championId)]?.name || '' };
+      }
+    }
+
+    // Wards de las partidas recientes (el campo llega cuando el backend nuevo
+    // está desplegado; con caché viejo simplemente no se muestra el chip).
+    const withWards = matches.filter((m) => m?.wardsPlaced != null);
+    const wardsRecent = withWards.length >= 5
+      ? { wards: withWards.reduce((s, m) => s + (m.wardsPlaced || 0), 0), games: withWards.length }
+      : null;
+
+    return { season, topChamps, mastery, bestDamage, wardsRecent };
+  }, [opggData, champRows, champByKey, champByName, summary, matches]);
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: '#e8e8ea', fontFamily: FONT_BODY, lineHeight: 1.5 }}>
       <style>{`
         @keyframes atak-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        @keyframes atak-live-dot { 0%,100%{opacity:1} 50%{opacity:.35} }
         .atak-glow { background:
           radial-gradient(900px 500px at 80% -10%, ${champTint ? tintRgba(champTint, 0.17) : 'rgba(225,36,46,0.14)'}, transparent 60%),
           radial-gradient(700px 460px at 6% 28%, ${champTint ? tintRgba(champTint, 0.07) : 'rgba(225,36,46,0.05)'}, transparent 62%),
-          transparent;
+          linear-gradient(180deg, rgba(8,8,10,0.55) 0%, rgba(8,8,10,0.40) 45%, rgba(8,8,10,0.55) 100%);
           transition: background 900ms ease; }
         @media (max-width: 960px){ .atak-grid{ grid-template-columns: 1fr !important; } }
       `}</style>
@@ -664,9 +752,11 @@ export default function ProfilePage() {
           {/* ── Profile header ─────────────────────────────────────────────── */}
           <Panel
             style={{
-              padding: '28px 30px', marginBottom: 28, overflow: 'hidden', position: 'relative',
+              padding: '28px 30px', marginBottom: 28, position: 'relative',
+              // Acento de marca sin caja: un brillo rojo que se funde con la
+              // página en vez de un fill que delimite una tarjeta.
               background:
-                'linear-gradient(120deg, rgba(225,36,46,0.16), rgba(225,36,46,0.03) 42%, rgba(255,255,255,0.01) 68%), rgba(15,15,19,0.4)',
+                'radial-gradient(720px 280px at 0% 0%, rgba(225,36,46,0.16), transparent 62%)',
             }}
           >
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 26, alignItems: 'center' }}>
@@ -704,6 +794,50 @@ export default function ProfilePage() {
                     {platform.toUpperCase()}
                   </span>
                   <Star size={20} style={{ color: C.gold, cursor: 'pointer', opacity: 0.85 }} />
+                  {/* Espectador en el navegador: si está jugando AHORA, ver la
+                      partida en vivo sin instalar nada (diferenciador ATAK). */}
+                  {isLive && (
+                    <Link
+                      to={`/live/${region}/${encodeURIComponent(name || '')}`}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 8,
+                        background: 'rgba(225,36,46,0.16)', color: '#ff6b73',
+                        borderRadius: 999, padding: '9px 18px', textDecoration: 'none',
+                        fontFamily: FONT_COND, fontWeight: 700, fontSize: 14, letterSpacing: 0.4,
+                        boxShadow: 'inset 0 0 0 1px rgba(225,36,46,0.35)',
+                      }}
+                    >
+                      <span style={{
+                        width: 8, height: 8, borderRadius: '50%', background: C.red,
+                        boxShadow: `0 0 10px ${C.red}`, animation: 'atak-live-dot 1.4s ease-in-out infinite',
+                      }} />
+                      EN VIVO · Ver partida
+                    </Link>
+                  )}
+                  {/* Card compartible: cada jugador que postea su card es alcance
+                      orgánico para ATAK (estrategia comunidad IG/TikTok). */}
+                  {!!gameName && (
+                    <ShareProfileButton
+                      data={{
+                        gameName,
+                        tagLine,
+                        platform,
+                        level: summary?.summoner?.level ?? null,
+                        profileIconUrl: profileIconUrl || null,
+                        splashUrl: topMasteryChamp ? dd.championSplash(topMasteryChamp.slug) : null,
+                        emblemUrl: soloRank ? rankEmblem(soloRank.tier) : null,
+                        soloRank,
+                        flexRank: flexRank ? { tier: flexRank.tier, rank: flexRank.rank, lp: flexRank.lp } : null,
+                        topPercent: leagueRank?.topPercent ?? null,
+                        recap,
+                        season: shareData.season,
+                        mastery: shareData.mastery,
+                        bestDamage: shareData.bestDamage,
+                        wardsRecent: shareData.wardsRecent,
+                        topChamps: shareData.topChamps,
+                      }}
+                    />
+                  )}
                 </div>
 
                 {/* Mastery hexagons */}
