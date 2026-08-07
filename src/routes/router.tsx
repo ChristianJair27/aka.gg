@@ -25,6 +25,7 @@ const NotFound             = lazy(() => import('@/pages/NotFound'));
 const MatchDetailPage      = lazy(() => import('@/pages/MatchDetailPage'));
 const LiveSpectatePage     = lazy(() => import('@/pages/LiveSpectatePage'));
 const BroadcastPage        = lazy(() => import('@/pages/BroadcastPage'));
+const BroadcastOverlayPage = lazy(() => import('@/pages/BroadcastOverlayPage'));
 
 function PageLoader() {
   return (
@@ -64,6 +65,8 @@ export const AppRouter = () => (
       <Route path="/live/:region/:name"       element={<LiveSpectatePage />} />
       {/* Broadcast en vivo alimentado por el Spectator Companion (torneos LQC). */}
       <Route path="/broadcast/:channel"       element={<BroadcastPage />} />
+      {/* Overlay de caster para OBS (transparente, branding LQC). */}
+      <Route path="/broadcast/:channel/overlay" element={<BroadcastOverlayPage />} />
       <Route path="/tournaments"              element={<TournamentsPage />} />
       <Route path="/tournaments/:id"          element={<TournamentDashboardPage />} />
       <Route path="/tournaments/:id/live"    element={<TournamentLivePage />} />
