@@ -1,0 +1,96 @@
+/* ============================================================================
+   ATAK.GG — capa "vision": lenguaje visual tipo Vision UI (glass sobre
+   degradado profundo) reinterpretado en la paleta de marca crimson/oro.
+   Se usa en el Dashboard de usuario y se comparte con el dashboard de torneo.
+   ========================================================================== */
+
+/* Lienzo: negro profundo con sangrado crimson (equivalente ATAK del bleed
+   púrpura de Vision) y un toque de oro abajo. */
+.vs-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 700px at 85% -10%, rgba(225, 36, 46, 0.16), transparent 60%),
+    radial-gradient(900px 600px at -10% 30%, rgba(120, 20, 30, 0.20), transparent 60%),
+    radial-gradient(1000px 500px at 50% 115%, rgba(200, 170, 110, 0.07), transparent 60%),
+    linear-gradient(180deg, #08070a 0%, #0b070b 48%, #060608 100%);
+  color: #e8e8ea;
+}
+
+/* Tarjeta glass: la firma Vision — degradado translúcido + blur fuerte,
+   radio generoso y hairline. */
+.vs-card {
+  background: linear-gradient(127deg, rgba(28, 14, 18, 0.72) 0%, rgba(12, 11, 16, 0.66) 78%);
+  backdrop-filter: blur(24px) saturate(130%);
+  -webkit-backdrop-filter: blur(24px) saturate(130%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 20px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 50px -20px rgba(0, 0, 0, 0.65);
+}
+
+.vs-card--hover { transition: transform .2s ease, border-color .2s ease; }
+.vs-card--hover:hover { transform: translateY(-3px); border-color: rgba(225, 36, 46, 0.28); }
+
+/* Cuadrado de icono (el sello de las stat-cards de Vision) */
+.vs-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+  background: linear-gradient(135deg, #e1242e 0%, #7d1017 100%);
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(225, 36, 46, 0.35);
+}
+.vs-ico--gold { background: linear-gradient(135deg, #c8aa6e 0%, #785a28 100%); box-shadow: 0 8px 22px rgba(200, 170, 110, 0.28); }
+.vs-ico--dim  { background: rgba(255, 255, 255, 0.06); box-shadow: none; color: rgba(255,255,255,0.7); }
+
+/* Botón degradado de marca */
+.vs-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 44px; padding: 0 20px; border: none; border-radius: 12px;
+  font-weight: 700; font-size: 14px; color: #fff; cursor: pointer;
+  background: linear-gradient(90deg, #e1242e 0%, #a5151d 100%);
+  box-shadow: 0 8px 24px rgba(225, 36, 46, 0.30);
+  transition: filter .15s, transform .15s;
+}
+.vs-btn:hover:not(:disabled) { filter: brightness(1.15); transform: translateY(-1px); }
+.vs-btn:disabled { opacity: .5; cursor: default; }
+
+.vs-btn--ghost {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
+}
+.vs-btn--ghost:hover:not(:disabled) { border-color: rgba(225, 36, 46, 0.5); filter: none; transform: none; color: #fff; }
+
+/* Fila de lista glass (actividad reciente, etc.) */
+.vs-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 11px 14px; border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+  transition: background .15s;
+}
+.vs-row:hover { background: rgba(255, 255, 255, 0.05); }
+
+/* Overline y etiquetas */
+.vs-over {
+  font-size: 10px; font-weight: 700; letter-spacing: .18em;
+  text-transform: uppercase; color: rgba(255, 255, 255, 0.38);
+}
+
+/* Grid de 12 columnas del dashboard */
+.vs-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 18px; }
+.vs-col-3  { grid-column: span 3; min-width: 0; }
+.vs-col-4  { grid-column: span 4; min-width: 0; }
+.vs-col-5  { grid-column: span 5; min-width: 0; }
+.vs-col-6  { grid-column: span 6; min-width: 0; }
+.vs-col-7  { grid-column: span 7; min-width: 0; }
+.vs-col-8  { grid-column: span 8; min-width: 0; }
+.vs-col-12 { grid-column: span 12; min-width: 0; }
+
+@media (max-width: 1100px) {
+  .vs-col-3, .vs-col-4 { grid-column: span 6; }
+  .vs-col-5, .vs-col-6, .vs-col-7, .vs-col-8 { grid-column: span 12; }
+}
+@media (max-width: 620px) {
+  .vs-col-3, .vs-col-4 { grid-column: span 12; }
+}

@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Clock, Menu, X, ChevronDown, LayoutDashboard, LogOut, Search, User, Zap } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/features/auth/useAuth';
+import { useOverview } from '@/hooks/queries/players';
 import { resolveRiotIdQueryOptions } from '@/hooks/queries/stats';
 import { getRecentSearches, saveRecentSearch, REGIONS } from '@/components/SummonerPrompt';
 import { usePlayerSuggestions, type PlayerSuggestion } from '@/hooks/usePlayerSuggestions';
@@ -242,6 +243,14 @@ export const Navbar = () => {
   const location = useLocation();
   const menuRef  = useRef<HTMLDivElement>(null);
 
+  // Cuenta de LoL vinculada → "Mi Perfil" lleva DIRECTO a su perfil de
+  // invocador, no al buscador. Sin cuenta vinculada, cae al dashboard.
+  const overviewQ = useOverview(isAuthenticated);
+  const linked = (overviewQ.data as any)?.profile;
+  const myProfileHref = linked?.gameName
+    ? `/stats/${(linked.platform || 'la1').toLowerCase()}/${encodeURIComponent(`${linked.gameName}#${linked.tagLine}`)}`
+    : '/dashboard';
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll);
@@ -339,9 +348,17 @@ export const Navbar = () => {
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-red-600/10 transition-colors">
                         <LayoutDashboard className="h-4 w-4 text-red-500" />Dashboard
                       </Link>
-                      <Link to="/stats" onClick={() => setUserMenuOpen(false)}
+                      <Link to={myProfileHref} onClick={() => setUserMenuOpen(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-red-600/10 transition-colors">
-                        <User className="h-4 w-4 text-red-500" />Mi Perfil
+                        <User className="h-4 w-4 text-red-500" />
+                        <span className="min-w-0">
+                          Mi Perfil
+                          {linked?.gameName && (
+                            <span className="block text-[10px] text-[#c8aa6e] truncate">
+                              {linked.gameName}#{linked.tagLine}
+                            </span>
+                          )}
+                        </span>
                       </Link>
                     </div>
                     <div className="border-t border-white/[0.05] py-1">

@@ -48,16 +48,21 @@
 }
 
 /* ── Panel: la caja base de todo el dashboard ─────────────────────────────── */
+/* Glass "vision": degradado translúcido + blur sobre el lienzo con aurora.
+   El tinte es lo bastante denso para que las tablas se lean sin esfuerzo. */
 .td-root .td-panel {
-  background: var(--td-card);
-  border: 1px solid var(--td-border);
-  border-radius: 18px;
-  box-shadow: var(--td-shadow);
+  background: linear-gradient(127deg, rgba(26, 14, 18, 0.78) 0%, rgba(12, 11, 16, 0.72) 78%);
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 20px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 50px -20px rgba(0, 0, 0, 0.6);
 }
-/* Sub-superficie dentro de un panel (tiles anidados, filas, mini-métricas) */
+/* Sub-superficie dentro de un panel (tiles anidados, filas, mini-métricas).
+   Sin blur propio: blur anidado dentro de blur cuesta GPU y no aporta. */
 .td-root .td-sub {
-  background: var(--td-subcard);
-  border: 1px solid var(--td-border-soft);
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 14px;
 }
 .td-root .td-hoverable { transition: border-color .18s, transform .18s, box-shadow .18s; }

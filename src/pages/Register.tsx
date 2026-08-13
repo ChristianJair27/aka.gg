@@ -1,4 +1,5 @@
-// src/pages/Register.tsx — ATAK.GG sign-up (matches Login: brand glass, Riot + Google)
+// src/pages/Register.tsx — ATAK.GG sign-up. Split "vision": arte de LoL a la
+// izquierda con título editorial, formulario glass a la derecha (espejo del Login).
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -8,7 +9,14 @@ import { motion } from "framer-motion";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { ScrollVideoBg } from "@/components/ScrollVideoBg";
 import { DaggerLogo } from "@/components/DaggerLogo";
+import { dd } from "@/lib/dataDragon";
 import { useAuth } from "@/features/auth/useAuth";
+
+// Mismo pool rotativo que el Login — cada visita, un arte distinto.
+const SPLASH_POOL = [
+  'Katarina', 'Ahri', 'Yasuo', 'Jinx', 'LeeSin', 'Akali', 'Sett', 'Vi',
+  'Aatrox', 'KSante', 'Caitlyn', 'Yone', 'Riven', 'Draven', 'Samira', 'Ezreal',
+];
 
 const registerSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
@@ -43,6 +51,7 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [splash] = useState(() => SPLASH_POOL[Math.floor(Math.random() * SPLASH_POOL.length)]);
 
   const { register, handleSubmit, formState: { errors } } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -69,103 +78,144 @@ const Register = () => {
     "w-full h-11 px-3.5 rounded-xl bg-white/[0.04] border border-white/[0.10] text-white text-sm " +
     "placeholder:text-gray-600 outline-none transition focus:border-red-500/60 focus:bg-white/[0.06]";
 
-  const shell = (children: React.ReactNode) => (
+  // Éxito: tarjeta simple centrada (no hace falta el split).
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-black relative overflow-hidden">
+        <ScrollVideoBg peakOpacity={0.55} floorOpacity={0.55} />
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          className="relative w-full max-w-md rounded-2xl p-8 text-center shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
+          style={{ background: 'linear-gradient(180deg, rgba(16,16,20,0.78) 0%, rgba(10,10,13,0.62) 100%)' }}>
+          <div className="mx-auto mb-4 w-12 h-12 rounded-xl flex items-center justify-center bg-green-500/15 border border-green-500/30">
+            <CheckCircle2 className="h-6 w-6 text-green-400" />
+          </div>
+          <h2 className="text-2xl font-black text-white mb-1">¡Cuenta creada!</h2>
+          <p className="text-sm text-gray-500 mb-4">Te redirigimos al inicio de sesión…</p>
+          <Loader2 className="h-5 w-5 animate-spin text-red-400 mx-auto" />
+        </motion.div>
+      </div>
+    );
+  }
+
+  return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-black relative overflow-hidden">
       <ScrollVideoBg peakOpacity={0.55} floorOpacity={0.55} />
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-1/3 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full blur-[120px]"
           style={{ background: "radial-gradient(circle, rgba(225,36,46,0.18), transparent 70%)" }} />
       </div>
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }} className="relative w-full max-w-md">
-        <div className="relative rounded-2xl p-8 shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
-          style={{ background: 'linear-gradient(180deg, rgba(16,16,20,0.78) 0%, rgba(10,10,13,0.62) 100%)' }}>
+
+      <motion.div
+        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        className="relative w-full max-w-5xl grid lg:grid-cols-2 rounded-3xl overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.7)]"
+        style={{ background: 'linear-gradient(180deg, rgba(16,16,20,0.78) 0%, rgba(10,10,13,0.62) 100%)' }}
+      >
+        {/* IZQUIERDA — splash art con título editorial */}
+        <div className="relative hidden lg:block min-h-[620px]">
+          <motion.img
+            key={splash}
+            src={dd.championSplash(splash)}
+            alt=""
+            initial={{ opacity: 0, scale: 1.06 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-0 h-full w-full object-cover object-top"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
+          {/* Fundido hacia el formulario (a la derecha) + oscurecido inferior */}
+          <div className="absolute inset-0" style={{
+            background:
+              'linear-gradient(270deg, rgba(12,12,15,0.98) 0%, rgba(12,12,15,0.25) 30%, transparent 60%),' +
+              'linear-gradient(180deg, transparent 55%, rgba(8,8,10,0.85) 100%)',
+          }} />
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-10 pointer-events-none">
+            <p className="text-[11px] uppercase tracking-[5px] text-white/60 mb-2">
+              Tu ascenso empieza aquí:
+            </p>
+            <p className="font-serif text-3xl xl:text-4xl uppercase tracking-[7px] text-white leading-snug"
+              style={{ textShadow: '0 4px 30px rgba(0,0,0,0.8)' }}>
+              Únete a <span className="text-red-500">ATAK</span>
+            </p>
+          </div>
+          <div className="absolute bottom-6 left-8 right-8">
+            <div className="h-px mb-3" style={{ background: 'linear-gradient(90deg, transparent, rgba(200,170,110,0.6), transparent)' }} />
+            <p className="font-serif text-lg text-white/85 tracking-wide">{splash}</p>
+            <p className="text-xs text-gray-500 uppercase tracking-[3px]">La escena competitiva de Querétaro</p>
+          </div>
+        </div>
+
+        {/* DERECHA — formulario */}
+        <div className="relative p-8 sm:p-10">
           <div className="absolute inset-x-8 top-0 h-px"
             style={{ background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.55) 35%, rgba(200,170,110,0.6) 65%, transparent)' }} />
-          {children}
+
+          <div className="text-center mb-7">
+            <DaggerLogo className="mx-auto mb-3 h-16 w-16 drop-shadow-[0_0_18px_rgba(239,68,68,0.5)]" />
+            <h1 className="font-serif text-4xl tracking-wide text-white">
+              ATAK<span className="text-red-500">.GG</span>
+            </h1>
+            <p className="text-sm text-gray-400 mt-1.5">Crea tu cuenta para competir</p>
+          </div>
+
+          <div className="space-y-2.5">
+            <button type="button" onClick={onRiot} disabled={isLoading}
+              className="w-full h-11 rounded-xl flex items-center justify-center gap-2.5 text-sm font-semibold text-white
+                bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600
+                shadow-[0_4px_16px_rgba(225,36,46,0.25)] transition disabled:opacity-50">
+              <RiotIcon className="h-5 w-5" />
+              Registrarse con Riot
+            </button>
+            <button type="button" onClick={onGoogle} disabled={isLoading}
+              className="w-full h-11 rounded-xl flex items-center justify-center gap-2.5 text-sm font-semibold
+                text-white bg-white/[0.05] border border-white/[0.12] hover:bg-white/[0.09] transition disabled:opacity-50">
+              <GoogleIcon className="h-5 w-5" />
+              Continuar con Google
+            </button>
+          </div>
+
+          <div className="relative my-5 text-center">
+            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-px bg-white/[0.08]" />
+            <span className="relative px-3 bg-[#101014] text-[11px] uppercase tracking-widest text-gray-600">o con email</span>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="name" className="text-xs font-medium text-gray-400">Nombre</label>
+              <input id="name" type="text" placeholder="Tu nombre" className={inputCls} {...register("name")} />
+              {errors.name && <p className="text-xs text-red-400">{errors.name.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="text-xs font-medium text-gray-400">Email</label>
+              <input id="email" type="email" autoComplete="email" placeholder="tu@email.com" className={inputCls} {...register("email")} />
+              {errors.email && <p className="text-xs text-red-400">{errors.email.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="text-xs font-medium text-gray-400">Contraseña</label>
+              <input id="password" type="password" autoComplete="new-password" placeholder="••••••••" className={inputCls} {...register("password")} />
+              {errors.password && <p className="text-xs text-red-400">{errors.password.message}</p>}
+            </div>
+
+            {error && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{error}</div>
+            )}
+
+            <button type="submit" disabled={isLoading}
+              className="w-full h-11 rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-white
+                bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600
+                shadow-[0_4px_16px_rgba(225,36,46,0.25)] transition disabled:opacity-50">
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Crear Cuenta"}
+            </button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-gray-500">
+            ¿Ya tienes una cuenta?{" "}
+            <Link to="/login" className="text-red-400 hover:text-red-300 font-semibold">Inicia sesión</Link>
+          </p>
         </div>
       </motion.div>
     </div>
-  );
-
-  if (success) {
-    return shell(
-      <div className="text-center py-4">
-        <div className="mx-auto mb-4 w-12 h-12 rounded-xl flex items-center justify-center bg-green-500/15 border border-green-500/30">
-          <CheckCircle2 className="h-6 w-6 text-green-400" />
-        </div>
-        <h2 className="text-2xl font-black text-white mb-1">¡Cuenta creada!</h2>
-        <p className="text-sm text-gray-500 mb-4">Te redirigimos al inicio de sesión…</p>
-        <Loader2 className="h-5 w-5 animate-spin text-red-400 mx-auto" />
-      </div>
-    );
-  }
-
-  return shell(
-    <>
-      <div className="text-center mb-7">
-        <DaggerLogo className="mx-auto mb-3 h-16 w-16 drop-shadow-[0_0_18px_rgba(239,68,68,0.5)]" />
-        <h1 className="font-serif text-4xl tracking-wide text-white">
-          ATAK<span className="text-red-500">.GG</span>
-        </h1>
-        <p className="text-sm text-gray-400 mt-1.5">Crea tu cuenta para competir</p>
-      </div>
-
-      <div className="space-y-2.5">
-        <button type="button" onClick={onRiot} disabled={isLoading}
-          className="w-full h-11 rounded-xl flex items-center justify-center gap-2.5 text-sm font-semibold text-white
-            bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600
-            shadow-[0_4px_16px_rgba(225,36,46,0.25)] transition disabled:opacity-50">
-          <RiotIcon className="h-5 w-5" />
-          Registrarse con Riot
-        </button>
-        <button type="button" onClick={onGoogle} disabled={isLoading}
-          className="w-full h-11 rounded-xl flex items-center justify-center gap-2.5 text-sm font-semibold
-            text-white bg-white/[0.05] border border-white/[0.12] hover:bg-white/[0.09] transition disabled:opacity-50">
-          <GoogleIcon className="h-5 w-5" />
-          Continuar con Google
-        </button>
-      </div>
-
-      <div className="relative my-5 text-center">
-        <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-px bg-white/[0.08]" />
-        <span className="relative px-3 bg-[rgba(13,13,17,0.66)] text-[11px] uppercase tracking-widest text-gray-600">o con email</span>
-      </div>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="space-y-1.5">
-          <label htmlFor="name" className="text-xs font-medium text-gray-400">Nombre</label>
-          <input id="name" type="text" placeholder="Tu nombre" className={inputCls} {...register("name")} />
-          {errors.name && <p className="text-xs text-red-400">{errors.name.message}</p>}
-        </div>
-        <div className="space-y-1.5">
-          <label htmlFor="email" className="text-xs font-medium text-gray-400">Email</label>
-          <input id="email" type="email" placeholder="tu@email.com" className={inputCls} {...register("email")} />
-          {errors.email && <p className="text-xs text-red-400">{errors.email.message}</p>}
-        </div>
-        <div className="space-y-1.5">
-          <label htmlFor="password" className="text-xs font-medium text-gray-400">Contraseña</label>
-          <input id="password" type="password" placeholder="••••••••" className={inputCls} {...register("password")} />
-          {errors.password && <p className="text-xs text-red-400">{errors.password.message}</p>}
-        </div>
-
-        {error && (
-          <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{error}</div>
-        )}
-
-        <button type="submit" disabled={isLoading}
-          className="w-full h-11 rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-white
-            bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600
-            shadow-[0_4px_16px_rgba(225,36,46,0.25)] transition disabled:opacity-50">
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Crear Cuenta"}
-        </button>
-      </form>
-
-      <p className="mt-6 text-center text-sm text-gray-500">
-        ¿Ya tienes una cuenta?{" "}
-        <Link to="/login" className="text-red-400 hover:text-red-300 font-semibold">Inicia sesión</Link>
-      </p>
-    </>
   );
 };
 

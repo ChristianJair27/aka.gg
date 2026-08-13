@@ -30,9 +30,10 @@ export type OverviewResponse = {
   }>;
 };
 
-export function useOverview() {
+export function useOverview(enabled = true) {
   return useQuery({
     queryKey: qk.overview(),
+    enabled,
     queryFn: async () => {
       const { data } = await axiosInstance.get<OverviewResponse>("/api/players/me/overview");
       return data;

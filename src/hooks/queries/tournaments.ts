@@ -103,6 +103,8 @@ export function useTournament(id?: string, options?: { pollWhenActive?: boolean 
 
 // ── Tournament dashboard (detail view) — one aggregated payload ───────────────
 export interface TdTeamRef { id: string; name: string; mono: string; color: string; score?: number | null; picks?: number[]; }
+// Nota: tournament.swissRounds (número | null) — rondas suizas planeadas;
+// con valor, el backend avanza de ronda y cierra el torneo solo.
 export interface TdBoardPayload {
   tournament: {
     id: string; name: string; season: string | null; startDate: string; endDate: string | null;
@@ -112,6 +114,7 @@ export interface TdBoardPayload {
     fearless?: boolean;
     bracketType?: 'single_elim' | 'round_robin' | 'swiss';
     seriesTo?: number; finalSeriesTo?: number;
+    swissRounds?: number | null;
     registrationUrl?: string | null; rulesUrl?: string | null;
   };
   bracket: Array<{ round: number; label: string; matches: Array<{

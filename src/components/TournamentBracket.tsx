@@ -50,11 +50,12 @@ interface TournamentBracketProps {
 
 // Layout constants — the connector math relies on a common row unit so each
 // next-round match lines up with the midpoint of its two feeder matches.
-const CARD_W = 208;   // px — match card width
-const STUB   = 22;    // px — horizontal connector stub on each side
+const CARD_W = 244;   // px — match card width (antes 208: nombres y marcador se
+                      // apretaban y el bracket se sentía "chico")
+const STUB   = 26;    // px — horizontal connector stub on each side
 const COL_W  = CARD_W + STUB * 2;
-const ROW    = 250;   // px — vertical space per first-round match (la tarjeta con
-                      // código + acciones mide ~230px; menos que eso la recorta)
+const ROW    = 280;   // px — vertical space per first-round match (la tarjeta con
+                      // código + acciones mide ~250px; menos que eso la recorta)
 const LINE   = 'rgba(255,255,255,0.14)';
 
 function CopyCode({ code }: { code: string }) {
@@ -137,17 +138,29 @@ function MatchCard({ match, isActive, isReporting, onActivate, onReport, onToggl
   const TeamRow = ({ team, score }: { team: string | null; score?: number }) => {
     const isWin = !!team && team === match.winner;
     const isLoss = !!match.winner && !isWin && !!team && team !== 'BYE';
+    const showScore = score !== undefined && (match.winner || (score ?? 0) > 0);
     return (
       <div className={teamCls(team)}>
-        <TeamAvatar name={team} dimmed={isLoss} />
-        <span className={`truncate flex-1 ${isLoss ? 'line-through' : ''}`}>{team || 'Por definir'}</span>
-        <span className="flex items-center gap-1 flex-shrink-0">
-          {score !== undefined && match.winner && <span className="text-xs opacity-60 tabular-nums">{score}</span>}
+        <TeamAvatar name={team} size={26} dimmed={isLoss} />
+        <span className={`truncate flex-1 text-[13.5px] ${isLoss ? 'line-through' : ''}`}>{team || 'Por definir'}</span>
+        <span className="flex items-center gap-1.5 flex-shrink-0">
           {isWin && <Crown className="h-3.5 w-3.5 text-yellow-400" />}
+          {/* Marcador protagonista: es lo primero que buscas en un bracket */}
+          {showScore && (
+            <span className={`min-w-[24px] text-center text-[15px] font-black tabular-nums rounded-md px-1 ${
+              isWin ? 'text-green-300' : 'text-white/45'
+            }`}>
+              {score}
+            </span>
+          )}
         </span>
       </div>
     );
   };
+
+  // Serie del enfrentamiento (BO3/BO5) si el payload la trae
+  const seriesTo = Number((match as any).seriesTo) || 1;
+  const boLabel = seriesTo > 1 ? `BO${seriesTo * 2 - 1}` : null;
 
   return (
     <div className={`rounded-xl overflow-hidden backdrop-blur-md transition ${
@@ -157,22 +170,29 @@ function MatchCard({ match, isActive, isReporting, onActivate, onReport, onToggl
                                          'border border-white/[0.05] bg-white/[0.01] opacity-50'
     }`} style={{ width: CARD_W }}>
       {!isEmpty && (
-        <div className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-center flex items-center justify-center gap-1.5 ${
+        <div className={`px-2.5 py-1.5 text-[10.5px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 ${
           match.matchStatus === 'complete' ? 'bg-green-500/10 text-green-400' :
           match.matchStatus === 'active'   ? 'bg-red-500/15 text-red-300' :
           match.matchStatus === 'ready'    ? 'bg-white/[0.04] text-gray-400' :
                                              'bg-white/[0.02] text-gray-600'
         }`}>
           {match.matchStatus === 'active' && <Radio className="h-2.5 w-2.5 animate-pulse" />}
-          {match.matchStatus === 'complete' ? 'Completado' :
-           match.matchStatus === 'active'   ? 'En curso' :
-           match.matchStatus === 'ready'    ? 'Por iniciar' : 'Esperando'}
+          <span>
+            {match.matchStatus === 'complete' ? 'Completado' :
+             match.matchStatus === 'active'   ? 'En curso' :
+             match.matchStatus === 'ready'    ? 'Por iniciar' : 'Esperando'}
+          </span>
+          {boLabel && (
+            <span className="ml-1 px-1.5 rounded-md bg-black/30 text-[9.5px] text-[#c8aa6e] font-black tracking-normal">
+              {boLabel}
+            </span>
+          )}
         </div>
       )}
 
-      <div className="p-2 space-y-1">
+      <div className="p-2.5 space-y-1.5">
         <TeamRow team={match.team1} score={match.score1} />
-        <div className="flex items-center justify-center -my-0.5">
+        <div className="flex items-center justify-center -my-1">
           <span className="text-[9px] font-black text-gray-700 tracking-widest">VS</span>
           <Swords className="h-3 w-3 text-gray-700 ml-1" />
         </div>

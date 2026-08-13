@@ -134,10 +134,10 @@ function SortableTable({ players }: { players: PlayerAggregate[] }) {
   };
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-white/[0.06]">
+    <div className="overflow-x-auto rounded-2xl">
       <table className="w-full text-left">
         <thead>
-          <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+          <tr className="border-b border-white/[0.08]">
             {TABLE_COLS.map(col => (
               <th
                 key={col.key}
@@ -180,14 +180,28 @@ function SortableTable({ players }: { players: PlayerAggregate[] }) {
                 </div>
               </td>
               <td className="px-3 py-2.5 text-center text-xs text-white/50">{p.gamesPlayed}</td>
+              {/* WR: porcentaje + barra de progreso (patrón "completion") */}
               <td className="px-3 py-2.5 text-center">
-                <span className={cn(
-                  'text-xs font-bold',
-                  p.winrate >= 60 ? 'text-green-400' :
-                  p.winrate >= 50 ? 'text-white/70'  : 'text-red-400/70',
-                )}>
-                  {p.winrate}%
-                </span>
+                <div className="inline-flex flex-col items-center gap-1 min-w-[52px]">
+                  <span className={cn(
+                    'text-xs font-bold leading-none',
+                    p.winrate >= 60 ? 'text-green-400' :
+                    p.winrate >= 50 ? 'text-white/70'  : 'text-red-400/70',
+                  )}>
+                    {p.winrate}%
+                  </span>
+                  <div className="h-1 w-12 rounded-full bg-white/[0.08] overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.min(100, p.winrate)}%`,
+                        background: p.winrate >= 60
+                          ? '#4ade80'
+                          : p.winrate >= 50 ? 'rgba(255,255,255,0.55)' : '#f87171',
+                      }}
+                    />
+                  </div>
+                </div>
               </td>
               <td className="px-3 py-2.5 text-center">
                 <span className={cn(
@@ -312,7 +326,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh }: Props) {
 
   if (matchesCompleted === 0) {
     return (
-      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] py-20 text-center">
+      <div className="td-panel py-20 text-center">
         <Trophy className="h-14 w-14 mx-auto mb-4 text-white/10" />
         <p className="text-white/30 text-sm">Aún no hay partidas completadas en este torneo</p>
         <p className="text-xs text-white/15 mt-1">Los stats globales aparecerán cuando termine la primera partida</p>
@@ -323,27 +337,29 @@ export function TournamentGlobalStats({ data, loading, onRefresh }: Props) {
   return (
     <div className="space-y-5">
 
-      {/* Summary cards */}
+      {/* Summary cards — patrón vision: cuadrado de icono con degradado */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-yellow-500/10 border border-yellow-500/20 shrink-0">
-            <Trophy className="h-4 w-4 text-yellow-400" />
+        <div className="td-panel p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: 'linear-gradient(135deg, #c8aa6e, #785a28)', boxShadow: '0 8px 22px rgba(200,170,110,0.28)' }}>
+            <Trophy className="h-4 w-4 text-white" />
           </div>
           <div>
             <p className="text-[10px] text-white/30 uppercase tracking-wider">Partidas</p>
             <p className="text-xl font-black text-white">{matchesCompleted}</p>
           </div>
         </div>
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 shrink-0">
-            <Users className="h-4 w-4 text-blue-400" />
+        <div className="td-panel p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: 'linear-gradient(135deg, #e1242e, #7d1017)', boxShadow: '0 8px 22px rgba(225,36,46,0.35)' }}>
+            <Users className="h-4 w-4 text-white" />
           </div>
           <div>
             <p className="text-[10px] text-white/30 uppercase tracking-wider">Jugadores</p>
             <p className="text-xl font-black text-white">{players.length}</p>
           </div>
         </div>
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 flex items-center gap-3">
+        <div className="td-panel p-4 flex items-center gap-3">
           {mostPlayedChamp && (
             <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-white/10">
               <ImgSlot src={dd.champion(mostPlayedChamp)} alt={mostPlayedChamp} className="w-10 h-10" />
@@ -362,7 +378,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh }: Props) {
       </div>
 
       {/* Podium */}
-      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+      <div className="td-panel p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <p className="text-xs text-white/40 uppercase tracking-widest font-bold">
             🏆 Top 3 — {PODIUM_CATS.find(c => c.key === podiumCat)?.label}
@@ -397,14 +413,14 @@ export function TournamentGlobalStats({ data, loading, onRefresh }: Props) {
       </div>
 
       {/* Chart */}
-      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+      <div className="td-panel p-5">
         <TopPlayersChart players={players} />
       </div>
 
       {/* Sortable table */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs text-white/40 uppercase tracking-widest font-bold">Tabla Completa</p>
+      <div className="td-panel p-5">
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/[0.05]">
+          <p className="text-xs text-white/50 uppercase tracking-widest font-bold">Tabla completa</p>
           {onRefresh && (
             <button
               onClick={onRefresh}

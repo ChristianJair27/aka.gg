@@ -1,68 +1,85 @@
-import { useState, useEffect } from 'react';
+// Auth con store compartido a nivel de módulo. Antes cada componente tenía su
+// propia copia (useState local leyendo localStorage al montar): el Login hacía
+// setUser en SU instancia y la Navbar no se enteraba hasta recargar la página.
+// Ahora todos los consumidores se suscriben al mismo estado con
+// useSyncExternalStore y reaccionan al instante a login/logout (y a cambios de
+// sesión en otras pestañas vía el evento 'storage').
+import { useSyncExternalStore } from 'react';
 import { authApi } from './auth.api';
 import { User, LoginRequest, RegisterRequest } from './types';
 
-export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+type AuthSnapshot = { user: User | null; isAuthenticated: boolean };
 
-  const isAuthenticated = !!localStorage.getItem('access_token');
-
-  useEffect(() => {
-    // Check if user is already logged in
+function readSnapshot(): AuthSnapshot {
+  try {
     const token = localStorage.getItem('access_token');
-    if (token) {
-      // In a real app, you'd validate the token with the server
-      // For now, we'll just check if it exists
-      const savedUser = localStorage.getItem('user');
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
-      }
-    }
-    setIsLoading(false);
-  }, []);
+    if (!token) return { user: null, isAuthenticated: false };
+    const raw = localStorage.getItem('user');
+    return { user: raw ? (JSON.parse(raw) as User) : null, isAuthenticated: true };
+  } catch {
+    return { user: null, isAuthenticated: false };
+  }
+}
+
+let snapshot: AuthSnapshot = readSnapshot();
+const listeners = new Set<() => void>();
+
+function emit() {
+  snapshot = readSnapshot();
+  listeners.forEach((l) => l());
+}
+
+/** Re-lee la sesión desde localStorage y notifica a todos los componentes.
+ *  Úsalo tras escribir el token a mano (p.ej. payload de OAuth). */
+export function syncAuthFromStorage() {
+  emit();
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+// Cambios de sesión hechos en OTRA pestaña.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'access_token' || e.key === 'user') emit();
+  });
+}
+
+export const useAuth = () => {
+  const snap = useSyncExternalStore(subscribe, () => snapshot);
 
   const login = async (credentials: LoginRequest) => {
-    setIsLoading(true);
-    try {
-      const response = await authApi.login(credentials);
-      localStorage.setItem('access_token', response.token);
-      if (response.user) {
-        localStorage.setItem('user', JSON.stringify(response.user));
-        setUser(response.user);
-      }
-      return response;
-    } finally {
-      setIsLoading(false);
+    const response = await authApi.login(credentials);
+    localStorage.setItem('access_token', response.token);
+    if (response.user) {
+      localStorage.setItem('user', JSON.stringify(response.user));
     }
+    emit(); // navbar y demás consumidores se actualizan al momento
+    return response;
   };
 
   const register = async (userData: RegisterRequest) => {
-    setIsLoading(true);
-    try {
-      await authApi.register(userData);
-    } finally {
-      setIsLoading(false);
-    }
+    await authApi.register(userData);
   };
 
   const logout = async () => {
-    setIsLoading(true);
     try {
       await authApi.logout();
+    } finally {
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
-      setUser(null);
+      emit();
       window.location.href = '/login';
-    } finally {
-      setIsLoading(false);
     }
   };
 
   return {
-    user,
-    isAuthenticated,
-    isLoading,
+    user: snap.user,
+    isAuthenticated: snap.isAuthenticated,
+    // El estado es síncrono (localStorage): nunca hay carga pendiente.
+    isLoading: false,
     login,
     register,
     logout,

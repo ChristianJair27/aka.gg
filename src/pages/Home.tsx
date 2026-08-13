@@ -4,7 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { ScrollVideoBg } from '@/components/ScrollVideoBg';
 import { SummonerPrompt } from '@/components/SummonerPrompt';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, LayoutDashboard, User } from 'lucide-react';
+import { useAuth } from '@/features/auth/useAuth';
+import { useOverview } from '@/hooks/queries/players';
 
 const QUICK_LOOKUPS = ['Faker#KR1', 'Caps#EUW', 'Doublelift#NA1'];
 
@@ -52,6 +54,14 @@ const ParagraphReveal = ({ text, highlightWords, scrollProgress, range }: { text
 export default function Home() {
   const navigate = useNavigate();
   const searchSectionRef = useRef<HTMLDivElement>(null);
+
+  // Sesión iniciada → acceso directo al dashboard y al perfil vinculado
+  const { user, isAuthenticated } = useAuth();
+  const overviewQ = useOverview(isAuthenticated);
+  const linked = (overviewQ.data as any)?.profile;
+  const myProfileHref = linked?.gameName
+    ? `/stats/${(linked.platform || 'la1').toLowerCase()}/${encodeURIComponent(`${linked.gameName}#${linked.tagLine}`)}`
+    : null;
 
   const hlsVideoRef = useRef<HTMLVideoElement>(null);
   const heroVideoRef = useRef<HTMLVideoElement>(null);
@@ -176,6 +186,47 @@ export default function Home() {
           <motion.div {...fadeUp(0.55)} ref={searchSectionRef} className="w-full">
             <SummonerPrompt quickLookups={QUICK_LOOKUPS} />
           </motion.div>
+
+          {/* Sesión iniciada: acceso directo a tu dashboard y perfil */}
+          {isAuthenticated && user && (
+            <motion.div
+              {...fadeUp(0.7)}
+              className="flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/[0.07] px-4 py-3"
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                backdropFilter: 'blur(14px)',
+                WebkitBackdropFilter: 'blur(14px)',
+              }}
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-red-600 to-red-900 text-xs font-black text-white flex-shrink-0">
+                {user.name?.[0]?.toUpperCase() || 'U'}
+              </span>
+              <span className="text-sm text-gray-300">
+                Bienvenido de vuelta, <span className="font-semibold text-white">{user.name}</span>
+                {linked?.gameName && (
+                  <span className="text-[#c8aa6e]"> · {linked.gameName}#{linked.tagLine}</span>
+                )}
+              </span>
+              <span className="flex items-center gap-2 ml-1">
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full text-xs font-bold text-white
+                    bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 transition"
+                >
+                  <LayoutDashboard className="h-3.5 w-3.5" /> Mi dashboard
+                </button>
+                {myProfileHref && (
+                  <button
+                    onClick={() => navigate(myProfileHref)}
+                    className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full text-xs font-semibold
+                      text-gray-300 border border-white/[0.12] hover:border-red-500/40 hover:text-white transition"
+                  >
+                    <User className="h-3.5 w-3.5" /> Mi perfil
+                  </button>
+                )}
+              </span>
+            </motion.div>
+          )}
         </motion.div>
 
         {/* Indicador de scroll: hilo de filo que cae */}

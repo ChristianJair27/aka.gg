@@ -227,6 +227,16 @@ export default function Login() {
               'linear-gradient(90deg, rgba(12,12,15,0.98) 0%, rgba(12,12,15,0.25) 30%, transparent 60%),' +
               'linear-gradient(180deg, transparent 55%, rgba(8,8,10,0.85) 100%)',
           }} />
+          {/* Título editorial espaciado sobre el arte (patrón vision) */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-10 pointer-events-none">
+            <p className="text-[11px] uppercase tracking-[5px] text-white/60 mb-2">
+              Forjado en la grieta:
+            </p>
+            <p className="font-serif text-3xl xl:text-4xl uppercase tracking-[7px] text-white leading-snug"
+              style={{ textShadow: '0 4px 30px rgba(0,0,0,0.8)' }}>
+              El arsenal <span className="text-red-500">ATAK</span>
+            </p>
+          </div>
           <div className="absolute bottom-6 left-8 right-8">
             <div className="h-px mb-3" style={{ background: 'linear-gradient(90deg, transparent, rgba(200,170,110,0.6), transparent)' }} />
             <p className="font-serif text-lg text-white/85 tracking-wide">{splash}</p>

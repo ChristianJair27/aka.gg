@@ -1,20 +1,21 @@
-// src/pages/Dashboard.tsx
+// src/pages/Dashboard.tsx — panel del usuario, lenguaje "vision" ATAK:
+// glass sobre degradado crimson, stat-cards con cuadrado de icono, gauge de
+// winrate y tarjeta de bienvenida con splash. Misma lógica/datos de siempre.
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useAuth } from "@/features/auth/useAuth";
+import { useAuth, syncAuthFromStorage } from "@/features/auth/useAuth";
 import {
   User as UserIcon,
   Trophy,
   Users,
   BarChart3,
   Calendar,
-  MessageSquare,
   Target,
   Award,
+  ArrowRight,
 } from "lucide-react";
 import { axiosInstance } from "@/lib/axios";
-import { ScrollVideoBg } from "@/components/ScrollVideoBg";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tip } from "@/components/ui/Tip";
 import { useQueryClient } from "@tanstack/react-query";
@@ -22,12 +23,12 @@ import { useOverview } from "@/hooks/queries/players";
 import { useTournaments } from "@/hooks/queries/tournaments";
 import { qk } from "@/hooks/queries/keys";
 import { TournamentDashboardPanel } from "@/components/TournamentDashboardPanel";
+import { dd } from "@/lib/dataDragon";
+import "@/styles/vision.css";
 
-// ─── Brand tokens (shared ATAK vocabulary) ──────────────────────────────────
+// ─── Brand tokens ────────────────────────────────────────────────────────────
 const C = {
-  bg: "#0a0a0c",
   red: "#e1242e",
-  redHover: "#ff5a64",
   win: "#2fbf8a",
   loss: "#ff5a64",
   gold: "#c8aa6e",
@@ -35,38 +36,18 @@ const C = {
 const FONT_BODY = "'Saira', system-ui, sans-serif";
 const FONT_COND = "'Saira Condensed', 'Saira', sans-serif";
 
-// Frosted glass surface — same recipe as ProfilePage so panels feel embedded
-// into the living dagger background rather than opaque cards.
-const PANEL_SURFACE: React.CSSProperties = {
-  background:
-    "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 22%, rgba(255,255,255,0) 70%), rgba(13,13,17,0.30)",
-  backdropFilter: "blur(20px) saturate(120%)",
-  WebkitBackdropFilter: "blur(20px) saturate(120%)",
-  borderRadius: 18,
-  boxShadow:
-    "inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 44px -30px rgba(0,0,0,.6)",
-};
-
 const RISE_IN = {
-  initial: { opacity: 0, y: 22, filter: "blur(6px)" },
-  whileInView: { opacity: 1, y: 0, filter: "blur(0px)" },
+  initial: { opacity: 0, y: 18 },
+  whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, margin: "-60px" },
-  transition: {
-    duration: 0.55,
-    ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
-  },
+  transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
 };
 
-function Panel({
-  children,
-  style,
-  delay = 0,
-  hover = false,
+function Card({
+  children, className = "", style, delay = 0, hover = false,
 }: {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  delay?: number;
-  hover?: boolean;
+  children: React.ReactNode; className?: string; style?: React.CSSProperties;
+  delay?: number; hover?: boolean;
 }) {
   return (
     <motion.div
@@ -74,59 +55,61 @@ function Panel({
       whileInView={RISE_IN.whileInView}
       viewport={RISE_IN.viewport}
       transition={{ ...RISE_IN.transition, delay }}
-      whileHover={hover ? { y: -3 } : undefined}
-      style={{ ...PANEL_SURFACE, ...style }}
+      className={`vs-card ${hover ? "vs-card--hover" : ""} ${className}`}
+      style={style}
     >
       {children}
     </motion.div>
   );
 }
 
-function SectionTitle({
-  children,
-  sub,
-}: {
-  children: React.ReactNode;
-  sub?: React.ReactNode;
-}) {
+function CardTitle({ children, sub }: { children: React.ReactNode; sub?: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 18 }}>
-      <h2
-        style={{
-          fontFamily: FONT_COND,
-          fontWeight: 600,
-          textTransform: "uppercase",
-          letterSpacing: "0.12em",
-          fontSize: 13,
-          color: "rgba(255,255,255,0.82)",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          margin: 0,
-        }}
-      >
-        <span
-          style={{
-            width: 4,
-            height: 16,
-            background: C.red,
-            borderRadius: 2,
-            display: "inline-block",
-          }}
-        />
+    <div style={{ marginBottom: 16 }}>
+      <h2 style={{
+        fontFamily: FONT_COND, fontWeight: 700, fontSize: 16,
+        color: "#fff", margin: 0, letterSpacing: "0.02em",
+      }}>
         {children}
       </h2>
-      {sub && (
-        <p
-          style={{
-            margin: "6px 0 0 14px",
-            fontSize: 12.5,
-            color: "rgba(255,255,255,0.42)",
-          }}
-        >
-          {sub}
-        </p>
-      )}
+      {sub && <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "rgba(255,255,255,0.42)" }}>{sub}</p>}
+    </div>
+  );
+}
+
+// ─── Gauge circular (winrate) ────────────────────────────────────────────────
+function Gauge({ pct, label, sub }: { pct: number; label: string; sub?: string }) {
+  const p = Math.max(0, Math.min(100, pct));
+  const R = 62;
+  const CIRC = 2 * Math.PI * R;
+  // Arco de 270° (como el medidor de la referencia), empezando abajo-izquierda.
+  const SPAN = 0.75;
+  const good = p >= 50;
+  return (
+    <div style={{ position: "relative", width: 168, height: 168, margin: "0 auto" }}>
+      <svg width="168" height="168" viewBox="0 0 168 168" style={{ transform: "rotate(135deg)" }}>
+        <defs>
+          <linearGradient id="vs-gauge" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={good ? "#2fbf8a" : "#e1242e"} />
+            <stop offset="100%" stopColor={good ? "#c8aa6e" : "#ff5a64"} />
+          </linearGradient>
+        </defs>
+        <circle cx="84" cy="84" r={R} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="10"
+          strokeLinecap="round" strokeDasharray={`${CIRC * SPAN} ${CIRC}`} />
+        <circle cx="84" cy="84" r={R} fill="none" stroke="url(#vs-gauge)" strokeWidth="10"
+          strokeLinecap="round"
+          strokeDasharray={`${CIRC * SPAN * (p / 100)} ${CIRC}`}
+          style={{ transition: "stroke-dasharray 1s cubic-bezier(0.22,1,0.36,1)" }} />
+      </svg>
+      <div style={{
+        position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", textAlign: "center",
+      }}>
+        <span style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 34, color: "#fff", lineHeight: 1 }}>
+          {label}
+        </span>
+        {sub && <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.4)", marginTop: 4, maxWidth: 110 }}>{sub}</span>}
+      </div>
     </div>
   );
 }
@@ -142,27 +125,15 @@ type OverviewResponse = {
   ok: boolean;
   linked: boolean;
   profile?: {
-    gameName?: string;
-    tagLine?: string;
-    platform?: string;
-    puuid?: string;
-    profileIcon?: number | null;
+    gameName?: string; tagLine?: string; platform?: string;
+    puuid?: string; profileIcon?: number | null;
   };
   stats?: {
-    totalMatches?: number;
-    winRate?: number;
-    currentRank?: string | null;
-    lp?: number | null;
-    favoriteChampion?: string | null;
-    tournamentsJoined?: number;
-    socialPosts?: number;
+    totalMatches?: number; winRate?: number; currentRank?: string | null;
+    lp?: number | null; favoriteChampion?: string | null;
+    tournamentsJoined?: number; socialPosts?: number;
   };
-  recent?: Array<{
-    win?: boolean;
-    queueName?: string;
-    championName?: string;
-    duration?: number; // segundos
-  }>;
+  recent?: Array<{ win?: boolean; queueName?: string; championName?: string; duration?: number }>;
 };
 
 const regions = ["la1", "la2", "na1", "br1", "oc1", "euw1", "eun1", "kr", "jp1", "ru", "tr1"];
@@ -173,7 +144,6 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   // ===== estado de overview / link =====
-  // Overview is fetched via React Query (caching + dedupe with other pages).
   const overviewQ = useOverview();
   const overview = (overviewQ.data ?? null) as OverviewResponse | null;
   const loading = overviewQ.isLoading;
@@ -198,7 +168,6 @@ const Dashboard = () => {
     const params = new URLSearchParams(location.search);
     const p = params.get("payload");
     if (!p) return;
-
     try {
       const { token, user: u } = b64urlToJson<{ token: string; user: any }>(p);
       localStorage.setItem("access_token", token);
@@ -206,8 +175,8 @@ const Dashboard = () => {
       params.delete("payload");
       const clean = `${location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
       window.history.replaceState({}, "", clean);
-      // refresco suave si el hook aún no tomó el user
-      if (!user) window.location.reload();
+      // Notifica al store de auth: navbar y demás se actualizan sin recargar.
+      syncAuthFromStorage();
     } catch {
       navigate("/login?error=oauth", { replace: true });
     }
@@ -229,178 +198,78 @@ const Dashboard = () => {
     }
   };
 
-  // Surface any overview fetch error.
   useEffect(() => {
     if (overviewQ.error) {
       setErr((overviewQ.error as any)?.response?.data?.msg || "Error cargando overview");
     }
   }, [overviewQ.error]);
 
-  // ===== loading — content-shaped skeleton (stat cards + panels) =====
+  const inputStyle: React.CSSProperties = {
+    width: "100%", height: 44, padding: "0 16px",
+    background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.10)",
+    borderRadius: 12, color: "#fff", fontFamily: FONT_BODY, fontSize: 14, outline: "none",
+  };
+
+  // ===== loading =====
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", background: C.bg, color: "#e8e8ea", fontFamily: FONT_BODY }}>
-        <ScrollVideoBg />
-        <div style={{ position: "relative", zIndex: 1, maxWidth: 1180, margin: "0 auto", padding: "88px 18px 80px" }}>
-          <div style={{ marginBottom: 30 }}>
-            <Skeleton width={360} height={32} />
-            <div style={{ marginTop: 10 }}><Skeleton width={260} height={14} /></div>
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-              gap: 18,
-              marginBottom: 28,
-            }}
-          >
+      <div className="vs-page" style={{ fontFamily: FONT_BODY }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "92px 20px 80px" }}>
+          <div className="vs-grid">
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} style={{ ...PANEL_SURFACE, padding: 22 }}>
-                <Skeleton width="60%" height={13} />
-                <div style={{ marginTop: 8 }}><Skeleton width="40%" height={26} /></div>
+              <div key={i} className="vs-card vs-col-3" style={{ padding: 20 }}>
+                <Skeleton width="55%" height={12} />
+                <div style={{ marginTop: 10 }}><Skeleton width="40%" height={24} /></div>
               </div>
             ))}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gap: 24 }} className="atak-dash-grid">
-            <div style={{ ...PANEL_SURFACE, padding: 26, minHeight: 220 }}>
-              <Skeleton width={160} height={16} />
-              <div style={{ marginTop: 18, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-                {[0, 1, 2].map((i) => <Skeleton key={i} height={96} variant="block" />)}
-              </div>
+            <div className="vs-card vs-col-5" style={{ padding: 24, minHeight: 260 }}>
+              <Skeleton width={200} height={20} />
+              <div style={{ marginTop: 14 }}><Skeleton width="70%" height={14} /></div>
             </div>
-            <div style={{ ...PANEL_SURFACE, padding: 26, minHeight: 220 }}>
-              <Skeleton variant="circle" width={64} height={64} style={{ margin: "0 auto" }} />
-              <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-                <Skeleton height={14} /><Skeleton height={14} width="70%" />
-              </div>
+            <div className="vs-card vs-col-3" style={{ padding: 24, minHeight: 260 }}>
+              <Skeleton variant="circle" width={140} height={140} style={{ margin: "20px auto" }} />
+            </div>
+            <div className="vs-card vs-col-4" style={{ padding: 24, minHeight: 260 }}>
+              <Skeleton variant="circle" width={64} height={64} style={{ margin: "0 auto 14px" }} />
+              <Skeleton height={14} />
             </div>
           </div>
         </div>
-        <style>{`@media (max-width: 900px){ .atak-dash-grid{ grid-template-columns: 1fr !important; } }`}</style>
       </div>
     );
   }
 
-  // ===== CTA de vinculación si no hay cuenta vinculada =====
+  // ===== CTA de vinculación =====
   if (!overview?.linked) {
     return (
-      <div
-        style={{ minHeight: "100vh", background: C.bg, color: "#e8e8ea", fontFamily: FONT_BODY }}
-      >
-        <ScrollVideoBg />
-        <div
-          style={{
-            position: "relative",
-            zIndex: 1,
-            maxWidth: 640,
-            margin: "0 auto",
-            padding: "96px 18px 80px",
-          }}
-        >
-          <Panel style={{ padding: 30 }}>
-            <SectionTitle sub="Para mostrar tus estadísticas reales en ATAK.GG">
+      <div className="vs-page" style={{ fontFamily: FONT_BODY }}>
+        <div style={{ maxWidth: 620, margin: "0 auto", padding: "110px 20px 80px" }}>
+          <Card style={{ padding: 32 }}>
+            <CardTitle sub="Para mostrar tus estadísticas reales en ATAK.GG">
               Vincula tu cuenta de League of Legends
-            </SectionTitle>
-
-            <div style={{ display: "grid", gap: 16, marginTop: 6 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14 }}>
-                <div>
-                  <label
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "rgba(255,255,255,0.6)",
-                      display: "block",
-                      marginBottom: 6,
-                    }}
-                  >
-                    Riot ID (GameName#TAG)
-                  </label>
-                  <input
-                    placeholder="Kister#IZPZ"
-                    value={riotId}
-                    onChange={(e) => setRiotId(e.target.value)}
-                    style={{
-                      width: "100%",
-                      height: 42,
-                      padding: "0 14px",
-                      background: "rgba(0,0,0,0.35)",
-                      border: "1px solid rgba(255,255,255,0.10)",
-                      borderRadius: 10,
-                      color: "#fff",
-                      fontFamily: FONT_BODY,
-                      fontSize: 14,
-                      outline: "none",
-                    }}
-                  />
-                </div>
-                <div>
-                  <label
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "rgba(255,255,255,0.6)",
-                      display: "block",
-                      marginBottom: 6,
-                    }}
-                  >
-                    Región
-                  </label>
-                  <select
-                    value={platform}
-                    onChange={(e) => setPlatform(e.target.value)}
-                    style={{
-                      width: "100%",
-                      height: 42,
-                      padding: "0 12px",
-                      background: "rgba(0,0,0,0.35)",
-                      border: "1px solid rgba(255,255,255,0.10)",
-                      borderRadius: 10,
-                      color: "#fff",
-                      fontFamily: FONT_BODY,
-                      fontSize: 14,
-                      outline: "none",
-                    }}
-                  >
-                    {regions.map((r) => (
-                      <option key={r} value={r} style={{ background: "#101014" }}>
-                        {r.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            </CardTitle>
+            <div style={{ display: "grid", gap: 16, marginTop: 8 }}>
+              <div>
+                <label className="vs-over" style={{ display: "block", marginBottom: 7 }}>
+                  Riot ID (GameName#TAG)
+                </label>
+                <input placeholder="Kister#IZPZ" value={riotId}
+                  onChange={(e) => setRiotId(e.target.value)} style={inputStyle} />
               </div>
-
-              {err && (
-                <div style={{ fontSize: 13, color: C.loss }}>{err}</div>
-              )}
-
-              <button
-                onClick={linkAccount}
-                disabled={!riotId || linking}
-                style={{
-                  width: "100%",
-                  height: 44,
-                  background: C.red,
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 10,
-                  fontFamily: FONT_BODY,
-                  fontWeight: 700,
-                  fontSize: 14,
-                  cursor: !riotId || linking ? "default" : "pointer",
-                  opacity: !riotId || linking ? 0.5 : 1,
-                  transition: "background .16s",
-                }}
-                onMouseEnter={(e) => {
-                  if (riotId && !linking) e.currentTarget.style.background = C.redHover;
-                }}
-                onMouseLeave={(e) => (e.currentTarget.style.background = C.red)}
-              >
+              <div>
+                <label className="vs-over" style={{ display: "block", marginBottom: 7 }}>Región</label>
+                <select value={platform} onChange={(e) => setPlatform(e.target.value)} style={inputStyle}>
+                  {regions.map((r) => (
+                    <option key={r} value={r} style={{ background: "#101014" }}>{r.toUpperCase()}</option>
+                  ))}
+                </select>
+              </div>
+              {err && <div style={{ fontSize: 13, color: C.loss }}>{err}</div>}
+              <button className="vs-btn" onClick={linkAccount} disabled={!riotId || linking} style={{ width: "100%" }}>
                 {linking ? "Vinculando…" : "Vincular cuenta"}
               </button>
             </div>
-          </Panel>
+          </Card>
         </div>
       </div>
     );
@@ -409,348 +278,254 @@ const Dashboard = () => {
   // ===== datos reales =====
   const s = overview?.stats ?? {};
   const recent = overview?.recent ?? [];
+  const wr = s.winRate ?? 0;
+  const favChamp = s.favoriteChampion || "Katarina";
 
   const statCards = [
-    {
-      label: "Partidas Recientes",
-      value: `${s.totalMatches ?? 0}`,
-      icon: <BarChart3 size={26} />,
-      color: "#ffffff",
-      tip: "Partidas analizadas recientemente",
-    },
-    {
-      label: "Win Rate",
-      value: `${s.winRate ?? 0}%`,
-      icon: <Target size={26} />,
-      color: (s.winRate ?? 0) >= 50 ? C.win : C.loss,
-      tip: "Porcentaje de victorias en tus partidas recientes",
-    },
-    {
-      label: "Rango Actual",
-      value: s.currentRank ?? "—",
-      sub: s.lp != null ? `${s.lp} LP` : "",
-      icon: <Award size={26} />,
-      color: C.gold,
-      tip: "Tu rango en clasificatoria",
-    },
-    {
-      label: "Torneos",
-      value: `${s.tournamentsJoined ?? 0}`,
-      icon: <Trophy size={26} />,
-      color: C.red,
-      tip: "Torneos en los que has participado",
-    },
+    { label: "Partidas recientes", value: `${s.totalMatches ?? 0}`, icon: <BarChart3 size={20} />, ico: "", tip: "Partidas analizadas recientemente" },
+    { label: "Win rate", value: `${wr}%`, delta: wr >= 50 ? "en forma" : "a remontar", deltaColor: wr >= 50 ? C.win : C.loss, icon: <Target size={20} />, ico: "", tip: "Porcentaje de victorias en tus partidas recientes" },
+    { label: "Rango actual", value: s.currentRank ?? "—", delta: s.lp != null ? `${s.lp} LP` : undefined, deltaColor: C.gold, icon: <Award size={20} />, ico: "vs-ico--gold", tip: "Tu rango en clasificatoria" },
+    { label: "Torneos", value: `${s.tournamentsJoined ?? 0}`, icon: <Trophy size={20} />, ico: "", tip: "Torneos en los que has participado" },
   ];
 
   const quickActions = [
-    { to: "/stats", icon: <BarChart3 size={26} />, title: "Ver Stats", desc: "Revisa tus estadísticas" },
-    { to: "/tournaments", icon: <Trophy size={26} />, title: "Torneos", desc: "Únete a competencias" },
-    { to: "/social", icon: <Users size={26} />, title: "Social", desc: "Conecta con otros" },
+    { to: "/stats", icon: <BarChart3 size={22} />, title: "Ver Stats", desc: "Revisa tus estadísticas" },
+    { to: "/tournaments", icon: <Trophy size={22} />, title: "Torneos", desc: "Únete a competencias" },
+    { to: "/social", icon: <Users size={22} />, title: "Social", desc: "Conecta con otros" },
   ];
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: C.bg,
-        color: "#e8e8ea",
-        fontFamily: FONT_BODY,
-        lineHeight: 1.5,
-      }}
-    >
-      <ScrollVideoBg />
+    <div className="vs-page" style={{ fontFamily: FONT_BODY, lineHeight: 1.5 }}>
+      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "92px 20px 80px" }}>
 
-      <div style={{ position: "relative", zIndex: 1, maxWidth: 1180, margin: "0 auto", padding: "88px 18px 80px" }}>
-        {/* Header */}
-        <motion.div {...RISE_IN} style={{ marginBottom: 30 }}>
-          <h1
-            style={{
-              fontFamily: FONT_COND,
-              fontWeight: 800,
-              fontSize: 34,
-              margin: 0,
-              color: "#fff",
-              lineHeight: 1.05,
-            }}
-          >
-            ¡Bienvenido de vuelta, {user?.name || "Invocador"}!
-          </h1>
-          <p style={{ margin: "8px 0 0", color: "rgba(255,255,255,0.5)", fontSize: 14 }}>
-            {overview?.profile?.gameName
-              ? `Cuenta vinculada: ${overview.profile.gameName}#${overview.profile.tagLine} • ${overview.profile.platform?.toUpperCase()}`
-              : "Aquí está tu resumen de actividad y estadísticas"}
-          </p>
-        </motion.div>
-
-        <TournamentDashboardPanel />
-
-        {/* Quick Stats */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-            gap: 18,
-            marginBottom: 28,
-          }}
-        >
+        <div className="vs-grid">
+          {/* ── Fila 1: stat cards ── */}
           {statCards.map((c, i) => (
-            <Panel key={c.label} delay={i * 0.06} hover style={{ padding: 22 }}>
+            <Card key={c.label} delay={i * 0.05} hover className="vs-col-3" style={{ padding: "16px 18px" }}>
               <Tip label={c.tip}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 12.5, color: "rgba(255,255,255,0.5)" }}>{c.label}</p>
-                    <p
-                      style={{
-                        margin: "4px 0 0",
-                        fontFamily: FONT_COND,
-                        fontWeight: 800,
-                        fontSize: 26,
-                        color: c.color,
-                        lineHeight: 1.1,
-                      }}
-                    >
+                    <p className="vs-over" style={{ margin: 0 }}>{c.label}</p>
+                    <p style={{
+                      margin: "5px 0 0", fontFamily: FONT_COND, fontWeight: 800, fontSize: 24,
+                      color: "#fff", lineHeight: 1.05,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
                       {c.value}
+                      {c.delta && (
+                        <span style={{ fontSize: 12.5, fontWeight: 700, color: c.deltaColor, marginLeft: 8 }}>
+                          {c.delta}
+                        </span>
+                      )}
                     </p>
-                    {c.sub ? (
-                      <p style={{ margin: "2px 0 0", fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{c.sub}</p>
-                    ) : null}
                   </div>
-                  <span style={{ color: c.color, opacity: 0.85, flexShrink: 0 }}>{c.icon}</span>
+                  <span className={`vs-ico ${c.ico}`}>{c.icon}</span>
                 </div>
               </Tip>
-            </Panel>
+            </Card>
           ))}
-        </div>
 
-        {/* Main grid */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)",
-            gap: 24,
-          }}
-          className="atak-dash-grid"
-        >
-          {/* Left column */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0 }}>
-            {/* Quick Actions */}
-            <Panel style={{ padding: 26 }}>
-              <SectionTitle sub="Accede rápidamente a las funciones principales">
-                Acciones Rápidas
-              </SectionTitle>
-              <div
+          {/* ── Fila 2: bienvenida + gauge + perfil ── */}
+          <Card className="vs-col-5" style={{ position: "relative", overflow: "hidden", minHeight: 280, padding: 0 }}>
+            <img
+              src={dd.championSplash(favChamp)} alt="" loading="lazy"
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 20%" }}
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+            />
+            <div style={{
+              position: "absolute", inset: 0,
+              background: "linear-gradient(105deg, rgba(10,7,9,0.92) 20%, rgba(10,7,9,0.55) 55%, rgba(10,7,9,0.25))",
+            }} />
+            <div style={{
+              position: "relative", height: "100%", minHeight: 280, padding: 26,
+              display: "flex", flexDirection: "column", justifyContent: "space-between",
+            }}>
+              <div>
+                <p className="vs-over" style={{ margin: 0 }}>Bienvenido de vuelta,</p>
+                <h1 style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 32, color: "#fff", margin: "6px 0 8px", lineHeight: 1.05 }}>
+                  {user?.name || "Invocador"}
+                </h1>
+                <p style={{ margin: 0, fontSize: 13.5, color: "rgba(255,255,255,0.65)", maxWidth: 300 }}>
+                  {overview?.profile?.gameName
+                    ? `${overview.profile.gameName}#${overview.profile.tagLine} · ${overview.profile.platform?.toUpperCase()}`
+                    : "Tu resumen de actividad y estadísticas"}
+                </p>
+              </div>
+              <Link
+                to={overview?.profile?.gameName
+                  ? `/stats/${overview.profile.platform || "la1"}/${encodeURIComponent(`${overview.profile.gameName}#${overview.profile.tagLine}`)}`
+                  : "/stats"}
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-                  gap: 14,
+                  display: "inline-flex", alignItems: "center", gap: 7, textDecoration: "none",
+                  fontSize: 13.5, fontWeight: 700, color: "#fff",
                 }}
               >
-                {quickActions.map((a) => (
-                  <Link key={a.to} to={a.to} style={{ textDecoration: "none" }}>
-                    <motion.div
-                      whileHover={{ y: -3 }}
-                      style={{
-                        padding: "22px 16px",
-                        borderRadius: 14,
-                        background: "rgba(255,255,255,0.02)",
-                        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
-                        textAlign: "center",
-                        transition: "background .18s",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(225,36,46,0.08)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
-                    >
-                      <span style={{ color: C.red, display: "inline-flex" }}>{a.icon}</span>
-                      <h3
-                        style={{
-                          margin: "10px 0 2px",
-                          fontFamily: FONT_COND,
-                          fontWeight: 700,
-                          fontSize: 16,
-                          color: "#fff",
-                        }}
-                      >
-                        {a.title}
-                      </h3>
-                      <p style={{ margin: 0, fontSize: 12.5, color: "rgba(255,255,255,0.45)" }}>{a.desc}</p>
-                    </motion.div>
-                  </Link>
-                ))}
-              </div>
-            </Panel>
+                Ver mi perfil completo <ArrowRight size={15} />
+              </Link>
+            </div>
+          </Card>
 
-            {/* Recent Activity */}
-            <Panel style={{ padding: 26 }}>
-              <SectionTitle sub="Últimas partidas">Actividad Reciente</SectionTitle>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {!recent || recent.length === 0 ? (
-                  <p style={{ fontSize: 13.5, color: "rgba(255,255,255,0.45)" }}>No hay partidas recientes.</p>
-                ) : (
-                  recent.map((m, index) => (
-                    <div
-                      key={index}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 14,
-                        padding: "12px 14px",
-                        borderRadius: 12,
-                        background: "rgba(255,255,255,0.02)",
-                        boxShadow: `inset 4px 0 0 ${m.win ? C.win : C.loss}`,
-                      }}
-                    >
-                      <div
-                        style={{
-                          padding: 8,
-                          borderRadius: 10,
-                          background: m.win ? "rgba(47,191,138,0.12)" : "rgba(255,90,100,0.12)",
-                          color: m.win ? C.win : C.loss,
-                          display: "inline-flex",
-                        }}
-                      >
-                        <MessageSquare size={16} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: "#fff" }}>
-                          {m.queueName ?? "Partida"}
-                        </p>
-                        <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "rgba(255,255,255,0.5)" }}>
-                          <span style={{ color: m.win ? C.win : C.loss, fontWeight: 700 }}>
-                            {m.win ? "Victoria" : "Derrota"}
-                          </span>{" "}
-                          • {m.championName ?? "?"} • {m.duration ? Math.round(m.duration / 60) : 0}m
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </Panel>
-          </div>
+          <Card className="vs-col-3" delay={0.06} style={{ padding: 24, display: "flex", flexDirection: "column" }}>
+            <CardTitle sub="De tus partidas recientes">Win rate</CardTitle>
+            <div style={{ flex: 1, display: "flex", alignItems: "center" }}>
+              <Gauge pct={wr} label={`${wr}%`} sub={`sobre ${s.totalMatches ?? 0} partidas`} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+              <span>0%</span><span>100%</span>
+            </div>
+          </Card>
 
-          {/* Sidebar */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0 }}>
-            {/* Profile Summary */}
-            <Panel style={{ padding: 26 }}>
-              <SectionTitle>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                  <UserIcon size={15} /> Mi Perfil
-                </span>
-              </SectionTitle>
-
-              <div style={{ textAlign: "center", marginBottom: 18 }}>
-                <div
-                  style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: "50%",
-                    margin: "0 auto 12px",
-                    display: "grid",
-                    placeItems: "center",
-                    background: `linear-gradient(135deg, ${C.red}, #3b0000)`,
-                    border: `2px solid rgba(225,36,46,0.4)`,
-                  }}
-                >
+          <Card className="vs-col-4" delay={0.1} style={{ padding: 24 }}>
+            <CardTitle>Mi perfil</CardTitle>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+              {overview?.profile?.profileIcon ? (
+                <img
+                  src={dd.profileIcon(overview.profile.profileIcon)} alt=""
+                  style={{ width: 58, height: 58, borderRadius: 14, objectFit: "cover", boxShadow: "0 0 0 2px rgba(225,36,46,0.45)" }}
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
+                />
+              ) : (
+                <div style={{
+                  width: 58, height: 58, borderRadius: 14, display: "grid", placeItems: "center",
+                  background: `linear-gradient(135deg, ${C.red}, #3b0000)`,
+                }}>
                   <span style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 22, color: "#fff" }}>
                     {user?.name?.[0]?.toUpperCase() || "U"}
                   </span>
                 </div>
+              )}
+              <div style={{ minWidth: 0 }}>
                 <h3 style={{ margin: 0, fontFamily: FONT_COND, fontWeight: 700, fontSize: 17, color: "#fff" }}>
                   {user?.name || "Usuario"}
                 </h3>
-                <p style={{ margin: "3px 0 0", fontSize: 12.5, color: "rgba(255,255,255,0.45)" }}>{user?.email}</p>
+                <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "rgba(255,255,255,0.45)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {user?.email}
+                </p>
                 {overview?.profile?.gameName && (
-                  <p style={{ margin: "4px 0 0", fontSize: 12, color: C.gold }}>
+                  <p style={{ margin: "3px 0 0", fontSize: 12, color: C.gold }}>
                     {overview.profile.gameName}#{overview.profile.tagLine}
                   </p>
                 )}
               </div>
+            </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5 }}>
-                  <span style={{ color: "rgba(255,255,255,0.6)" }}>Campeón Favorito</span>
-                  <span style={{ fontWeight: 600, color: "#fff" }}>{s.favoriteChampion ?? "—"}</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 11, fontSize: 13.5 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "rgba(255,255,255,0.55)" }}>Campeón favorito</span>
+                <span style={{ fontWeight: 600, color: "#fff", display: "inline-flex", alignItems: "center", gap: 7 }}>
+                  {s.favoriteChampion && (
+                    <img src={dd.champion(s.favoriteChampion)} alt="" style={{ width: 20, height: 20, borderRadius: 6, objectFit: "cover" }}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                  )}
+                  {s.favoriteChampion ?? "—"}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "rgba(255,255,255,0.55)" }}>Publicaciones</span>
+                <span style={{ fontWeight: 600, color: "#fff" }}>{s.socialPosts ?? 0}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "rgba(255,255,255,0.55)" }}>Región</span>
+                <span style={{ fontWeight: 600, color: "#fff" }}>{overview?.profile?.platform?.toUpperCase() ?? "—"}</span>
+              </div>
+            </div>
+
+            <button className="vs-btn vs-btn--ghost" style={{ width: "100%", marginTop: 18, height: 40, fontSize: 13.5 }}>
+              Editar perfil
+            </button>
+          </Card>
+
+          {/* ── Fila 3: panel de torneos existente ── */}
+          <div className="vs-col-12">
+            <TournamentDashboardPanel />
+          </div>
+
+          {/* ── Fila 4: acciones + actividad + próximo torneo ── */}
+          <Card className="vs-col-4" style={{ padding: 24 }}>
+            <CardTitle sub="Accede a las funciones principales">Acciones rápidas</CardTitle>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {quickActions.map((a) => (
+                <Link key={a.to} to={a.to} style={{ textDecoration: "none" }}>
+                  <div className="vs-row">
+                    <span className="vs-ico" style={{ width: 40, height: 40 }}>{a.icon}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ margin: 0, fontFamily: FONT_COND, fontWeight: 700, fontSize: 15, color: "#fff" }}>{a.title}</p>
+                      <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{a.desc}</p>
+                    </div>
+                    <ArrowRight size={15} style={{ marginLeft: "auto", color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </Card>
+
+          <Card className="vs-col-5" delay={0.05} style={{ padding: 24 }}>
+            <CardTitle sub="Últimas partidas">Actividad reciente</CardTitle>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {!recent || recent.length === 0 ? (
+                <p style={{ fontSize: 13.5, color: "rgba(255,255,255,0.45)" }}>No hay partidas recientes.</p>
+              ) : (
+                recent.map((m, index) => (
+                  <div key={index} className="vs-row" style={{ boxShadow: `inset 3px 0 0 ${m.win ? C.win : C.loss}` }}>
+                    {m.championName ? (
+                      <img src={dd.champion(m.championName)} alt="" loading="lazy"
+                        style={{ width: 34, height: 34, borderRadius: 10, objectFit: "cover", flexShrink: 0 }}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }} />
+                    ) : (
+                      <span className="vs-ico vs-ico--dim" style={{ width: 34, height: 34 }}><Target size={15} /></span>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: 13.5, color: "#fff" }}>
+                        {m.championName ?? "?"} · {m.queueName ?? "Partida"}
+                      </p>
+                      <p style={{ margin: "1px 0 0", fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+                        <span style={{ color: m.win ? C.win : C.loss, fontWeight: 700 }}>
+                          {m.win ? "Victoria" : "Derrota"}
+                        </span>{" "}
+                        · {m.duration ? Math.round(m.duration / 60) : 0} min
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+
+          <Card className="vs-col-3" delay={0.1} style={{ padding: 24 }}>
+            <CardTitle>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Calendar size={15} color={C.gold} /> Próximo torneo
+              </span>
+            </CardTitle>
+            {nextT ? (
+              <div onClick={() => navigate(`/tournaments/${nextT.id}`)} style={{ cursor: "pointer" }}>
+                <div style={{ fontFamily: FONT_COND, fontWeight: 700, fontSize: 18, color: "#fff", lineHeight: 1.15, marginBottom: 8 }}>
+                  {nextT.name}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5 }}>
-                  <span style={{ color: "rgba(255,255,255,0.6)" }}>Publicaciones</span>
-                  <span style={{ fontWeight: 600, color: "#fff" }}>{s.socialPosts ?? 0}</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "rgba(255,255,255,0.6)" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <Calendar size={13} />
+                    {new Date(nextT.startDate).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}
+                  </span>
+                  {nextT.prize ? <span style={{ color: C.gold }}>🏆 {nextT.prize}</span> : null}
+                </div>
+                <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span className="vs-over" style={{ color: nextT.phase === "active" ? C.win : C.gold }}>
+                    {nextT.phase === "registration" ? "Inscripciones" : nextT.phase === "checkin" ? "Check-in" : "En curso"}
+                  </span>
+                  <span style={{ fontSize: 12.5, color: C.red, fontWeight: 700 }}>Ver →</span>
                 </div>
               </div>
-
-              <button
-                style={{
-                  width: "100%",
-                  marginTop: 18,
-                  height: 40,
-                  background: "transparent",
-                  color: "rgba(255,255,255,0.75)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  borderRadius: 10,
-                  fontFamily: FONT_BODY,
-                  fontWeight: 600,
-                  fontSize: 13.5,
-                  cursor: "pointer",
-                  transition: "border-color .16s, color .16s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "rgba(225,36,46,0.5)";
-                  e.currentTarget.style.color = "#fff";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
-                  e.currentTarget.style.color = "rgba(255,255,255,0.75)";
-                }}
-              >
-                Editar Perfil
-              </button>
-            </Panel>
-
-            {/* Next Tournament */}
-            <Panel style={{ padding: 26 }}>
-              <SectionTitle>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                  <Calendar size={15} /> Próximo Torneo
-                </span>
-              </SectionTitle>
-              {nextT ? (
-                <div
-                  onClick={() => navigate(`/tournaments/${nextT.id}`)}
-                  style={{ cursor: "pointer", padding: "4px 0" }}
-                >
-                  <div style={{ fontFamily: FONT_COND, fontWeight: 700, fontSize: 18, color: "#fff", lineHeight: 1.1, marginBottom: 6 }}>
-                    {nextT.name}
-                  </div>
-                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12.5, color: "rgba(255,255,255,0.6)" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                      <Calendar size={13} />
-                      {new Date(nextT.startDate).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}
-                    </span>
-                    {nextT.prize ? <span style={{ color: C.gold }}>🏆 {nextT.prize}</span> : null}
-                  </div>
-                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: nextT.phase === "active" ? C.win : C.gold }}>
-                      {nextT.phase === "registration" ? "Inscripciones abiertas" : nextT.phase === "checkin" ? "Check-in" : "En curso"}
-                    </span>
-                    <span style={{ fontSize: 12, color: C.red, fontWeight: 600 }}>Ver →</span>
-                  </div>
-                </div>
-              ) : (
-                <p style={{ textAlign: "center", fontSize: 13.5, color: "rgba(255,255,255,0.45)", margin: "6px 0" }}>
-                  No hay torneos próximos
-                </p>
-              )}
-            </Panel>
-          </div>
+            ) : (
+              <p style={{ textAlign: "center", fontSize: 13.5, color: "rgba(255,255,255,0.45)", margin: "16px 0" }}>
+                No hay torneos próximos
+              </p>
+            )}
+          </Card>
         </div>
 
         {err && <div style={{ fontSize: 13, color: C.loss, marginTop: 22 }}>{err}</div>}
       </div>
-
-      <style>{`
-        @media (max-width: 900px) {
-          .atak-dash-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </div>
   );
 };

@@ -112,17 +112,28 @@ export default function TournamentDashboardPage() {
     setParams((prev) => { const p = new URLSearchParams(prev); p.set('tab', t); return p; }, { replace: true });
 
   return (
-    <div className="td-root" style={{ position: 'relative', minHeight: '100vh', background: 'var(--td-bg)' }}>
-      {/* Aurora crimson→oro (React Bits, WebGL). Vive arriba del viewport y los
-          paneles opacos flotan encima; el velo la funde hacia el negro abajo. */}
-      <div aria-hidden style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', opacity: 0.55 }}>
+    <div
+      className="td-root"
+      style={{
+        position: 'relative', minHeight: '100vh',
+        // Lienzo "vision": negro profundo con sangrado crimson y toque de oro,
+        // el mismo lenguaje que el dashboard de usuario.
+        background:
+          'radial-gradient(1200px 700px at 85% -10%, rgba(225,36,46,0.15), transparent 60%),' +
+          'radial-gradient(900px 600px at -10% 30%, rgba(120,20,30,0.18), transparent 60%),' +
+          'radial-gradient(1000px 500px at 50% 115%, rgba(200,170,110,0.06), transparent 60%),' +
+          'linear-gradient(180deg, #08070a 0%, #0b070b 48%, #060608 100%)',
+      }}
+    >
+      {/* Aurora crimson→oro (React Bits, WebGL) respirando tras el glass */}
+      <div aria-hidden style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', opacity: 0.5 }}>
         <Aurora colorStops={['#7a1d24', '#e8323c', '#c8aa6e']} amplitude={1.1} blend={0.55} speed={0.55} />
       </div>
       <div
         aria-hidden
         style={{
           position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-          background: 'linear-gradient(180deg, rgba(8,8,10,0.10) 0%, rgba(8,8,10,0.55) 42%, rgba(8,8,10,0.85) 100%)',
+          background: 'linear-gradient(180deg, rgba(8,7,10,0.05) 0%, rgba(8,7,10,0.40) 45%, rgba(6,6,8,0.72) 100%)',
         }}
       />
       <ResponsiveStyles />
@@ -141,7 +152,8 @@ export default function TournamentDashboardPage() {
             <Tiles t={data.tournament} />
             {data.viewerAccess === 'owner' && (
               <AdminPanel id={id} phase={data.tournament.phase} bracketType={data.tournament.bracketType}
-                seriesTo={data.tournament.seriesTo} finalSeriesTo={data.tournament.finalSeriesTo} />
+                seriesTo={data.tournament.seriesTo} finalSeriesTo={data.tournament.finalSeriesTo}
+                swissRounds={data.tournament.swissRounds ?? null} />
             )}
             <div className="td-shell">
               <aside className="td-side">
@@ -944,8 +956,9 @@ function ScheduleCard({ data }: { data: TdBoardPayload }) {
 }
 
 // ── ADMIN PANEL (solo organizador) ───────────────────────────────────────────
-function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo }: {
+function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRounds }: {
   id: string; phase: string; bracketType?: string; seriesTo?: number; finalSeriesTo?: number;
+  swissRounds?: number | null;
 }) {
   const closeReg = useCloseRegistration(id);
   const start    = useStartTournament(id);
@@ -1075,9 +1088,38 @@ function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo }: {
         )}
       </div>
 
+      {/* Piloto automático suizo: rondas planeadas → el sync avanza y cierra solo.
+          Editable incluso con el torneo activo (es un interruptor, no toca lo jugado). */}
+      {bracketType === 'swiss' && phase !== 'complete' && (
+        <div style={{ marginTop: canPickFormat ? 14 : 0 }}>
+          <div className="td-over" style={{ marginBottom: 8 }}>
+            AVANCE AUTOMÁTICO · RONDAS PLANEADAS
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <OptionBtn active={!swissRounds} accent="var(--td-neutral)" label="MANUAL"
+              hint="Tú generas cada ronda y cierras el torneo con los botones."
+              onClick={() => swissRounds && patchT({ swissRounds: null }, 'Avance: manual')} />
+            {[3, 4, 5].map((n) => (
+              <OptionBtn key={n} active={swissRounds === n} accent="var(--td-green)" label={`${n} RONDAS`}
+                hint={`Al completarse una ronda se genera la siguiente sola; la ronda ${n} usa las series de final y al terminar se cierra el torneo.`}
+                onClick={() => swissRounds !== n && patchT({ swissRounds: n }, `Avance automático: ${n} rondas`)} />
+            ))}
+          </div>
+          {swissRounds ? (
+            <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--td-green)' }}>
+              ✓ Piloto automático activo: rondas y cierre del torneo sin intervención. Los botones manuales siguen disponibles por si necesitas corregir algo.
+            </p>
+          ) : (
+            <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--td-muted)' }}>
+              Resultados y stats se detectan solos igualmente; esto solo automatiza el paso de ronda.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Acciones */}
       {visible.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: canPickFormat ? 14 : 0, paddingTop: canPickFormat ? 14 : 0, borderTop: canPickFormat ? '1px solid var(--td-border)' : 'none' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--td-border)' }}>
           {visible.map((a) => (
             <Button key={a.label} variant={a.primary ? 'primary' : 'secondary'} icon={a.icon}
               disabled={a.pending} onClick={a.onClick}>
@@ -1488,8 +1530,22 @@ function MatchRow({ id, m, defaultOpen }: { id: string; m: BracketMatch; default
     : m.matchStatus === 'ready' ? <StatusChip kind="registration" dot={false}>LISTO</StatusChip>
     : <StatusChip kind="dim" dot={false}>PENDIENTE</StatusChip>;
 
+  // Serie del enfrentamiento (BO3/BO5), estampada por el backend
+  const seriesTo = Number((m as any).seriesTo) || 1;
+  const boLabel = seriesTo > 1 ? `BO${seriesTo * 2 - 1}` : null;
+
+  const teamName = (name: string | null, won: boolean) => (
+    <span style={{
+      fontSize: 14.5, fontWeight: won ? 800 : 600,
+      color: won ? '#fff' : m.winner ? 'var(--td-muted)' : 'var(--td-text-2)',
+      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+    }}>
+      {name}
+    </span>
+  );
+
   return (
-    <Card accent={m.matchStatus === 'active' ? 'rgba(59,130,246,0.35)' : undefined} style={{ padding: 14 }}>
+    <Card accent={m.matchStatus === 'active' ? 'rgba(59,130,246,0.35)' : undefined} style={{ padding: '16px 18px' }}>
       <button
         onClick={hasStats ? () => setOpen((o) => !o) : undefined}
         aria-expanded={open}
@@ -1502,19 +1558,25 @@ function MatchRow({ id, m, defaultOpen }: { id: string; m: BracketMatch; default
       >
         <div className="td-match-teams">
           <span className="td-match-team" style={{ justifyContent: 'flex-end' }}>
-            <span style={{ fontSize: 13, fontWeight: m.winner === m.team1 ? 700 : 500, color: m.winner === m.team1 ? '#fff' : 'var(--td-text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {m.team1}
-            </span>
-            <TeamBadge name={m.team1 ?? undefined} size={26} />
+            {teamName(m.team1, m.winner === m.team1)}
+            <TeamBadge name={m.team1 ?? undefined} size={34} />
           </span>
-          <span className="td-num" style={{ fontSize: 15, fontWeight: 700, color: 'var(--td-text)', whiteSpace: 'nowrap' }}>
-            {m.score1 ?? '–'}<span style={{ color: RED, margin: '0 7px' }}>vs</span>{m.score2 ?? '–'}
+          {/* Marcador central grande — lo primero que buscas en un partido */}
+          <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+            <span className="td-num" style={{ fontSize: 24, fontWeight: 800, color: 'var(--td-text)', whiteSpace: 'nowrap', lineHeight: 1 }}>
+              <span style={{ color: m.winner === m.team1 ? '#fff' : 'var(--td-text-2)' }}>{m.score1 ?? '–'}</span>
+              <span style={{ color: RED, margin: '0 10px', fontSize: 14, fontWeight: 700 }}>–</span>
+              <span style={{ color: m.winner === m.team2 ? '#fff' : 'var(--td-text-2)' }}>{m.score2 ?? '–'}</span>
+            </span>
+            {boLabel && (
+              <span className="td-num" style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.1em', color: '#c8aa6e' }}>
+                {boLabel}
+              </span>
+            )}
           </span>
           <span className="td-match-team">
-            <TeamBadge name={m.team2 ?? undefined} size={26} />
-            <span style={{ fontSize: 13, fontWeight: m.winner === m.team2 ? 700 : 500, color: m.winner === m.team2 ? '#fff' : 'var(--td-text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {m.team2}
-            </span>
+            <TeamBadge name={m.team2 ?? undefined} size={34} />
+            {teamName(m.team2, m.winner === m.team2)}
           </span>
         </div>
         <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
