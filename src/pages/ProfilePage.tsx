@@ -32,7 +32,6 @@ import { RefreshCw, Star, Search, ChevronDown } from 'lucide-react';
 import { KataLoaderOverlay } from '@/components/KataLoader';
 import { motion } from 'framer-motion';
 import ChampionDanceSlot from '@/components/ChampionDanceSlot';
-import { ScrollVideoBg } from '@/components/ScrollVideoBg';
 import { Tip } from '@/components/ui/Tip';
 import { ShareProfileButton } from '@/components/ShareProfileCard';
 
@@ -468,9 +467,15 @@ export default function ProfilePage() {
     return c ? { slug: c.id, name: c.name, id: top.championId } : null;
   }, [summary, champByKey]);
 
+  // Hero Scroll Expand: splash del main si hay; si no, video ATAK (dagger/hero).
+  const heroSplash = topMasteryChamp ? dd.championSplash(topMasteryChamp.slug) : null;
+  const heroMediaType: 'image' | 'video' = heroSplash ? 'image' : 'video';
+  const heroMediaSrc = heroSplash || '/video/dagger-scroll.mp4';
+  const heroPoster = heroSplash || undefined;
+
   // Tinte ambiental: color dominante del splash del main → el fondo de la página
   // y el glow del modelo 3D combinan con el campeón (fallback: rojo de marca).
-  const champTint = useDominantColor(topMasteryChamp ? dd.championSplash(topMasteryChamp.slug) : null);
+  const champTint = useDominantColor(heroSplash);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return matches;
@@ -711,30 +716,81 @@ export default function ProfilePage() {
     return { season, topChamps, mastery, bestDamage, wardsRecent };
   }, [opggData, champRows, champByKey, champByName, summary, matches]);
 
+  // KPIs arriba del fold (estilo SaaS landing: métricas primero).
+  const kpiWr = recap?.wr ?? (opggData as any)?.season_win_rate ?? null;
+  const kpiKda = recap?.kda ?? null;
+  const kpiGames = recap?.n ?? (opggData as any)?.season_play ?? null;
+  const kpiLp = soloRank?.lp ?? null;
+  const kpiTier = soloRank
+    ? `${soloRank.tier}${soloRank.rank ? ` ${soloRank.rank}` : ''}`
+    : null;
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: '#e8e8ea', fontFamily: FONT_BODY, lineHeight: 1.5 }}>
       <style>{`
         @keyframes atak-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
         @keyframes atak-live-dot { 0%,100%{opacity:1} 50%{opacity:.35} }
-        .atak-glow { background:
-          radial-gradient(900px 500px at 80% -10%, ${champTint ? tintRgba(champTint, 0.17) : 'rgba(225,36,46,0.14)'}, transparent 60%),
-          radial-gradient(700px 460px at 6% 28%, ${champTint ? tintRgba(champTint, 0.07) : 'rgba(225,36,46,0.05)'}, transparent 62%),
-          linear-gradient(180deg, rgba(8,8,10,0.55) 0%, rgba(8,8,10,0.40) 45%, rgba(8,8,10,0.55) 100%);
-          transition: background 900ms ease; }
-        @media (max-width: 960px){ .atak-grid{ grid-template-columns: 1fr !important; } }
+        .atak-saas-bg {
+          position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+        }
+        .atak-saas-bg img, .atak-saas-bg video {
+          width: 100%; height: 100%; object-fit: cover; object-position: top center;
+          opacity: 0.14; filter: saturate(0.85) brightness(0.45);
+        }
+        .atak-saas-veil {
+          position: absolute; inset: 0;
+          background:
+            radial-gradient(900px 480px at 85% -5%, ${champTint ? tintRgba(champTint, 0.22) : 'rgba(225,36,46,0.18)'}, transparent 55%),
+            radial-gradient(700px 420px at 8% 20%, ${champTint ? tintRgba(champTint, 0.1) : 'rgba(225,36,46,0.08)'}, transparent 60%),
+            linear-gradient(180deg, rgba(10,10,12,0.55) 0%, rgba(10,10,12,0.88) 45%, #0a0a0c 100%);
+        }
+        .atak-kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 12px;
+        }
+        .atak-kpi {
+          border-radius: 16px;
+          padding: 18px 18px 16px;
+          background: linear-gradient(165deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 12px 32px rgba(0,0,0,0.25);
+          border: 1px solid rgba(255,255,255,0.06);
+          min-height: 108px;
+          display: flex; flex-direction: column; justify-content: space-between;
+          transition: border-color .2s, transform .2s, box-shadow .2s;
+        }
+        .atak-kpi:hover {
+          border-color: rgba(225,36,46,0.35);
+          transform: translateY(-2px);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 16px 36px rgba(0,0,0,0.35);
+        }
+        .atak-kpi .k { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.45); font-weight: 700; }
+        .atak-kpi .v { font-family: ${FONT_COND}; font-weight: 800; font-size: 32px; line-height: 1.05; color: #fff; margin-top: 8px; }
+        .atak-kpi .s { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 6px; }
+        @media (max-width: 960px){
+          .atak-grid{ grid-template-columns: 1fr !important; }
+          .atak-kpi-grid{ grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+        }
+        @media (max-width: 520px){
+          .atak-kpi-grid{ grid-template-columns: 1fr !important; }
+        }
       `}</style>
 
       {/* 3D Katarina loader while resolving the invocador (initial load). */}
       {!puuid && !resolveErr && <KataLoaderOverlay show label="Cargando invocador" />}
 
-      {/* Hero scroll-scrubbed dagger video: bold up top, advances with scroll,
-          fades into the data. Renders nothing until /public/video/dagger-scroll.mp4 exists. */}
-      <ScrollVideoBg />
+      {/* Fondo ambiental (no bloquea stats): splash del main o video ATAK */}
+      <div className="atak-saas-bg" aria-hidden>
+        {heroMediaType === 'video' ? (
+          <video src={heroMediaSrc} poster={heroPoster} autoPlay muted loop playsInline />
+        ) : (
+          <img src={heroMediaSrc} alt="" />
+        )}
+        <div className="atak-saas-veil" />
+      </div>
 
-      {/* Top bar removed — the app's global Navbar is used instead. */}
-
-      <div className="atak-glow" style={{ minHeight: '100vh', position: 'relative', zIndex: 1 }}>
+      <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh' }}>
         <div style={{ maxWidth: 1340, margin: '0 auto', padding: '88px 18px 80px' }}>
 
           {/* Resolve error */}
@@ -749,158 +805,184 @@ export default function ProfilePage() {
             </Panel>
           )}
 
-          {/* ── Profile header ─────────────────────────────────────────────── */}
-          <Panel
-            style={{
-              padding: '28px 30px', marginBottom: 28, position: 'relative',
-              // Acento de marca sin caja: un brillo rojo que se funde con la
-              // página en vez de un fill que delimite una tarjeta.
-              background:
-                'radial-gradient(720px 280px at 0% 0%, rgba(225,36,46,0.16), transparent 62%)',
-            }}
-          >
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 26, alignItems: 'center' }}>
-              {/* Icon + level */}
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                {summaryLoading && !summary ? (
-                  <Skeleton h={84} w={84} style={{ borderRadius: 14 }} />
-                ) : (
-                  <img
-                    src={profileIconUrl}
-                    alt=""
-                    style={{ width: 84, height: 84, borderRadius: 14, border: `2px solid ${C.red}`, objectFit: 'cover', background: '#000' }}
-                    onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')}
+          {/* ── Identity strip (compacto) ──────────────────────────────────── */}
+          <div style={{
+            display: 'flex', flexWrap: 'wrap', gap: 18, alignItems: 'center',
+            marginBottom: 20, paddingBottom: 18,
+            borderBottom: '1px solid rgba(255,255,255,0.06)',
+          }}>
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              {summaryLoading && !summary ? (
+                <Skeleton h={64} w={64} style={{ borderRadius: 14 }} />
+              ) : (
+                <img
+                  src={profileIconUrl}
+                  alt=""
+                  style={{ width: 64, height: 64, borderRadius: 14, border: `2px solid ${C.red}`, objectFit: 'cover', background: '#000' }}
+                  onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')}
+                />
+              )}
+              <div style={{
+                position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
+                background: '#0a0a0c', borderRadius: 999, padding: '1px 8px',
+                fontFamily: FONT_COND, fontWeight: 700, fontSize: 11, color: C.gold, whiteSpace: 'nowrap',
+              }}>
+                Nv. {summary?.summoner?.level ?? '—'}
+              </div>
+            </div>
+
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <h1 style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 30, margin: 0, color: '#fff', lineHeight: 1 }}>
+                  {gameName || '—'}
+                  <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600, fontSize: 18 }}> #{tagLine}</span>
+                </h1>
+                <span style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 999, padding: '4px 12px', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>
+                  {platform.toUpperCase()}
+                </span>
+                <Star size={18} style={{ color: C.gold, opacity: 0.85 }} />
+                {isLive && (
+                  <Link
+                    to={`/live/${region}/${encodeURIComponent(name || '')}`}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 8,
+                      background: 'rgba(225,36,46,0.16)', color: '#ff6b73',
+                      borderRadius: 999, padding: '7px 14px', textDecoration: 'none',
+                      fontFamily: FONT_COND, fontWeight: 700, fontSize: 13,
+                      boxShadow: 'inset 0 0 0 1px rgba(225,36,46,0.35)',
+                    }}
+                  >
+                    <span style={{
+                      width: 8, height: 8, borderRadius: '50%', background: C.red,
+                      boxShadow: `0 0 10px ${C.red}`, animation: 'atak-live-dot 1.4s ease-in-out infinite',
+                    }} />
+                    EN VIVO
+                  </Link>
+                )}
+                {!!gameName && (
+                  <ShareProfileButton
+                    data={{
+                      gameName,
+                      tagLine,
+                      platform,
+                      level: summary?.summoner?.level ?? null,
+                      profileIconUrl: profileIconUrl || null,
+                      splashUrl: topMasteryChamp ? dd.championSplash(topMasteryChamp.slug) : null,
+                      emblemUrl: soloRank ? rankEmblem(soloRank.tier) : null,
+                      soloRank,
+                      flexRank: flexRank ? { tier: flexRank.tier, rank: flexRank.rank, lp: flexRank.lp } : null,
+                      topPercent: leagueRank?.topPercent ?? null,
+                      recap,
+                      season: shareData.season,
+                      mastery: shareData.mastery,
+                      bestDamage: shareData.bestDamage,
+                      wardsRecent: shareData.wardsRecent,
+                      topChamps: shareData.topChamps,
+                    }}
                   />
                 )}
-                <div
-                  style={{
-                    position: 'absolute', bottom: -10, left: '50%', transform: 'translateX(-50%)',
-                    background: '#0a0a0c', border: 'none', borderRadius: 999,
-                    padding: '2px 9px', fontFamily: FONT_COND, fontWeight: 700, fontSize: 12, color: C.gold, whiteSpace: 'nowrap',
-                  }}
-                >
-                  Nv. {summary?.summoner?.level ?? '—'}
-                </div>
               </div>
-
-              {/* Name + region */}
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <h1 style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 34, margin: 0, color: '#fff', lineHeight: 1 }}>
-                    {gameName || '—'}
-                    <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600, fontSize: 22 }}> #{tagLine}</span>
-                  </h1>
-                  <span style={{ background: 'rgba(255,255,255,0.07)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)', borderRadius: 999, padding: '4px 13px', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>
-                    {platform.toUpperCase()}
-                  </span>
-                  <Star size={20} style={{ color: C.gold, cursor: 'pointer', opacity: 0.85 }} />
-                  {/* Espectador en el navegador: si está jugando AHORA, ver la
-                      partida en vivo sin instalar nada (diferenciador ATAK). */}
-                  {isLive && (
-                    <Link
-                      to={`/live/${region}/${encodeURIComponent(name || '')}`}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 8,
-                        background: 'rgba(225,36,46,0.16)', color: '#ff6b73',
-                        borderRadius: 999, padding: '9px 18px', textDecoration: 'none',
-                        fontFamily: FONT_COND, fontWeight: 700, fontSize: 14, letterSpacing: 0.4,
-                        boxShadow: 'inset 0 0 0 1px rgba(225,36,46,0.35)',
-                      }}
-                    >
-                      <span style={{
-                        width: 8, height: 8, borderRadius: '50%', background: C.red,
-                        boxShadow: `0 0 10px ${C.red}`, animation: 'atak-live-dot 1.4s ease-in-out infinite',
-                      }} />
-                      EN VIVO · Ver partida
-                    </Link>
-                  )}
-                  {/* Card compartible: cada jugador que postea su card es alcance
-                      orgánico para ATAK (estrategia comunidad IG/TikTok). */}
-                  {!!gameName && (
-                    <ShareProfileButton
-                      data={{
-                        gameName,
-                        tagLine,
-                        platform,
-                        level: summary?.summoner?.level ?? null,
-                        profileIconUrl: profileIconUrl || null,
-                        splashUrl: topMasteryChamp ? dd.championSplash(topMasteryChamp.slug) : null,
-                        emblemUrl: soloRank ? rankEmblem(soloRank.tier) : null,
-                        soloRank,
-                        flexRank: flexRank ? { tier: flexRank.tier, rank: flexRank.rank, lp: flexRank.lp } : null,
-                        topPercent: leagueRank?.topPercent ?? null,
-                        recap,
-                        season: shareData.season,
-                        mastery: shareData.mastery,
-                        bestDamage: shareData.bestDamage,
-                        wardsRecent: shareData.wardsRecent,
-                        topChamps: shareData.topChamps,
-                      }}
-                    />
-                  )}
-                </div>
-
-                {/* Mastery hexagons */}
-                <div style={{ display: 'flex', gap: 9, marginTop: 14, flexWrap: 'wrap' }}>
-                  {summaryLoading && !summary
-                    ? Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} h={44} w={40} />)
-                    : masteryTop.length
-                      ? masteryTop.map((m: any, i: number) => {
-                          const c = champByKey?.[String(m.championId)];
-                          const col = masteryColor(m.level);
-                          return (
-                            <div key={i} title={`${c?.name || m.championId} · Nv.${m.level} · ${fmtNumber(m.points)}`}
-                              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                              <div
-                                style={{
-                                  width: 44, height: 50, position: 'relative',
-                                  clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
-                                  background: col, padding: 2,
-                                }}
-                              >
-                                <div style={{
-                                  width: '100%', height: '100%',
-                                  clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
-                                  overflow: 'hidden', background: '#000',
-                                }}>
-                                  {c?.image && <img src={c.image} alt="" onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                                </div>
-                              </div>
-                              <span style={{ fontFamily: FONT_COND, fontSize: 10, fontWeight: 700, color: col }}>{m.level}</span>
-                            </div>
-                          );
-                        })
-                      : <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13 }}>Sin datos de maestría</span>}
-                </div>
-
-                {/* ATAK AI — compact insight chips derived from the loaded stats */}
+              <div style={{ marginTop: 10 }}>
                 <AiTags
                   label="ATAK INSIGHTS"
                   tags={aiTags}
                   loading={aiLoading}
                   unavailable={aiUnavailable}
-                  style={{ marginTop: 14 }}
                 />
               </div>
+            </div>
 
-              {/* Season + refresh */}
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center', alignSelf: 'flex-start', marginLeft: 'auto' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 10, padding: '9px 14px', fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}>
-                  Temporada 2026 <ChevronDown size={15} />
-                </div>
-                <Tip label="Volver a cargar los datos del invocador">
-                  <button
-                    onClick={refresh}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.red, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = C.redHover)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = C.red)}
-                  >
-                    <RefreshCw size={15} /> Actualizar
-                  </button>
-                </Tip>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto' }}>
+              <Tip label="Volver a cargar los datos del invocador">
+                <button
+                  onClick={refresh}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6, background: C.red, color: '#fff',
+                    border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = C.redHover)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = C.red)}
+                >
+                  <RefreshCw size={15} /> Actualizar
+                </button>
+              </Tip>
+            </div>
+          </div>
+
+          {/* ── KPI Bento (lo primero que importa) ─────────────────────────── */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+            className="atak-kpi-grid"
+            style={{ marginBottom: 28 }}
+          >
+            <div className="atak-kpi">
+              <div className="k">Win rate · 30d</div>
+              <div className="v" style={{ color: kpiWr == null ? '#fff' : kpiWr >= 50 ? C.win : C.loss }}>
+                {summaryLoading && !recap ? '—' : kpiWr != null ? `${kpiWr}%` : '—'}
+              </div>
+              <div className="s">
+                {recap ? `${recap.wins}V · ${recap.losses}D` : 'Últimas partidas'}
               </div>
             </div>
-          </Panel>
+            <div className="atak-kpi">
+              <div className="k">KDA medio</div>
+              <div className="v">{summaryLoading && !recap ? '—' : (kpiKda ?? '—')}</div>
+              <div className="s">
+                {recap ? `${recap.k} / ${recap.d} / ${recap.a}` : 'Kills · Muertes · Asist.'}
+              </div>
+            </div>
+            <div className="atak-kpi">
+              <div className="k">Partidas</div>
+              <div className="v">{summaryLoading && !recap ? '—' : (kpiGames ?? '—')}</div>
+              <div className="s">Ventana de análisis 30 días</div>
+            </div>
+            <div className="atak-kpi">
+              <div className="k">Solo / Dúo</div>
+              <div className="v" style={{ fontSize: kpiTier && kpiTier.length > 10 ? 22 : 28 }}>
+                {summaryLoading && !soloRank ? '—' : (kpiTier || 'Unranked')}
+              </div>
+              <div className="s">
+                {kpiLp != null ? `${kpiLp} LP` : 'Clasificatoria actual'}
+                {leagueRank?.topPercent != null ? ` · Top ${leagueRank.topPercent}%` : ''}
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Mastery chips compactos bajo KPIs */}
+          {(masteryTop.length > 0 || (summaryLoading && !summary)) && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', fontWeight: 700, marginRight: 4 }}>
+                Maestría
+              </span>
+              {summaryLoading && !summary
+                ? Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} h={36} w={36} style={{ borderRadius: 8 }} />)
+                : masteryTop.map((m: any, i: number) => {
+                    const c = champByKey?.[String(m.championId)];
+                    const col = masteryColor(m.level);
+                    return (
+                      <div
+                        key={i}
+                        title={`${c?.name || m.championId} · Nv.${m.level} · ${fmtNumber(m.points)}`}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          padding: '4px 8px 4px 4px', borderRadius: 999,
+                          background: 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${col}44`,
+                        }}
+                      >
+                        {c?.image ? (
+                          <img src={c.image} alt="" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover' }} />
+                        ) : (
+                          <div style={{ width: 28, height: 28, borderRadius: 8, background: '#222' }} />
+                        )}
+                        <span style={{ fontFamily: FONT_COND, fontWeight: 700, fontSize: 12, color: col }}>{m.level}</span>
+                      </div>
+                    );
+                  })}
+            </div>
+          )}
 
           {/* ── Two-column grid ────────────────────────────────────────────── */}
           <div className="atak-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.12fr)', gap: 28 }}>
@@ -948,9 +1030,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Comentarios de la comunidad — ancho completo bajo el grid.
-              (Vivía en SummonerPage, que ya no está routeada; el backend
-              /api/stats/profile-comments siempre siguió activo.) */}
+          {/* Comentarios de la comunidad — ancho completo bajo el grid. */}
           {puuid && (
             <motion.div {...RISE_IN} style={{ marginTop: 24 }}>
               <Panel style={{ padding: 26 }}>
@@ -959,6 +1039,7 @@ export default function ProfilePage() {
               </Panel>
             </motion.div>
           )}
+
         </div>
       </div>
     </div>

@@ -101,23 +101,36 @@ export function TeamBadge({ name, color, size = 28, mono }: { name?: string | nu
 }
 
 // ── StatTile ─────────────────────────────────────────────────────────────────
-export function StatTile({ value, label, color = 'var(--td-text)', icon, accentBorder }: {
+// Icono en chip a la izquierda, etiqueta arriba y número grande debajo: el
+// patrón de tarjeta-métrica del dashboard de referencia. Lee de un vistazo.
+export function StatTile({ value, label, color = 'var(--td-text)', icon, accentBorder, hint }: {
   value: ReactNode; label: string; color?: string; icon?: ReactNode; accentBorder?: boolean;
+  /** Línea secundaria opcional bajo el valor. */
+  hint?: ReactNode;
 }) {
   return (
-    <div className="td-tile" style={{
-      background: 'var(--td-card)', borderRadius: 14, padding: '14px 16px',
-      border: `1px solid ${accentBorder ? 'var(--td-red-glow)' : 'var(--td-border)'}`,
-      transition: 'border-color .2s',
-    }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--td-border-hov)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = accentBorder ? 'var(--td-red-glow)' : 'var(--td-border)'; }}
+    <div
+      className="td-panel td-hoverable"
+      style={{
+        // minWidth 0: dentro de un grid, el texto nowrap expandía la columna y
+        // desbordaba la pantalla en móvil.
+        minWidth: 0,
+        padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12,
+        borderColor: accentBorder ? 'var(--td-red-glow)' : undefined,
+      }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        {icon}
-        <span style={{ fontFamily: 'var(--td-font-mono)', fontSize: 26, fontWeight: 700, color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      {icon && <span className="td-ico td-tile-ico">{icon}</span>}
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div className="td-over" style={{ marginBottom: 5 }}>{label}</div>
+        <div style={{
+          fontFamily: 'var(--td-font-mono)', fontSize: 'clamp(16px, 4.2vw, 22px)', fontWeight: 700, color,
+          lineHeight: 1.1, fontVariantNumeric: 'tabular-nums',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {value}
+        </div>
+        {hint && <div style={{ fontSize: 11, color: 'var(--td-muted)', marginTop: 3 }}>{hint}</div>}
       </div>
-      <div className="td-over" style={{ marginTop: 8 }}>{label}</div>
     </div>
   );
 }
@@ -164,11 +177,15 @@ export function FilterPills<T extends string>({ items, value, onChange }: {
 }
 
 // ── Section header helper ────────────────────────────────────────────────────
+// Cabecera con separador: marca dónde empieza cada bloque dentro del panel.
 export function SectionHead({ icon, title, right }: { icon?: ReactNode; title: string; right?: ReactNode }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14,
+      paddingBottom: 12, borderBottom: '1px solid var(--td-border-soft)',
+    }}>
       {icon}
-      <span className="td-over" style={{ fontSize: 10, letterSpacing: '2px' }}>{title}</span>
+      <span className="td-over" style={{ fontSize: 10, letterSpacing: '2px', color: 'var(--td-text-2)' }}>{title}</span>
       {right && <span style={{ marginLeft: 'auto' }}>{right}</span>}
     </div>
   );

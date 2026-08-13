@@ -25,10 +25,12 @@ import { TournamentGlobalStats } from '@/components/TournamentGlobalStats';
 import { TournamentMatchStats } from '@/components/TournamentMatchStats';
 import { TournamentBracket } from '@/components/TournamentBracket';
 import {
-  Button, StatusChip, TeamBadge, StatTile, ProgressBar, FilterPills, SectionHead,
+  Button, StatusChip, TeamBadge, StatTile, ProgressBar, SectionHead,
 } from '@/components/tournament/ui';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollVideoBg } from '@/components/ScrollVideoBg';
+import Aurora from '@/components/Aurora';
+import { TournamentTeamModal } from '@/components/TournamentTeamModal';
+import { useProfileIcons, iconFor } from '@/hooks/useProfileIcons';
 import { dd } from '@/lib/dataDragon';
 import '@/styles/tournament-dashboard.css';
 
@@ -76,18 +78,13 @@ const fmtTime = (iso?: string | null) =>
 
 // ── Small local layout helper (uses tokens; not a primitive) ─────────────────
 function Card({ children, accent, style }: { children: ReactNode; accent?: string; style?: CSSProperties }) {
-  // Minimalista: sin borde por defecto — degradado sutil + sombra dan la
-  // separación. El borde solo aparece cuando hay acento semántico (live/error).
+  // Panel opaco con hairline: sobre un dashboard denso, el cristal translúcido
+  // dejaba el video de fondo peleando con las tablas. El acento solo cambia el
+  // color del borde (live / error / fearless).
   return (
     <div
-      className="td-card-in"
-      style={{
-        // Misma superficie que PANEL_SURFACE del perfil: velo translúcido sin blur
-        background: 'linear-gradient(180deg, rgba(16,16,20,0.55) 0%, rgba(10,10,13,0.35) 100%)',
-        border: `1px solid ${accent ?? 'transparent'}`,
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 8px 24px rgba(0,0,0,0.35)',
-        borderRadius: 16, padding: 18, ...style,
-      }}
+      className="td-panel td-card-in"
+      style={{ padding: 18, ...(accent ? { borderColor: accent } : null), ...style }}
     >
       {children}
     </div>
@@ -95,11 +92,6 @@ function Card({ children, accent, style }: { children: ReactNode; accent?: strin
 }
 
 type Tab = 'resumen' | 'bracket' | 'equipos' | 'partidas' | 'stats' | 'reglas';
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'resumen', label: 'Resumen' }, { key: 'bracket', label: 'Bracket' },
-  { key: 'equipos', label: 'Equipos' }, { key: 'partidas', label: 'Partidas' },
-  { key: 'stats', label: 'Stats' }, { key: 'reglas', label: 'Reglas' },
-];
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function TournamentDashboardPage() {
@@ -109,16 +101,32 @@ export default function TournamentDashboardPage() {
   const [params, setParams] = useSearchParams();
   const { data, isLoading, isError, error, refetch } = useTournamentDashboard(id);
 
-  const tab = (params.get('tab') as Tab) || 'resumen';
+  // Sin ?tab= explícito: durante inscripciones/check-in lo que importa son los
+  // equipos; con el torneo ya en marcha (bracket generado), el resumen.
+  const defaultTab: Tab =
+    data && (data.tournament.phase === 'registration' || data.tournament.phase === 'checkin')
+      ? 'equipos'
+      : 'resumen';
+  const tab = (params.get('tab') as Tab) || defaultTab;
   const setTab = (t: Tab) =>
     setParams((prev) => { const p = new URLSearchParams(prev); p.set('tab', t); return p; }, { replace: true });
 
   return (
-    <div className="td-root" style={{ position: 'relative', background: '#0a0a0c' }}>
-      {/* Mundo ambiental compartido — mismo look que el resto de la app */}
-      <ScrollVideoBg peakOpacity={0.5} floorOpacity={0.3} />
+    <div className="td-root" style={{ position: 'relative', minHeight: '100vh', background: 'var(--td-bg)' }}>
+      {/* Aurora crimson→oro (React Bits, WebGL). Vive arriba del viewport y los
+          paneles opacos flotan encima; el velo la funde hacia el negro abajo. */}
+      <div aria-hidden style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', opacity: 0.55 }}>
+        <Aurora colorStops={['#7a1d24', '#e8323c', '#c8aa6e']} amplitude={1.1} blend={0.55} speed={0.55} />
+      </div>
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
+          background: 'linear-gradient(180deg, rgba(8,8,10,0.10) 0%, rgba(8,8,10,0.55) 42%, rgba(8,8,10,0.85) 100%)',
+        }}
+      />
       <ResponsiveStyles />
-      <div className="td-dash" style={{ maxWidth: 1560, margin: '0 auto', padding: '80px 24px 64px' }}>
+      <div className="td-dash" style={{ position: 'relative', zIndex: 1, maxWidth: 1560, margin: '0 auto', padding: '80px 24px 96px' }}>
         {isError ? (
           <ErrorCard
             message={(error as any)?.response?.data?.error ?? (error as any)?.message ?? 'No se pudo cargar el torneo'}
@@ -140,9 +148,6 @@ export default function TournamentDashboardPage() {
                 <SideNav value={tab} onChange={setTab} live={data.tournament.status === 'live'} />
               </aside>
               <main style={{ minWidth: 0 }}>
-                <div className="td-pills">
-                  <FilterPills<Tab> items={TABS} value={tab} onChange={setTab} />
-                </div>
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={tab}
@@ -153,7 +158,9 @@ export default function TournamentDashboardPage() {
                   >
                     {tab === 'resumen' && <ResumenGrid data={data} id={id} navigate={go} onStats={() => setTab('stats')} />}
                     {tab === 'bracket' && <BracketTab id={id} data={data} />}
-                    {tab === 'equipos' && <EquiposTab id={id} />}
+                    {tab === 'equipos' && (
+                      <EquiposTab id={id} region={data.tournament.region} standings={data.standings} />
+                    )}
                     {tab === 'partidas' && <PartidasTab id={id} />}
                     {tab === 'stats' && <StatsTab id={id} />}
                     {tab === 'reglas' && <ReglasTab data={data} />}
@@ -161,6 +168,8 @@ export default function TournamentDashboardPage() {
                 </AnimatePresence>
               </main>
             </div>
+            {/* Nav flotante inferior (móvil / tablet) */}
+            <BottomNav value={tab} onChange={setTab} live={data.tournament.status === 'live'} />
           </>
         )}
       </div>
@@ -239,40 +248,61 @@ const NAV_ITEMS: Array<{ key: Tab; label: string; icon: ReactNode }> = [
   { key: 'reglas', label: 'Reglas', icon: <ScrollText size={16} /> },
 ];
 
+// Sidebar de navegación (desktop). En móvil se oculta y toma el relevo la
+// BottomNav flotante.
 function SideNav({ value, onChange, live }: { value: Tab; onChange: (t: Tab) => void; live: boolean }) {
   return (
-    <nav
-      aria-label="Secciones del torneo"
-      style={{
-        background: 'linear-gradient(180deg, rgba(16,16,20,0.55) 0%, rgba(10,10,13,0.35) 100%)',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 8px 24px rgba(0,0,0,0.35)',
-        borderRadius: 16, padding: 10, display: 'flex', flexDirection: 'column', gap: 4,
-      }}
-    >
+    <nav className="td-panel" aria-label="Secciones del torneo" style={{ padding: 8 }}>
+      <div className="td-over" style={{ padding: '8px 12px 10px', letterSpacing: '2.4px' }}>TORNEO</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {NAV_ITEMS.map((it) => {
+          const active = value === it.key;
+          return (
+            <button
+              key={it.key}
+              onClick={() => onChange(it.key)}
+              aria-current={active ? 'page' : undefined}
+              className="td-nav-item"
+              data-active={active}
+            >
+              <span className="td-nav-ind" aria-hidden />
+              <span style={{ color: active ? RED : 'var(--td-muted)', display: 'inline-flex' }}>{it.icon}</span>
+              <span style={{ flex: 1 }}>{it.label}</span>
+              {it.key === 'resumen' && live && (
+                <span className="td-dot-pulse" style={{ width: 6, height: 6, borderRadius: '50%', background: BLUE }} />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
+// Nav inferior flotante (móvil): pastilla fija con iconos, como una app nativa.
+function BottomNav({ value, onChange, live }: { value: Tab; onChange: (t: Tab) => void; live: boolean }) {
+  return (
+    <nav className="td-bottomnav" aria-label="Secciones del torneo">
       {NAV_ITEMS.map((it) => {
         const active = value === it.key;
         return (
           <button
             key={it.key}
-            onClick={() => onChange(it.key)}
+            className="td-bottomnav-item"
+            data-active={active}
             aria-current={active ? 'page' : undefined}
-            className="td-nav-item"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 11, width: '100%',
-              padding: '10px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
-              fontSize: 13, fontWeight: active ? 700 : 500, letterSpacing: '0.2px',
-              color: active ? '#fff' : 'var(--td-text-2)',
-              background: active ? 'linear-gradient(90deg, rgba(232,50,60,0.18), rgba(232,50,60,0.05))' : 'transparent',
-              border: active ? '1px solid var(--td-red-glow)' : '1px solid transparent',
-              transition: 'background .15s, color .15s, border-color .15s',
-            }}
+            onClick={() => onChange(it.key)}
           >
-            <span style={{ color: active ? RED : 'var(--td-muted)', display: 'inline-flex' }}>{it.icon}</span>
-            <span style={{ flex: 1 }}>{it.label}</span>
-            {it.key === 'resumen' && live && (
-              <span className="td-dot-pulse" style={{ width: 6, height: 6, borderRadius: '50%', background: BLUE }} />
-            )}
-            {active && <span style={{ width: 3, height: 16, borderRadius: 2, background: RED }} />}
+            <span style={{ display: 'inline-flex', position: 'relative' }}>
+              {it.icon}
+              {it.key === 'resumen' && live && !active && (
+                <span className="td-dot-pulse" style={{
+                  position: 'absolute', top: -2, right: -4,
+                  width: 6, height: 6, borderRadius: '50%', background: BLUE,
+                }} />
+              )}
+            </span>
+            <span className="td-bottomnav-label">{it.label}</span>
           </button>
         );
       })}
@@ -377,6 +407,27 @@ function StatsMainCard({ id, onFull }: { id: string; onFull: () => void }) {
 }
 
 // ── HERO ─────────────────────────────────────────────────────────────────────
+/** Número que cuenta hasta su valor al montar (ease-out; reduced-motion: directo). */
+function CountUp({ to }: { to: number }) {
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setV(to); return; }
+    let raf = 0;
+    const t0 = performance.now();
+    const dur = 900;
+    const step = (t: number) => {
+      const p = Math.min(1, (t - t0) / dur);
+      setV(Math.round(to * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [to]);
+  return <>{v}</>;
+}
+
+// Editorial: tipografía display de la marca, una sola línea de metadatos y la
+// bolsa de premios como panel propio. Menos chips, más jerarquía.
 function Hero({ data, onBracket, navigate }: {
   data: TdBoardPayload; onBracket: () => void; navigate: (to: string) => void;
 }) {
@@ -385,73 +436,86 @@ function Hero({ data, onBracket, navigate }: {
   const lead = words.slice(0, -1).join(' ');
   const tail = words[words.length - 1];
 
-  const subtitle = [t.season, joinDates(t.startDate, t.endDate), t.format].filter(Boolean).join(' · ');
+  const meta = [
+    t.season,
+    joinDates(t.startDate, t.endDate),
+    t.format,
+    t.region ? t.region.toUpperCase() : null,
+    t.patch ? `Parche ${t.patch}` : null,
+  ].filter(Boolean).join('  ·  ');
+
   const statusKind = t.status === 'live' ? 'live' : t.status === 'registration' ? 'registration' : 'finished';
-  const statusLabel = t.status === 'live' ? 'EN DIRECTO' : t.status === 'registration' ? 'INSCRIPCIONES' : 'FINALIZADO';
+  const statusLabel = t.status === 'live' ? 'EN DIRECTO' : t.status === 'registration' ? 'INSCRIPCIONES ABIERTAS' : 'FINALIZADO';
   const regPct = t.teamsMax > 0 ? (t.teamsRegistered / t.teamsMax) * 100 : 0;
 
   return (
-    <Card
-      style={{
-        position: 'relative', overflow: 'hidden', padding: 30,
-        // Si el torneo tiene banner, va de fondo con velo oscuro para legibilidad.
-        background: t.bannerUrl
-          ? `linear-gradient(90deg, rgba(10,10,12,0.92) 30%, rgba(10,10,12,0.55)), radial-gradient(120% 120% at 100% 0%, rgba(232,50,60,0.14), rgba(232,50,60,0) 45%), url(${t.bannerUrl}) center/cover no-repeat, var(--td-card)`
-          : 'radial-gradient(120% 120% at 100% 0%, rgba(232,50,60,0.14), rgba(232,50,60,0) 45%), var(--td-card)',
-      }}
-    >
-      {/* decorative giant faded motif */}
-      <Trophy
+    <Card style={{ position: 'relative', overflow: 'hidden', padding: 0 }}>
+      {/* Fondo: banner del torneo (si hay) fundido a la izquierda + glow */}
+      <div
         aria-hidden
         style={{
-          position: 'absolute', right: 24, top: -20, width: 260, height: 260,
-          color: '#fff', opacity: 0.05, transform: 'rotate(12deg)', pointerEvents: 'none',
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: t.bannerUrl
+            ? `linear-gradient(90deg, var(--td-card) 34%, rgba(16,16,20,0.72) 62%, rgba(16,16,20,0.35)), url(${t.bannerUrl}) right center/cover no-repeat`
+            : 'radial-gradient(110% 140% at 100% 0%, rgba(232,50,60,0.12), transparent 52%)',
         }}
       />
-      <div className="td-dash-hero" style={{ position: 'relative' }}>
-        <div style={{ minWidth: 0 }}>
-          {/* pill badge */}
-          <span
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7, height: 24, padding: '0 12px',
-              borderRadius: 999, border: '1px solid var(--td-red-glow)', background: 'rgba(232,50,60,0.08)',
-            }}
-          >
-            <span className="td-dot-pulse" style={{ width: 5, height: 5, borderRadius: '50%', background: RED }} />
-            <Trophy size={12} color={RED} />
-            <span className="td-over" style={{ color: RED, letterSpacing: '2px' }}>TORNEO OFICIAL · RIOT GAMES</span>
-          </span>
+      {/* Filo inferior: el motivo blade de la marca */}
+      <div aria-hidden style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, height: 1,
+        background: 'linear-gradient(90deg, transparent, rgba(232,50,60,0.6) 30%, rgba(200,170,110,0.5) 70%, transparent)',
+      }} />
 
-          <h1 style={{ fontSize: 38, fontWeight: 700, lineHeight: 1.08, margin: '14px 0 6px', color: 'var(--td-text)' }}>
-            {lead && `${lead} `}<span className="td-italic" style={{ color: RED }}>{tail}</span>
-          </h1>
-          {subtitle && <p style={{ color: 'var(--td-text-2)', fontSize: 14, margin: 0 }}>{subtitle}</p>}
-
-          {/* chips */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
+      <div className="td-dash-hero" style={{ position: 'relative', padding: 'clamp(20px, 3.5vw, 32px)' }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          {/* Eyebrow: texto plano con punto vivo — sin caja */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span className="td-dot-pulse" style={{ width: 6, height: 6, borderRadius: '50%', background: RED, flexShrink: 0 }} />
+            <span className="td-over" style={{ color: 'var(--td-text-2)', letterSpacing: '2.6px' }}>
+              TORNEO OFICIAL · RIOT GAMES
+            </span>
             <StatusChip kind={statusKind}>{statusLabel}</StatusChip>
-            {t.fearless && <StatusChip kind="warn" dot={false}>⚔ FEARLESS DRAFT</StatusChip>}
-            {t.phase && <StatusChip kind="dim" dot={false}>{t.phase.toUpperCase()}</StatusChip>}
-            {t.region && <StatusChip kind="dim" dot={false}>{t.region.toUpperCase()}</StatusChip>}
+            {t.fearless && <StatusChip kind="warn" dot={false}>FEARLESS</StatusChip>}
           </div>
 
-          {/* registration bar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18, maxWidth: 460 }}>
-            <Users size={15} color="var(--td-text-2)" />
-            <div style={{ flex: 1 }}>
-              <ProgressBar kind="red" pct={regPct} />
+          {/* Título en la display de la marca (Friz Quadrata) */}
+          <h1 style={{
+            fontFamily: 'var(--font-display, inherit)',
+            fontSize: 'clamp(30px, 5.2vw, 46px)', fontWeight: 700, lineHeight: 1.04,
+            letterSpacing: '0.5px', margin: '14px 0 8px', color: 'var(--td-text)',
+          }}>
+            {lead && `${lead} `}<span className="td-italic" style={{ color: RED }}>{tail}</span>
+          </h1>
+
+          {meta && (
+            <p className="td-num" style={{ color: 'var(--td-muted)', fontSize: 12, letterSpacing: '0.4px', margin: 0 }}>
+              {meta}
+            </p>
+          )}
+
+          {/* Cupo: número protagonista + barra fina */}
+          <div style={{ marginTop: 22, maxWidth: 440 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 7 }}>
+              <span className="td-num" style={{ fontSize: 26, fontWeight: 700, color: 'var(--td-text)' }}>
+                <CountUp to={t.teamsRegistered} />
+                <span style={{ color: 'var(--td-muted)', fontWeight: 500 }}> / {t.teamsMax}</span>
+              </span>
+              <span className="td-over" style={{ letterSpacing: '2px' }}>EQUIPOS INSCRITOS</span>
             </div>
-            <span className="td-num" style={{ fontSize: 12.5, color: 'var(--td-text)', whiteSpace: 'nowrap' }}>
-              {t.teamsRegistered}/{t.teamsMax} equipos inscritos
-            </span>
+            <ProgressBar kind="red" pct={regPct} height={5} />
           </div>
         </div>
 
-        {/* right: prize + CTAs */}
-        <div className="td-dash-hero-right" style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 220 }}>
+        {/* Derecha: premio + CTAs como panel propio */}
+        <div className="td-dash-hero-right td-sub" style={{
+          display: 'flex', flexDirection: 'column', gap: 12, minWidth: 236, padding: 18, alignSelf: 'stretch',
+          justifyContent: 'center',
+        }}>
           <div>
-            <div className="td-over">BOLSA DE PREMIOS</div>
-            <div className="td-num" style={{ fontSize: 36, fontWeight: 700, color: '#fff', lineHeight: 1.1, marginTop: 4 }}>
+            <div className="td-over" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Trophy size={11} color="#c8aa6e" /> BOLSA DE PREMIOS
+            </div>
+            <div className="td-num" style={{ fontSize: 30, fontWeight: 700, color: '#fff', lineHeight: 1.1, marginTop: 5 }}>
               {t.prizePool || '—'}
             </div>
           </div>
@@ -1104,7 +1168,9 @@ function BracketTab({ id, data }: { id: string; data: TdBoardPayload }) {
 }
 
 // ── EQUIPOS: inscripciones reales con roster ─────────────────────────────────
-function EquiposTab({ id }: { id: string }) {
+function EquiposTab({ id, region, standings }: {
+  id: string; region: string; standings: TdBoardPayload['standings'];
+}) {
   const { data: regs, isLoading, isError, error, refetch } = useRegistrations(id);
 
   if (isError) {
@@ -1125,35 +1191,232 @@ function EquiposTab({ id }: { id: string }) {
     );
   }
 
+  return <TeamsBoard regs={regs} id={id} region={region} standings={standings} />;
+}
+
+// Tablero de equipos: buscador + orden + tarjetas con estado de plantilla.
+// Antes cada jugador sin confirmar pintaba un chip rojo "PENDIENTE": con 7
+// jugadores por equipo la rejilla era una pared de alertas y no se distinguía
+// lo importante (qué equipo está listo para jugar).
+function TeamsBoard({ regs, id, region, standings }: {
+  regs: NonNullable<ReturnType<typeof useRegistrations>['data']>;
+  id: string; region: string; standings: TdBoardPayload['standings'];
+}) {
+  const [q, setQ] = useState('');
+  const [sort, setSort] = useState<'estado' | 'nombre' | 'plantilla'>('estado');
+  const [openTeam, setOpenTeam] = useState<string | null>(null);
+
+  // Iconos de perfil de LoL de todos los jugadores inscritos (una llamada batch).
+  const allRiotIds = useMemo(
+    () => regs.flatMap((r) => (r.players ?? []).map((p) => p.riotId || '')).filter(Boolean),
+    [regs],
+  );
+  const { data: iconMap } = useProfileIcons(`teams-${id}`, allRiotIds, region || 'la1');
+
+  const confirmedOf = (r: (typeof regs)[number]) =>
+    (r.players ?? []).filter((p) => p.inviteStatus !== 'pending').length;
+
+  const view = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const list = regs.filter((r) => {
+      if (!needle) return true;
+      const hay = [r.teamName, r.captainRiotId, ...(r.players ?? []).map((p) => p.riotId || p.name)]
+        .filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(needle);
+    });
+    return [...list].sort((a, b) => {
+      if (sort === 'nombre') return a.teamName.localeCompare(b.teamName);
+      if (sort === 'plantilla') return (b.players?.length ?? 0) - (a.players?.length ?? 0);
+      return Number(b.checkedIn) - Number(a.checkedIn) || a.teamName.localeCompare(b.teamName);
+    });
+  }, [regs, q, sort]);
+
+  const ready = regs.filter((r) => r.checkedIn).length;
+  const totalPlayers = regs.reduce((acc, r) => acc + (r.players?.length ?? 0), 0);
+
+  const SORTS: Array<{ k: typeof sort; label: string }> = [
+    { k: 'estado', label: 'Check-in' },
+    { k: 'nombre', label: 'A-Z' },
+    { k: 'plantilla', label: 'Plantilla' },
+  ];
+
   return (
-    <div className="td-dash-teams" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-      {regs.map((r) => (
-        <Card key={r.teamName}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <TeamBadge name={r.teamName} size={34} />
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {r.teamName}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--td-muted)' }}>Capitán: {r.captainRiotId || '—'}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Barra de control */}
+      <div className="td-panel td-teams-bar" style={{ padding: '12px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <span className="td-ico" style={{ color: RED }}><Users size={16} /></span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--td-text)' }}>
+              {regs.length} equipos inscritos
             </div>
-            {r.checkedIn
-              ? <StatusChip kind="pos" dot={false}>LISTO</StatusChip>
-              : <StatusChip kind="dim" dot={false}>SIN CHECK-IN</StatusChip>}
+            <div style={{ fontSize: 11.5, color: 'var(--td-muted)' }}>
+              {ready} con check-in · {totalPlayers} jugadores registrados
+            </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {(r.players ?? []).map((p, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span className="td-num" style={{ fontSize: 11, color: 'var(--td-muted)', width: 14 }}>{i + 1}</span>
-                <span style={{ fontSize: 12.5, color: 'var(--td-text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                  {p.riotId || p.name}
-                </span>
-                {p.inviteStatus === 'pending' && <StatusChip kind="warn" dot={false}>PENDIENTE</StatusChip>}
+        </div>
+
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Buscar equipo, capitán o jugador…"
+          className="td-teams-search"
+          style={{
+            height: 38, borderRadius: 999, padding: '0 16px', minWidth: 0,
+            background: 'var(--td-subcard)', border: '1px solid var(--td-border)',
+            color: 'var(--td-text)', fontSize: 13, fontFamily: 'var(--td-font-ui)', outline: 'none',
+          }}
+        />
+
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          {SORTS.map((s) => (
+            <button
+              key={s.k}
+              onClick={() => setSort(s.k)}
+              style={{
+                height: 32, padding: '0 13px', borderRadius: 999, cursor: 'pointer',
+                fontSize: 12, fontWeight: 600, fontFamily: 'var(--td-font-ui)',
+                background: sort === s.k ? 'rgba(232,50,60,0.12)' : 'transparent',
+                color: sort === s.k ? '#fff' : 'var(--td-text-2)',
+                border: `1px solid ${sort === s.k ? 'var(--td-red-glow)' : 'var(--td-border)'}`,
+                transition: 'background .15s, border-color .15s, color .15s',
+              }}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!view.length ? (
+        <Card><EmptyState>Ningún equipo coincide con «{q}»</EmptyState></Card>
+      ) : (
+        <div className="td-dash-teams">
+          {view.map((r) => {
+            const players = r.players ?? [];
+            const confirmed = confirmedOf(r);
+            const pct = players.length ? (confirmed / players.length) * 100 : 0;
+            return (
+              <div
+                key={r.teamName}
+                className="td-panel td-hoverable td-card-in"
+                style={{ overflow: 'hidden', cursor: 'pointer' }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Ver análisis de ${r.teamName}`}
+                onClick={() => setOpenTeam(r.teamName)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenTeam(r.teamName); } }}
+              >
+                {/* Cabecera */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 11, padding: 16,
+                  borderBottom: '1px solid var(--td-border-soft)',
+                  background: r.checkedIn
+                    ? 'linear-gradient(90deg, rgba(74,222,128,0.07), transparent 60%)'
+                    : 'transparent',
+                }}>
+                  <TeamBadge name={r.teamName} size={38} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {r.teamName}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: 'var(--td-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      Capitán · {r.captainRiotId || '—'} · <span style={{ color: RED }}>ver análisis →</span>
+                    </div>
+                  </div>
+                  {r.checkedIn
+                    ? <StatusChip kind="pos" dot={false}>LISTO</StatusChip>
+                    : <StatusChip kind="dim" dot={false}>SIN CHECK-IN</StatusChip>}
+                </div>
+
+                {/* Estado de plantilla: una barra en vez de N chips rojos */}
+                <div style={{ padding: '12px 16px 10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                    <span className="td-over" style={{ flexShrink: 0 }}>PLANTILLA</span>
+                    <div style={{ flex: 1 }}>
+                      <ProgressBar kind={pct === 100 ? '#4ade80' : '#f59e0b'} pct={pct} height={5} />
+                    </div>
+                    <span className="td-num" style={{
+                      fontSize: 12, fontWeight: 700, flexShrink: 0,
+                      color: pct === 100 ? 'var(--td-green)' : 'var(--td-text-2)',
+                    }}>
+                      {confirmed}/{players.length}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {players.map((p, i) => {
+                      const pending = p.inviteStatus === 'pending';
+                      const icon = iconFor(iconMap, p.riotId);
+                      return (
+                        <div key={i} className="td-roster-row">
+                          <span className="td-num" style={{ fontSize: 11, color: 'var(--td-muted)', width: 16, flexShrink: 0 }}>
+                            {i + 1}
+                          </span>
+                          {/* Icono de invocador de LoL; el punto de estado pasa a badge encima */}
+                          <span style={{ position: 'relative', flexShrink: 0, width: 24, height: 24 }}>
+                            {icon ? (
+                              <img
+                                src={dd.profileIcon(icon)} alt="" loading="lazy"
+                                style={{
+                                  width: 24, height: 24, borderRadius: 7, objectFit: 'cover', display: 'block',
+                                  filter: pending ? 'grayscale(0.8) brightness(0.7)' : 'none',
+                                  boxShadow: '0 0 0 1px var(--td-border-hov)',
+                                }}
+                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
+                              />
+                            ) : (
+                              <span style={{
+                                width: 24, height: 24, borderRadius: 7, display: 'flex', alignItems: 'center',
+                                justifyContent: 'center', background: 'var(--td-sunken)',
+                                fontSize: 10, fontWeight: 700, color: 'var(--td-muted)',
+                              }}>
+                                {(p.riotId || p.name || '?')[0]?.toUpperCase()}
+                              </span>
+                            )}
+                            <span style={{
+                              position: 'absolute', right: -2, bottom: -2,
+                              width: 7, height: 7, borderRadius: '50%',
+                              border: '1.5px solid var(--td-card)',
+                              background: pending ? 'var(--td-amber)' : 'var(--td-green)',
+                            }} />
+                          </span>
+                          <span style={{
+                            flex: 1, minWidth: 0, fontSize: 12.5,
+                            color: pending ? 'var(--td-muted)' : 'var(--td-text)',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {p.riotId || p.name}
+                          </span>
+                          {pending && (
+                            <span style={{ fontSize: 10.5, color: 'var(--td-amber)', flexShrink: 0 }}>pendiente</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {!players.length && <EmptyState>Sin jugadores registrados</EmptyState>}
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
-        </Card>
-      ))}
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modal de análisis del equipo */}
+      {openTeam && (() => {
+        const r = regs.find((x) => x.teamName === openTeam);
+        if (!r) return null;
+        return (
+          <TournamentTeamModal
+            tournamentId={id}
+            region={region}
+            reg={r}
+            standing={standings.find((s) => s.name === r.teamName) ?? null}
+            onClose={() => setOpenTeam(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -1365,7 +1628,11 @@ function DashboardSkeleton() {
 function ResponsiveStyles() {
   return (
     <style>{`
-      .td-dash-hero { display: flex; gap: 28px; justify-content: space-between; align-items: flex-start; }
+      /* Guardas anti-desborde: nada dentro del dashboard provoca scroll lateral */
+      .td-dash { overflow-x: clip; }
+      .td-dash-tiles > *, .td-dash-grid > *, .td-dash-teams > * { min-width: 0; }
+
+      .td-dash-hero { display: flex; gap: 28px; justify-content: space-between; align-items: center; }
       .td-dash-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
       .td-dash-grid { display: grid; grid-template-columns: minmax(0,1fr) 400px; gap: 16px; align-items: start; }
       .td-dash-bracket { overflow-x: auto; }
@@ -1374,17 +1641,26 @@ function ResponsiveStyles() {
       .td-admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
       @media (max-width: 900px) { .td-admin-grid { grid-template-columns: 1fr; } }
 
-      /* Shell: sidebar de navegación (desktop) / pills (móvil) */
-      .td-shell { display: grid; grid-template-columns: 208px minmax(0, 1fr); gap: 18px; align-items: start; margin-top: 22px; }
-      .td-side { position: sticky; top: 88px; }
-      .td-pills { display: none; margin-bottom: 16px; }
-      .td-nav-item:hover { background: rgba(255,255,255,0.04) !important; color: var(--td-text) !important; }
+      /* Shell: sidebar (desktop) / nav flotante inferior (móvil) */
+      .td-shell { display: grid; grid-template-columns: 212px minmax(0, 1fr); gap: 18px; align-items: start; margin-top: 22px; }
+      .td-side { position: sticky; top: 84px; }
 
       /* Standings / tablas compactas */
       .td-strow { display: grid; grid-template-columns: 30px minmax(0,1fr) 64px 150px 92px 46px; gap: 10px; align-items: center; }
       .td-strow-stats { grid-template-columns: 26px minmax(0,1fr) 40px 56px 60px 80px; }
       .td-row-hover { transition: background .15s; }
       .td-row-hover:hover { background: rgba(255,255,255,0.02); }
+
+      /* Equipos */
+      .td-dash-teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px; align-items: start; }
+      .td-teams-bar { display: grid; grid-template-columns: minmax(0,1fr) minmax(220px, 320px) auto; gap: 14px; align-items: center; }
+      .td-teams-search:focus { border-color: var(--td-red-glow) !important; }
+      .td-roster-row { display: flex; align-items: center; gap: 9px; padding: 6px 8px; margin: 0 -8px;
+        border-radius: 8px; transition: background .15s; }
+      .td-roster-row:hover { background: rgba(255,255,255,0.03); }
+      @media (max-width: 860px) {
+        .td-teams-bar { grid-template-columns: 1fr; }
+      }
 
       /* Líderes de stats */
       .td-leaders { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
@@ -1404,7 +1680,7 @@ function ResponsiveStyles() {
       @media (max-width: 1100px) {
         .td-shell { grid-template-columns: 1fr; }
         .td-side { display: none; }
-        .td-pills { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .td-bottomnav { display: flex !important; }
         .td-dash-grid { grid-template-columns: 1fr; }
         .td-dash-tiles { grid-template-columns: repeat(2, 1fr); }
       }
@@ -1419,7 +1695,10 @@ function ResponsiveStyles() {
         .td-match-team { justify-content: flex-start !important; }
       }
       @media (max-width: 480px) {
-        .td-dash-tiles { grid-template-columns: 1fr 1fr; gap: 10px; }
+        .td-dash-tiles { grid-template-columns: 1fr 1fr; gap: 8px; }
+        /* En pantallas mínimas el chip de icono roba el ancho del dato */
+        .td-tile-ico { display: none !important; }
+        .td-dash { padding-left: 14px !important; padding-right: 14px !important; }
       }
     `}</style>
   );

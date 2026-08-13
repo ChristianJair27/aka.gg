@@ -5,19 +5,23 @@
 @import url('https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,600;0,700;1,600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 .td-root {
-  /* Surfaces */
-  --td-bg:        #0a0a0c;
+  /* Surfaces — OPACAS. El dashboard es denso en datos: los paneles
+     translúcidos sobre el video ambiental ensuciaban la lectura. Cada nivel de
+     profundidad es un gris sólido distinto (lienzo → panel → sub-tile). */
+  --td-bg:        #08080a;
   --td-strip:     #0c0c0f;
-  --td-card:      #121217;
-  --td-subcard:   #17171c;
-  --td-sunken:    #1d1d23;
-  --td-sunken-2:  #1e1e24;
-  /* Borders — hairlines apenas visibles (estilo minimalista sin bordes duros;
-     la separación la dan degradados y sombras) */
-  --td-border:      rgba(255, 255, 255, 0.055);
-  --td-border-soft: rgba(255, 255, 255, 0.04);
-  --td-border-hov:  rgba(255, 255, 255, 0.14);
-  --td-border-hov2: rgba(255, 255, 255, 0.22);
+  --td-card:      #101014;
+  --td-subcard:   #16161b;
+  --td-sunken:    #1c1c22;
+  --td-sunken-2:  #202027;
+  /* Borders — hairline visible: es lo que dibuja la caja ahora que no hay
+     transparencia que la insinúe. */
+  --td-border:      rgba(255, 255, 255, 0.075);
+  --td-border-soft: rgba(255, 255, 255, 0.05);
+  --td-border-hov:  rgba(255, 255, 255, 0.16);
+  --td-border-hov2: rgba(255, 255, 255, 0.24);
+  /* Sombra estándar de panel */
+  --td-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 28px rgba(0,0,0,0.28);
   /* Brand red */
   --td-red:       #e8323c;
   --td-red-hover: #f4485a;
@@ -39,9 +43,115 @@
   --td-font-mono: 'Space Grotesk', ui-monospace, monospace;
 
   font-family: var(--td-font-ui);
-  /* Transparente: el video ambiental (ScrollVideoBg) se ve a través del scope */
-  background: transparent;
+  background: var(--td-bg);
   color: var(--td-text);
+}
+
+/* ── Panel: la caja base de todo el dashboard ─────────────────────────────── */
+.td-root .td-panel {
+  background: var(--td-card);
+  border: 1px solid var(--td-border);
+  border-radius: 18px;
+  box-shadow: var(--td-shadow);
+}
+/* Sub-superficie dentro de un panel (tiles anidados, filas, mini-métricas) */
+.td-root .td-sub {
+  background: var(--td-subcard);
+  border: 1px solid var(--td-border-soft);
+  border-radius: 14px;
+}
+.td-root .td-hoverable { transition: border-color .18s, transform .18s, box-shadow .18s; }
+.td-root .td-hoverable:hover {
+  border-color: var(--td-border-hov);
+  transform: translateY(-2px);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 14px 34px rgba(0,0,0,0.38);
+}
+
+/* ── Sidebar de navegación (desktop) ──────────────────────────────────────── */
+.td-root .td-nav-item {
+  position: relative;
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  padding: 10px 12px 10px 14px; border-radius: 11px; cursor: pointer; text-align: left;
+  font-size: 13px; font-weight: 500; letter-spacing: .2px;
+  color: var(--td-text-2); background: transparent; border: none;
+  transition: background .15s, color .15s;
+  font-family: var(--td-font-ui);
+}
+.td-root .td-nav-item:hover { background: rgba(255,255,255,0.045); color: var(--td-text); }
+.td-root .td-nav-item[data-active='true'] {
+  background: var(--td-subcard); color: #fff; font-weight: 700;
+}
+/* Indicador: barrita roja a la izquierda (el patrón "fila activa" limpio) */
+.td-root .td-nav-ind {
+  position: absolute; left: 0; top: 50%; transform: translateY(-50%) scaleY(0);
+  width: 3px; height: 18px; border-radius: 2px; background: var(--td-red);
+  transition: transform .18s ease;
+}
+.td-root .td-nav-item[data-active='true'] .td-nav-ind { transform: translateY(-50%) scaleY(1); }
+
+/* ── Nav inferior flotante (móvil) ────────────────────────────────────────── */
+.td-root .td-bottomnav {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  display: none; gap: 2px; align-items: stretch;
+  padding: 6px;
+  max-width: calc(100vw - 24px);
+  background: rgba(14, 14, 18, 0.92);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--td-border-hov);
+  border-radius: 22px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+  overflow-x: auto; scrollbar-width: none;
+}
+.td-root .td-bottomnav::-webkit-scrollbar { display: none; }
+.td-root .td-bottomnav-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-width: 58px; padding: 8px 10px; border-radius: 16px;
+  border: none; background: transparent; cursor: pointer;
+  color: var(--td-muted); transition: background .15s, color .15s;
+  font-family: var(--td-font-ui);
+}
+.td-root .td-bottomnav-item:hover { color: var(--td-text); }
+.td-root .td-bottomnav-item[data-active='true'] {
+  background: rgba(232,50,60,0.14); color: #fff;
+}
+.td-root .td-bottomnav-item[data-active='true'] svg { color: var(--td-red); }
+.td-root .td-bottomnav-label { font-size: 9.5px; font-weight: 600; letter-spacing: .3px; }
+
+/* ── Modal de equipo ──────────────────────────────────────────────────────── */
+/* Filo animado del borde superior: barrido crimson→oro en bucle lento.
+   transform/background-position solo — cero repaints caros. */
+.td-root .td-modal-edge {
+  position: sticky; top: 0; z-index: 3;
+  height: 2px; margin-bottom: -2px;
+  background: linear-gradient(90deg,
+    transparent 0%, rgba(232,50,60,0.0) 12%,
+    #e8323c 34%, #f0d891 50%, #e8323c 66%,
+    rgba(232,50,60,0.0) 88%, transparent 100%);
+  background-size: 220% 100%;
+  animation: td-edge-sweep 5.5s linear infinite;
+  pointer-events: none;
+}
+@keyframes td-edge-sweep {
+  0%   { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
+
+.td-root .td-team-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.td-root .td-team-cols { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; align-items: start; }
+.td-root .td-team-ministats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (max-width: 760px) {
+  .td-root .td-team-kpis { grid-template-columns: repeat(2, 1fr); }
+  .td-root .td-team-cols { grid-template-columns: 1fr; }
+  .td-root .td-team-ministats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Chip de icono (patrón del dashboard de golf) ──────────────────────────── */
+.td-root .td-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 11px; flex-shrink: 0;
+  background: var(--td-sunken); color: var(--td-text-2);
 }
 
 .td-root .td-num,
