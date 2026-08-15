@@ -23,6 +23,8 @@ interface MatchStats {
   matchId: string; gameDuration: number; gameMode: string;
   blueTeam: MatchParticipant[]; redTeam: MatchParticipant[];
   winner: 'blue' | 'red';
+  /** Serie Bo3/Bo5: TODOS los juegos en orden (el top-level es el último). */
+  games?: (Omit<MatchStats, 'games'> & { gameNumber?: number })[];
 }
 
 interface BracketMatch {
@@ -236,6 +238,8 @@ export function TournamentMatchStats({ tournamentId, match, isActive }: Tourname
   const [polling, setPolling]   = useState(false);
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
   const [error, setError]       = useState<string | null>(null);
+  // Serie Bo3/Bo5: juego seleccionado (null = el último jugado)
+  const [gameIdx, setGameIdx]   = useState<number | null>(null);
 
   const fetchStats = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -270,8 +274,14 @@ export function TournamentMatchStats({ tournamentId, match, isActive }: Tourname
 
   if (!match.team1 || !match.team2 || match.matchStatus === 'pending') return null;
 
-  const maxDmg = stats
-    ? Math.max(...[...stats.blueTeam, ...stats.redTeam].map(p => p.totalDamageDealt))
+  // Vista actual: en series Bo3/Bo5 muestra el juego elegido (default: último)
+  const games = stats?.games?.length ? stats.games : null;
+  const view: MatchStats | null = stats
+    ? (games ? { ...games[gameIdx ?? games.length - 1], games: undefined } as MatchStats : stats)
+    : null;
+
+  const maxDmg = view
+    ? Math.max(...[...view.blueTeam, ...view.redTeam].map(p => p.totalDamageDealt))
     : 0;
 
   const fmtDuration = (s: number) => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
@@ -335,35 +345,65 @@ export function TournamentMatchStats({ tournamentId, match, isActive }: Tourname
         </div>
       )}
 
-      {stats && (
+      {view && (
         <>
+          {/* Serie Bo3/Bo5: selector de juego + marcador global */}
+          {games && games.length > 1 && (
+            <div className="flex flex-wrap items-center justify-center gap-2 py-2">
+              <span className="text-[10px] uppercase tracking-[0.18em] text-gray-500 mr-1">
+                Serie {match.score1 ?? 0}–{match.score2 ?? 0}
+              </span>
+              {games.map((g, i) => {
+                const active = (gameIdx ?? games.length - 1) === i;
+                const winnerName = g.winner === 'blue' ? match.team1 : match.team2;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setGameIdx(i)}
+                    className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-bold transition-all ${
+                      active
+                        ? 'bg-red-600 text-white shadow-[0_4px_14px_rgba(225,36,46,0.35)]'
+                        : 'bg-white/[0.04] text-gray-400 border border-white/[0.08] hover:text-white hover:border-white/20'
+                    }`}
+                    title={`Ganó ${winnerName}`}
+                  >
+                    Juego {g.gameNumber ?? i + 1}
+                    <span className={`h-1.5 w-1.5 rounded-full ${g.winner === 'blue' ? 'bg-blue-400' : 'bg-red-300'}`} />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Game summary */}
           <div className="flex items-center justify-center gap-6 py-3 bg-white/[0.03] rounded-xl border border-white/[0.08] text-sm">
-            <div className={`font-bold text-lg ${stats.winner === 'blue' ? 'text-blue-300' : 'text-gray-500'}`}>
+            <div className={`font-bold text-lg ${view.winner === 'blue' ? 'text-blue-300' : 'text-gray-500'}`}>
               {match.team1}
-              {stats.winner === 'blue' && <Trophy className="h-4 w-4 inline ml-1 text-yellow-400" />}
+              {view.winner === 'blue' && <Trophy className="h-4 w-4 inline ml-1 text-yellow-400" />}
             </div>
             <div className="text-center text-gray-500">
-              <div className="text-xs">VS</div>
-              <div className="text-xs text-gray-600">{fmtDuration(stats.gameDuration)}</div>
+              <div className="text-xs">
+                {games && games.length > 1 ? `JUEGO ${(gameIdx ?? games.length - 1) + 1}` : 'VS'}
+              </div>
+              <div className="text-xs text-gray-600">{fmtDuration(view.gameDuration)}</div>
             </div>
-            <div className={`font-bold text-lg ${stats.winner === 'red' ? 'text-red-300' : 'text-gray-500'}`}>
+            <div className={`font-bold text-lg ${view.winner === 'red' ? 'text-red-300' : 'text-gray-500'}`}>
               {match.team2}
-              {stats.winner === 'red' && <Trophy className="h-4 w-4 inline ml-1 text-yellow-400" />}
+              {view.winner === 'red' && <Trophy className="h-4 w-4 inline ml-1 text-yellow-400" />}
             </div>
           </div>
 
           {/* Team stats */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <StatsTable
-              team={stats.blueTeam}
-              label={`${match.team1} (${stats.winner === 'blue' ? 'Victoria' : 'Derrota'})`}
+              team={view.blueTeam}
+              label={`${match.team1} (${view.winner === 'blue' ? 'Victoria' : 'Derrota'})`}
               color="blue"
               maxDmg={maxDmg}
             />
             <StatsTable
-              team={stats.redTeam}
-              label={`${match.team2} (${stats.winner === 'red' ? 'Victoria' : 'Derrota'})`}
+              team={view.redTeam}
+              label={`${match.team2} (${view.winner === 'red' ? 'Victoria' : 'Derrota'})`}
               color="red"
               maxDmg={maxDmg}
             />
@@ -372,7 +412,7 @@ export function TournamentMatchStats({ tournamentId, match, isActive }: Tourname
           {/* Comparativa por equipo — barras duales animadas + count-up */}
           <TeamComparison
             team1={match.team1!} team2={match.team2!}
-            blue={stats.blueTeam} red={stats.redTeam}
+            blue={view.blueTeam} red={view.redTeam}
           />
         </>
       )}

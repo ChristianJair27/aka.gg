@@ -35,6 +35,56 @@ interface Feed {
 const fmt = (s: number) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
 const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
+// ── streamUrl → embed correcto ───────────────────────────────────────────────
+// El caster pega lo que tenga a mano: un canal de Twitch, un video/directo de
+// YouTube, un canal de Kick o un HLS (.m3u8). Cada uno se embebe distinto —
+// meter twitch.tv en hls.js era el bug del spinner infinito + error CORS.
+type StreamEmbed =
+  | { kind: 'iframe'; src: string }
+  | { kind: 'hls'; src: string }
+  | { kind: 'link'; href: string };
+
+function parseStreamEmbed(raw: string, hostname: string): StreamEmbed | null {
+  const url = (raw || '').trim();
+  if (!url) return null;
+  let u: URL;
+  try { u = new URL(url); } catch { return null; }
+  const host = u.hostname.replace(/^www\./, '').toLowerCase();
+
+  // Twitch: player oficial (exige `parent` = dominio que embebe)
+  if (host === 'twitch.tv' || host === 'm.twitch.tv') {
+    const chan = u.pathname.split('/').filter(Boolean)[0];
+    if (chan) {
+      return { kind: 'iframe', src: `https://player.twitch.tv/?channel=${encodeURIComponent(chan)}&parent=${hostname}&autoplay=true&muted=true` };
+    }
+  }
+  if (host === 'player.twitch.tv') {
+    // Ya es el player: asegurar parent correcto
+    u.searchParams.set('parent', hostname);
+    return { kind: 'iframe', src: u.toString() };
+  }
+
+  // YouTube: watch?v= / youtu.be/ / live/
+  if (host === 'youtube.com' || host === 'youtu.be') {
+    const id = host === 'youtu.be'
+      ? u.pathname.split('/').filter(Boolean)[0]
+      : u.searchParams.get('v') || u.pathname.match(/\/(?:live|embed)\/([^/?]+)/)?.[1];
+    if (id) return { kind: 'iframe', src: `https://www.youtube.com/embed/${encodeURIComponent(id)}?autoplay=1&mute=1` };
+  }
+
+  // Kick
+  if (host === 'kick.com') {
+    const chan = u.pathname.split('/').filter(Boolean)[0];
+    if (chan) return { kind: 'iframe', src: `https://player.kick.com/${encodeURIComponent(chan)}?autoplay=true&muted=true` };
+  }
+
+  // HLS directo
+  if (/\.m3u8(\?.*)?$/i.test(url)) return { kind: 'hls', src: url };
+
+  // Desconocido: enlace externo en vez de un reproductor roto
+  return { kind: 'link', href: url };
+}
+
 const EVENT_META: Record<string, { icon: string; label: string }> = {
   ChampionKill: { icon: '⚔️', label: 'Asesinato' },
   FirstBlood: { icon: '🩸', label: 'Primera sangre' },
@@ -144,14 +194,19 @@ export default function BroadcastPage() {
   const redKills = red.reduce((s, p) => s + p.kills, 0);
   const events = useMemo(() => (feed?.events || []).filter((e) => EVENT_META[e.name]).slice(-9).reverse(), [feed]);
 
-  // ── Video HLS (si el companion transmite streamUrl) ────────────────────────
+  // ── Video del stream (Twitch/YouTube/Kick → iframe · .m3u8 → HLS) ─────────
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamUrl = feed?.streamUrl || '';
+  const embed = useMemo(
+    () => parseStreamEmbed(streamUrl, window.location.hostname),
+    [streamUrl],
+  );
   useEffect(() => {
+    if (embed?.kind !== 'hls') return;
     const video = videoRef.current;
-    if (!video || !streamUrl) return;
+    if (!video) return;
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = streamUrl;
+      video.src = embed.src;
       video.play().catch(() => {});
       return;
     }
@@ -160,12 +215,12 @@ export default function BroadcastPage() {
     import('hls.js').then(({ default: Hls }) => {
       if (cancelled || !Hls.isSupported()) return;
       hls = new Hls({ liveDurationInfinity: true });
-      hls.loadSource(streamUrl);
+      hls.loadSource(embed.src);
       hls.attachMedia(video);
       video.play().catch(() => {});
     });
     return () => { cancelled = true; hls?.destroy?.(); };
-  }, [streamUrl]);
+  }, [embed]);
 
   const [copied, setCopied] = useState(false);
   const copyLink = async () => {
@@ -224,10 +279,30 @@ export default function BroadcastPage() {
 
         {feed && (
           <>
-            {/* Video (opcional) */}
-            {streamUrl && (
+            {/* Video (opcional) — embed según el tipo de stream */}
+            {embed?.kind === 'iframe' && (
+              <div style={{ marginBottom: 22, borderRadius: 16, overflow: 'hidden', background: '#000', aspectRatio: '16 / 9' }}>
+                <iframe
+                  src={embed.src}
+                  title="Stream en vivo"
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowFullScreen
+                  style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                />
+              </div>
+            )}
+            {embed?.kind === 'hls' && (
               <div style={{ marginBottom: 22, borderRadius: 16, overflow: 'hidden', background: '#000', aspectRatio: '16 / 9' }}>
                 <video ref={videoRef} controls muted playsInline style={{ width: '100%', height: '100%' }} />
+              </div>
+            )}
+            {embed?.kind === 'link' && (
+              <div style={{ marginBottom: 22, borderRadius: 16, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', padding: '18px 22px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.6)' }}>La transmisión de video está en otro sitio:</span>
+                <a href={embed.href} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: 13.5, fontWeight: 700, color: '#ff6b73', textDecoration: 'none' }}>
+                  Abrir stream →
+                </a>
               </div>
             )}
 

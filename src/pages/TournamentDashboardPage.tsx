@@ -29,6 +29,7 @@ import {
 } from '@/components/tournament/ui';
 import { Skeleton } from '@/components/ui/skeleton';
 import Aurora from '@/components/Aurora';
+import { SwissBracket } from '@/components/SwissBracket';
 import { TournamentTeamModal } from '@/components/TournamentTeamModal';
 import { useProfileIcons, iconFor } from '@/hooks/useProfileIcons';
 import { dd } from '@/lib/dataDragon';
@@ -1164,8 +1165,23 @@ function BracketTab({ id, data }: { id: string; data: TdBoardPayload }) {
   const isRR = br.bracketType === 'round_robin';
   const isSwiss = br.bracketType === 'swiss';
 
-  // Lista vertical: en móvil (el árbol no cabe) y SIEMPRE en liga/suizo
-  // (no hay árbol de avance — son jornadas/rondas por récord).
+  // Suizo / liga: bracket de columnas por ronda con cards grandes (desktop).
+  // El árbol clásico no aplica — el avance es pareo por récord.
+  if ((isRR || isSwiss) && !narrow) {
+    const champion = br.phase === 'complete' ? (data.standings?.[0]?.name ?? null) : null;
+    return (
+      <SwissBracket
+        bracket={bracket as BracketMatch[]}
+        bracketType={br.bracketType}
+        tournamentId={id}
+        isActive={br.phase === 'active'}
+        canViewCodes={access === 'owner' || access === 'participant'}
+        champion={champion}
+      />
+    );
+  }
+
+  // Lista vertical: móvil (ni el árbol ni las columnas caben)
   if (narrow || isRR || isSwiss) {
     const maxRound = Math.max(...bracket.map((m) => m.round));
     const rlabel = (r: number) => {
