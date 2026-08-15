@@ -1,13 +1,16 @@
 // src/pages/BroadcastOverlayPage.tsx
-// Overlay de caster estilo LCK con branding LQC: /broadcast/:channel/overlay
-// Pensado para OBS como Browser Source 1920x1080 sobre la captura del juego:
-// fondo TRANSPARENTE, sin navbar. Muestra barra superior (equipos, kills,
-// torres, dragones tomados y timer), timers de próximos objetivos calculados
-// de los eventos reales (cada DragonKill reinicia el respawn de 5:00; Barón
-// nace al 20:00 y renace a los 6:00), y scoreboard inferior con items/KDA/CS.
-// Vista previa en navegador normal: agregar ?bg=1 (fondo oscuro de prueba).
-// Paleta LQC (extraída de lqc.revolution505.com): azul #0066ff → cyan #00d4ff
-// sobre navy #001433, acento #ff2357. Logo: /lqc-logo.png (blanco).
+// Overlay de caster para OBS (Browser Source 1920x1080, fondo transparente):
+// /broadcast/:channel/overlay
+// - Iconos REALES del juego (CommunityDragon minimapa): dragones por tipo,
+//   barón, heraldo, torres — nada de emojis.
+// - Oro ESTIMADO por jugador (Live Client no expone el oro de los 10: se
+//   aproxima con pasiva + CS + kills/asistencias, misma fórmula ambos lados)
+//   con gráfica de diferencia por equipo y por enfrentamiento de línea.
+// - Scoreboard inferior por MATCHUPS: top vs top, jg vs jg, etc.
+// - Timers de objetivos desde los eventos reales (constantes por parche abajo).
+// - Paleta LQC (lqc.revolution505.com): azul #0066ff → cyan #00d4ff sobre navy
+//   #001433, rojo #ff2357 — versión fuerte/imponente para broadcast.
+// Vista previa: ?bg=1 (fondo oscuro de prueba).
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -17,45 +20,78 @@ import { useChampions } from '@/hooks/use-ddragon';
 
 const LQC = {
   blue: '#0066ff',
+  blueDeep: '#00297a',
   cyan: '#00d4ff',
   navy: '#001433',
-  deep: 'rgba(0, 12, 32, 0.92)',
+  deep: 'rgba(0, 9, 24, 0.96)',
   pink: '#ff2357',
+  pinkDeep: '#7a0f2b',
+  gold: '#f0b232',
 };
 const FONT = "'Saira Condensed', 'Saira', sans-serif";
 
-interface FeedPlayer {
-  riotId: string; championName: string; team: 'ORDER' | 'CHAOS';
-  level: number; kills: number; deaths: number; assists: number;
-  creepScore: number; isDead: boolean; respawnTimer: number; items: number[];
-}
-interface FeedEvent { id: number; t: number; name: string; killer: string; victim: string; extra: string }
+// ── Timers de la Grieta (AJUSTAR POR PARCHE si Riot los mueve) ───────────────
+const DRAGON_FIRST = 300;    // primer dragón 5:00
+const DRAGON_RESPAWN = 300;  // renace 5:00 tras cada toma
+const HERALD_SPAWN = 840;    // heraldo 14:00
+const BARON_SPAWN = 1200;    // barón 20:00
+const BARON_RESPAWN = 360;   // renace 6:00 tras cada toma
 
-const fmt = (s: number) => `${Math.floor(s / 60)}:${Math.floor(Math.max(0, s) % 60).toString().padStart(2, '0')}`;
-const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-const shortName = (r: string) => (r.includes('#') ? r.slice(0, r.indexOf('#')) : r);
-
-const DRAGON_STYLE: Record<string, { icon: string; color: string }> = {
-  Fire: { icon: '🔥', color: '#ff6b3d' }, Water: { icon: '💧', color: '#4fd1ff' },
-  Earth: { icon: '⛰️', color: '#c8aa6e' }, Air: { icon: '🌪️', color: '#b9e8ff' },
-  Hextech: { icon: '⚡', color: '#6bd0ff' }, Chemtech: { icon: '🧪', color: '#8aff7a' },
-  Elder: { icon: '👑', color: '#7fd4ff' },
+// ── Iconos oficiales (CommunityDragon, minimapa del juego) ───────────────────
+const MINIMAP = 'https://raw.communitydragon.org/latest/game/assets/ux/minimap/icons';
+const ICON = {
+  baron: `${MINIMAP}/baron.png`,
+  herald: `${MINIMAP}/riftherald.png`,
+  tower: `${MINIMAP}/icon_ui_tower_minimap.png`,
+  dragon: `${MINIMAP}/dragon.png`,
 };
-
+const DRAGON_ICON: Record<string, string> = {
+  Fire: `${MINIMAP}/dragon_infernal.png`,
+  Water: `${MINIMAP}/dragon_ocean.png`,
+  Earth: `${MINIMAP}/dragon_mountain.png`,
+  Air: `${MINIMAP}/dragon_cloud.png`,
+  Hextech: `${MINIMAP}/dragon_hextech.png`,
+  Chemtech: `${MINIMAP}/dragon_chemtech.png`,
+  Elder: `${MINIMAP}/dragon_elder.png`,
+};
+const DRAGON_GLOW: Record<string, string> = {
+  Fire: '#ff6b3d', Water: '#4fd1ff', Earth: '#c8aa6e', Air: '#b9e8ff',
+  Hextech: '#6bd0ff', Chemtech: '#8aff7a', Elder: '#7fd4ff',
+};
 const DRAGON_ES: Record<string, string> = {
   Fire: 'DRAGÓN INFERNAL', Water: 'DRAGÓN DEL OCÉANO', Earth: 'DRAGÓN DE MONTAÑA',
   Air: 'DRAGÓN DE LAS NUBES', Hextech: 'DRAGÓN HEXTECH', Chemtech: 'DRAGÓN QUÍMICO',
   Elder: 'DRAGÓN ANCIANO',
 };
 
-/** Banner de objetivo (dragón/barón/heraldo) que cae bajo la barra del caster. */
+interface FeedPlayer {
+  riotId: string; championName: string; team: 'ORDER' | 'CHAOS';
+  level: number; kills: number; deaths: number; assists: number;
+  creepScore: number; isDead: boolean; respawnTimer: number; items: number[];
+  position: string;
+}
+interface FeedEvent { id: number; t: number; name: string; killer: string; victim: string; extra: string }
+
+const fmt = (s: number) => `${Math.floor(s / 60)}:${Math.floor(Math.max(0, s) % 60).toString().padStart(2, '0')}`;
+const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const shortName = (r: string) => (r.includes('#') ? r.slice(0, r.indexOf('#')) : r);
+const kFmt = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n)));
+
+/** Oro estimado (Live Client no expone el oro ajeno): pasiva desde 1:50 +
+ *  CS + kills/asistencias. Misma fórmula ambos lados → la DIFERENCIA es útil. */
+function estGold(p: FeedPlayer, t: number): number {
+  const passive = Math.max(0, t - 110) * 2.04;
+  return Math.round(500 + passive + p.creepScore * 21 + p.kills * 300 + p.assists * 150);
+}
+
+const POS_ORDER = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY'];
+const POS_TAG: Record<string, string> = {
+  TOP: 'TOP', JUNGLE: 'JG', MIDDLE: 'MID', BOTTOM: 'ADC', UTILITY: 'SUP',
+};
+
 interface ObjectiveBanner {
-  key: number;
-  icon: string;
-  title: string;
-  teamName: string;
-  teamColor: string;
-  glow: string;
+  key: number; icon: string; title: string;
+  teamName: string; teamColor: string; glow: string;
 }
 
 export default function BroadcastOverlayPage() {
@@ -90,9 +126,7 @@ export default function BroadcastOverlayPage() {
   const feed = feedQ.data ?? null;
   const accent: string = feed?.accent || '';
 
-  // ── Banner animado de objetivos (dragón / barón / heraldo) ────────────────
-  // Detecta eventos NUEVOS entre snapshots; el primer snapshot registra el
-  // historial sin animar (no re-celebrar dragones de hace 20 minutos).
+  // ── Banner animado de objetivos (solo eventos NUEVOS entre snapshots) ─────
   const [banner, setBanner] = useState<ObjectiveBanner | null>(null);
   const seenEvents = useRef<Set<number>>(new Set());
   const firstSnap = useRef(true);
@@ -126,20 +160,19 @@ export default function BroadcastOverlayPage() {
       const side = sideOf(e.killer);
       if (e.name === 'DragonKill') {
         const type = e.extra || 'Fire';
-        const st = DRAGON_STYLE[type] ?? DRAGON_STYLE.Fire;
         next = {
-          key: e.id, icon: st.icon, title: DRAGON_ES[type] ?? 'DRAGÓN',
-          teamName: teamNameOf(side), teamColor: teamColorOf(side), glow: st.color,
+          key: e.id, icon: DRAGON_ICON[type] ?? ICON.dragon, title: DRAGON_ES[type] ?? 'DRAGÓN',
+          teamName: teamNameOf(side), teamColor: teamColorOf(side), glow: DRAGON_GLOW[type] ?? '#ff6b3d',
         };
       } else if (e.name === 'BaronKill') {
         next = {
-          key: e.id, icon: '🟣', title: 'BARÓN NASHOR',
+          key: e.id, icon: ICON.baron, title: 'BARÓN NASHOR',
           teamName: teamNameOf(side), teamColor: teamColorOf(side), glow: '#b06bff',
         };
       } else if (e.name === 'HeraldKill') {
         next = {
-          key: e.id, icon: '👁️', title: 'HERALDO DE LA GRIETA',
-          teamName: teamNameOf(side), teamColor: teamColorOf(side), glow: '#8f9bb3',
+          key: e.id, icon: ICON.herald, title: 'HERALDO DE LA GRIETA',
+          teamName: teamNameOf(side), teamColor: teamColorOf(side), glow: '#9fb4d8',
         };
       }
 
@@ -167,6 +200,7 @@ export default function BroadcastOverlayPage() {
     if (!feed) return null;
     const players: FeedPlayer[] = feed.players || [];
     const events: FeedEvent[] = feed.events || [];
+    const t: number = feed.gameTime || 0;
     const order = players.filter((p) => p.team === 'ORDER');
     const chaos = players.filter((p) => p.team === 'CHAOS');
     const teamOfName = (name: string): 'ORDER' | 'CHAOS' | null => {
@@ -201,26 +235,41 @@ export default function BroadcastOverlayPage() {
       }
     }
 
-    const t = feed.gameTime || 0;
-    // Próximo dragón: primero al 5:00; renace 5:00 después de cada toma.
-    const nextDragon = (lastDragonT < 0 ? 300 : lastDragonT + 300) - t;
-    // Barón: nace al 20:00; renace 6:00 tras cada toma. Antes: Heraldo (8:00).
-    const baronBase = lastBaronT < 0 ? 1200 : lastBaronT + 360;
+    const nextDragon = (lastDragonT < 0 ? DRAGON_FIRST : lastDragonT + DRAGON_RESPAWN) - t;
+    const baronBase = lastBaronT < 0 ? BARON_SPAWN : lastBaronT + BARON_RESPAWN;
     const nextBaron = baronBase - t;
-    const nextHerald = !heraldTaken && t < 1140 ? 480 - t : null;
+    const nextHerald = !heraldTaken && t < BARON_SPAWN ? HERALD_SPAWN - t : null;
+
+    // ── Oro estimado por jugador / equipo ─────────────────────────────────
+    const goldOf = new Map<string, number>();
+    players.forEach((p) => goldOf.set(p.riotId, estGold(p, t)));
+    const goldOrder = order.reduce((s, p) => s + (goldOf.get(p.riotId) || 0), 0);
+    const goldChaos = chaos.reduce((s, p) => s + (goldOf.get(p.riotId) || 0), 0);
+
+    // ── Matchups por línea (top vs top…); fallback por índice (ARAM) ──────
+    const byPos = (list: FeedPlayer[]) => {
+      const m = new Map<string, FeedPlayer>();
+      list.forEach((p) => { if (POS_ORDER.includes(p.position) && !m.has(p.position)) m.set(p.position, p); });
+      return m;
+    };
+    const oPos = byPos(order), cPos = byPos(chaos);
+    const canPair = POS_ORDER.every((pos) => oPos.has(pos)) && POS_ORDER.every((pos) => cPos.has(pos));
+    const matchups: Array<{ pos: string; blue: FeedPlayer | null; red: FeedPlayer | null }> = canPair
+      ? POS_ORDER.map((pos) => ({ pos: POS_TAG[pos], blue: oPos.get(pos) ?? null, red: cPos.get(pos) ?? null }))
+      : Array.from({ length: Math.max(order.length, chaos.length) }, (_, i) => ({
+          pos: '', blue: order[i] ?? null, red: chaos[i] ?? null,
+        }));
 
     const label: string = feed.matchLabel || '';
     const vs = label.match(/([^:]+?)\s+vs\.?\s+(.+)/i);
     const team1 = (feed.team1 || vs?.[1] || 'AZUL').trim().toUpperCase();
     const team2 = (feed.team2 || vs?.[2] || 'ROJO').trim().toUpperCase();
 
-    // Modo de juego: los timers de dragón/barón/heraldo solo aplican en la
-    // Grieta (CLASSIC). En ARAM/Arena/URF se ocultan y queda kills + reloj.
     const mode = String(feed.gameMode || '').toUpperCase();
     const isRift = mode === 'CLASSIC' || /summoner/i.test(String(feed.mapName || ''));
 
     return {
-      order, chaos, team1, team2, isRift,
+      order, chaos, team1, team2, isRift, matchups, goldOf, goldOrder, goldChaos,
       logo1: feed.logo1 || '', logo2: feed.logo2 || '',
       killsOrder: order.reduce((s, p) => s + p.kills, 0),
       killsChaos: chaos.reduce((s, p) => s + p.kills, 0),
@@ -240,101 +289,164 @@ export default function BroadcastOverlayPage() {
 
   const d = derived;
   const itemIcon = (id: number) => `https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${id}.png`;
+  const goldTotal = Math.max(1, d.goldOrder + d.goldChaos);
+  const goldDiff = d.goldOrder - d.goldChaos;
+  const bluePct = (d.goldOrder / goldTotal) * 100;
+  const accentTop = accent || LQC.blue;
 
+  const Img = ({ src, size, alt = '' }: { src: string; size: number; alt?: string }) => (
+    <img src={src} alt={alt} width={size} height={size}
+      style={{ display: 'block', objectFit: 'contain' }}
+      onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
+  );
+
+  // ── Bloque de equipo (barra superior) ──────────────────────────────────────
   const TeamBlock = ({ side }: { side: 'left' | 'right' }) => {
     const isLeft = side === 'left';
     const name = isLeft ? d.team1 : d.team2;
     const logo = isLeft ? d.logo1 : d.logo2;
     const towers = isLeft ? d.towersOrder : d.towersChaos;
+    const gold = isLeft ? d.goldOrder : d.goldChaos;
     const color = isLeft ? LQC.cyan : LQC.pink;
     return (
       <div style={{
         display: 'flex', alignItems: 'center', gap: 14, flexDirection: isLeft ? 'row' : 'row-reverse',
         background: isLeft
-          ? `linear-gradient(90deg, ${LQC.navy}, rgba(0,102,255,0.35))`
-          : `linear-gradient(270deg, ${LQC.navy}, rgba(255,35,87,0.30))`,
-        padding: '0 18px', height: 56, minWidth: 300,
+          ? `linear-gradient(90deg, ${LQC.navy} 0%, ${LQC.blueDeep} 55%, rgba(0,102,255,0.55) 100%)`
+          : `linear-gradient(270deg, ${LQC.navy} 0%, ${LQC.pinkDeep} 55%, rgba(255,35,87,0.5) 100%)`,
+        padding: '0 20px', height: 62, minWidth: 330,
         borderBottom: `3px solid ${color}`,
+        boxShadow: `inset 0 -12px 24px -14px ${color}88`,
       }}>
         {logo ? (
-          <img src={logo} alt="" style={{ width: 38, height: 38, objectFit: 'contain' }} />
+          <img src={logo} alt="" style={{ width: 42, height: 42, objectFit: 'contain' }} />
         ) : (
-          <span style={{ width: 38, height: 38, borderRadius: 8, background: `${color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color, fontSize: 18 }}>
+          <span style={{ width: 42, height: 42, borderRadius: 8, background: `${color}22`, border: `1.5px solid ${color}66`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color, fontSize: 20, fontFamily: FONT }}>
             {name.slice(0, 1)}
           </span>
         )}
-        <span style={{ fontWeight: 800, fontSize: 24, color: '#fff', letterSpacing: 1 }}>{name}</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, marginLeft: isLeft ? 'auto' : 0, marginRight: isLeft ? 0 : 'auto', color: 'rgba(255,255,255,0.75)', fontSize: 16 }}>
-          🗼 <b style={{ color: '#fff' }}>{towers}</b>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: isLeft ? 'flex-start' : 'flex-end', lineHeight: 1 }}>
+          <span style={{ fontWeight: 800, fontSize: 25, color: '#fff', letterSpacing: 1.5, fontFamily: FONT }}>{name}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4, color: LQC.gold, fontSize: 15, fontWeight: 700, fontFamily: FONT }}>
+            {/* moneda simple (svg inline, sin emoji) */}
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden><circle cx="6" cy="6" r="5" fill="none" stroke={LQC.gold} strokeWidth="1.6" /><circle cx="6" cy="6" r="2" fill={LQC.gold} /></svg>
+            {kFmt(gold)}
+          </span>
+        </div>
+        <span style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          marginLeft: isLeft ? 'auto' : 0, marginRight: isLeft ? 0 : 'auto',
+          color: '#fff', fontSize: 17, fontWeight: 800, fontFamily: FONT,
+        }}>
+          <Img src={ICON.tower} size={20} />
+          {towers}
         </span>
       </div>
     );
   };
 
   const DragonRow = ({ list, align }: { list: string[]; align: 'left' | 'right' }) => (
-    <div style={{ display: 'flex', gap: 4, justifyContent: align === 'left' ? 'flex-start' : 'flex-end', minWidth: 140 }}>
-      {list.map((type, i) => {
-        const s = DRAGON_STYLE[type] || DRAGON_STYLE.Fire;
-        return (
-          <span key={i} title={type} style={{
-            width: 24, height: 24, borderRadius: '50%', background: `${LQC.navy}dd`,
-            border: `1.5px solid ${s.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12,
-          }}>{s.icon}</span>
-        );
-      })}
+    <div style={{ display: 'flex', gap: 4, justifyContent: align === 'left' ? 'flex-start' : 'flex-end', minWidth: 150 }}>
+      {list.map((type, i) => (
+        <span key={i} title={type} style={{
+          width: 26, height: 26, borderRadius: '50%', background: LQC.deep,
+          border: `1.5px solid ${DRAGON_GLOW[type] ?? '#888'}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 2,
+        }}>
+          <Img src={DRAGON_ICON[type] ?? ICON.dragon} size={18} />
+        </span>
+      ))}
     </div>
   );
 
-  const ScoreRow = ({ p, side }: { p: FeedPlayer; side: 'left' | 'right' }) => {
-    const isLeft = side === 'left';
-    const icon = champIcon(p.championName);
-    return (
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, flexDirection: isLeft ? 'row' : 'row-reverse',
-        height: 34, padding: '0 8px',
-      }}>
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          {icon
-            ? <img src={icon} alt="" style={{ width: 28, height: 28, borderRadius: 6, filter: p.isDead ? 'grayscale(1) brightness(0.6)' : 'none' }} />
-            : <span style={{ width: 28, height: 28, borderRadius: 6, background: '#123', display: 'inline-block' }} />}
-          <span style={{ position: 'absolute', bottom: -3, [isLeft ? 'left' : 'right']: -3, fontSize: 9, fontWeight: 800, background: LQC.navy, color: LQC.cyan, borderRadius: 4, padding: '0 3px' } as any}>
-            {p.isDead && p.respawnTimer > 0 ? Math.ceil(p.respawnTimer) : p.level}
-          </span>
-        </div>
-        <span style={{ width: 118, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700, fontSize: 13.5, color: p.isDead ? 'rgba(255,255,255,0.45)' : '#fff', textAlign: isLeft ? 'left' : 'right' }}>
-          {shortName(p.riotId) || p.championName}
-        </span>
-        <span style={{ width: 62, fontWeight: 800, fontSize: 14, color: '#fff', textAlign: 'center', fontFamily: FONT }}>
-          {p.kills}/<span style={{ color: LQC.pink }}>{p.deaths}</span>/{p.assists}
-        </span>
-        <span style={{ width: 34, fontSize: 12, color: 'rgba(255,255,255,0.65)', textAlign: 'center' }}>{p.creepScore}</span>
-        <div style={{ display: 'flex', gap: 2, flexDirection: isLeft ? 'row' : 'row-reverse' }}>
-          {Array.from({ length: 6 }).map((_, i) => {
-            const id = p.items[i];
-            return id ? (
-              <img key={i} src={itemIcon(id)} alt="" style={{ width: 20, height: 20, borderRadius: 3, background: '#000' }}
-                onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
-            ) : (
-              <span key={i} style={{ width: 20, height: 20, borderRadius: 3, background: 'rgba(255,255,255,0.06)', display: 'inline-block' }} />
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
-  const timerChip = (label: string, secs: number | null, alive: string) => {
+  const timerChip = (iconSrc: string, label: string, secs: number | null, glow: string) => {
     if (secs == null) return null;
     const live = secs <= 0;
     return (
       <span style={{
-        display: 'inline-flex', alignItems: 'center', gap: 7, padding: '4px 14px', borderRadius: 999,
-        background: LQC.deep, border: `1px solid ${live ? LQC.cyan : 'rgba(0,212,255,0.35)'}`,
-        color: live ? LQC.cyan : '#fff', fontWeight: 700, fontSize: 15, fontFamily: FONT,
-        boxShadow: live ? `0 0 14px rgba(0,212,255,0.45)` : 'none',
+        display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 14px', borderRadius: 999,
+        background: LQC.deep, border: `1.5px solid ${live ? glow : `${glow}55`}`,
+        color: live ? glow : '#fff', fontWeight: 700, fontSize: 15, fontFamily: FONT,
+        boxShadow: live ? `0 0 16px ${glow}77` : 'none',
       }}>
-        {label} <b style={{ fontFamily: 'monospace' }}>{live ? alive : fmt(secs)}</b>
+        <Img src={iconSrc} size={18} />
+        {label} <b style={{ fontFamily: 'monospace' }}>{live ? 'VIVO' : fmt(secs)}</b>
       </span>
+    );
+  };
+
+  // ── Fila de matchup (scoreboard inferior) ──────────────────────────────────
+  const MatchupRow = ({ m }: { m: (typeof d.matchups)[number] }) => {
+    const gB = m.blue ? d.goldOf.get(m.blue.riotId) || 0 : 0;
+    const gR = m.red ? d.goldOf.get(m.red.riotId) || 0 : 0;
+    const total = Math.max(1, gB + gR);
+    const pctB = (gB / total) * 100;
+    const diff = gB - gR;
+    const leader = diff >= 0 ? 'blue' : 'red';
+
+    const PlayerCell = ({ p, side }: { p: FeedPlayer | null; side: 'left' | 'right' }) => {
+      if (!p) return <div style={{ flex: 1 }} />;
+      const isLeft = side === 'left';
+      const icon = champIcon(p.championName);
+      const winning = (isLeft && leader === 'blue') || (!isLeft && leader === 'red');
+      return (
+        <div style={{
+          flex: 1, display: 'flex', alignItems: 'center', gap: 8,
+          flexDirection: isLeft ? 'row' : 'row-reverse', minWidth: 0,
+        }}>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            {icon
+              ? <img src={icon} alt="" style={{ width: 32, height: 32, borderRadius: 6, filter: p.isDead ? 'grayscale(1) brightness(0.55)' : 'none', border: `1.5px solid ${winning ? (isLeft ? LQC.cyan : LQC.pink) : 'rgba(255,255,255,0.15)'}` }} />
+              : <span style={{ width: 32, height: 32, borderRadius: 6, background: '#123', display: 'inline-block' }} />}
+            <span style={{ position: 'absolute', bottom: -4, [isLeft ? 'left' : 'right']: -4, fontSize: 9.5, fontWeight: 800, background: LQC.navy, color: p.isDead ? LQC.pink : LQC.cyan, borderRadius: 4, padding: '0 3px', fontFamily: FONT } as any}>
+              {p.isDead && p.respawnTimer > 0 ? Math.ceil(p.respawnTimer) : p.level}
+            </span>
+          </div>
+          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: isLeft ? 'flex-start' : 'flex-end', lineHeight: 1.15 }}>
+            <span style={{ maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700, fontSize: 13.5, color: p.isDead ? 'rgba(255,255,255,0.45)' : '#fff', fontFamily: FONT }}>
+              {shortName(p.riotId) || p.championName}
+            </span>
+            <span style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.5)', fontFamily: FONT }}>
+              {p.creepScore} CS · <span style={{ color: LQC.gold }}>{kFmt(gB && isLeft ? gB : gR)}</span>
+            </span>
+          </div>
+          <span style={{ width: 64, fontWeight: 800, fontSize: 14.5, color: '#fff', textAlign: 'center', fontFamily: FONT, flexShrink: 0 }}>
+            {p.kills}/<span style={{ color: LQC.pink }}>{p.deaths}</span>/{p.assists}
+          </span>
+          <div style={{ display: 'flex', gap: 2, flexDirection: isLeft ? 'row' : 'row-reverse', flexShrink: 0 }}>
+            {Array.from({ length: 6 }).map((_, i) => {
+              const id = p.items[i];
+              return id ? (
+                <img key={i} src={itemIcon(id)} alt="" style={{ width: 21, height: 21, borderRadius: 3, background: '#000' }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+              ) : (
+                <span key={i} style={{ width: 21, height: 21, borderRadius: 3, background: 'rgba(255,255,255,0.06)', display: 'inline-block' }} />
+              );
+            })}
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, height: 42, padding: '0 10px' }}>
+        <PlayerCell p={m.blue} side="left" />
+        {/* Centro: línea + mini gráfica de diferencia de oro del matchup */}
+        <div style={{ width: 118, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+          <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 2, color: 'rgba(255,255,255,0.55)', fontFamily: FONT }}>
+            {m.pos || 'VS'}
+            <b style={{ marginLeft: 5, color: diff >= 0 ? LQC.cyan : LQC.pink }}>
+              {diff === 0 ? '' : `${diff > 0 ? '+' : '−'}${kFmt(Math.abs(diff))}`}
+            </b>
+          </span>
+          <div style={{ position: 'relative', width: '100%', height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.10)', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pctB}%`, background: `linear-gradient(90deg, ${LQC.blue}, ${LQC.cyan})` }} />
+            <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${100 - pctB}%`, background: `linear-gradient(270deg, #c9184a, ${LQC.pink})` }} />
+            <div style={{ position: 'absolute', top: -1, bottom: -1, left: '50%', width: 1.5, background: 'rgba(255,255,255,0.85)' }} />
+          </div>
+        </div>
+        <PlayerCell p={m.red} side="right" />
+      </div>
     );
   };
 
@@ -344,21 +456,39 @@ export default function BroadcastOverlayPage() {
       fontFamily: FONT, background: debugBg ? '#1c2530' : 'transparent',
     }}>
       {/* ── Barra superior ── */}
-      <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'stretch' }}>
+      <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'stretch', filter: 'drop-shadow(0 6px 18px rgba(0,0,0,0.55))' }}>
         <TeamBlock side="left" />
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 16, padding: '0 22px', height: 56,
-          background: `linear-gradient(180deg, ${LQC.navy}, #000a1f)`, borderBottom: `3px solid ${accent || LQC.blue}`,
+          display: 'flex', alignItems: 'center', gap: 18, padding: '0 24px', height: 62,
+          background: `linear-gradient(180deg, ${LQC.navy}, #000a1f)`, borderBottom: `3px solid ${accentTop}`,
         }}>
-          <span style={{ fontSize: 34, fontWeight: 800, color: LQC.cyan, fontFamily: FONT }}>{d.killsOrder}</span>
-          <img src="/lqc-logo.png" alt="LQC" style={{ height: 40, objectFit: 'contain' }}
+          <span style={{ fontSize: 38, fontWeight: 800, color: LQC.cyan, fontFamily: FONT, textShadow: `0 0 18px ${LQC.cyan}55` }}>{d.killsOrder}</span>
+          <img src="/lqc-logo.png" alt="LQC" style={{ height: 44, objectFit: 'contain' }}
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-          <span style={{ fontSize: 34, fontWeight: 800, color: LQC.pink, fontFamily: FONT }}>{d.killsChaos}</span>
+          <span style={{ fontSize: 38, fontWeight: 800, color: LQC.pink, fontFamily: FONT, textShadow: `0 0 18px ${LQC.pink}55` }}>{d.killsChaos}</span>
         </div>
         <TeamBlock side="right" />
       </div>
 
-      {/* ── Banner animado de objetivo (dragón/barón/heraldo) ── */}
+      {/* ── Gráfica de diferencia de oro por equipo ── */}
+      <div style={{ position: 'absolute', top: 66, left: '50%', transform: 'translateX(-50%)', width: 560 }}>
+        <div style={{ position: 'relative', height: 8, borderRadius: 4, overflow: 'hidden', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.12)' }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${bluePct}%`, background: `linear-gradient(90deg, ${LQC.blue}, ${LQC.cyan})`, transition: 'width 1s ease' }} />
+          <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${100 - bluePct}%`, background: `linear-gradient(270deg, #c9184a, ${LQC.pink})`, transition: 'width 1s ease' }} />
+          <div style={{ position: 'absolute', top: -2, bottom: -2, left: '50%', width: 2, background: 'rgba(255,255,255,0.9)' }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 3 }}>
+          <span style={{
+            fontSize: 13, fontWeight: 800, fontFamily: FONT, letterSpacing: 1,
+            color: goldDiff >= 0 ? LQC.cyan : LQC.pink,
+            background: LQC.deep, borderRadius: 999, padding: '1px 12px', border: '1px solid rgba(255,255,255,0.12)',
+          }}>
+            ORO {goldDiff >= 0 ? '+' : '−'}{kFmt(Math.abs(goldDiff))}
+          </span>
+        </div>
+      </div>
+
+      {/* ── Banner animado de objetivo ── */}
       <AnimatePresence>
         {banner && (
           <motion.div
@@ -367,7 +497,7 @@ export default function BroadcastOverlayPage() {
             animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 320, damping: 24 } }}
             exit={{ opacity: 0, y: -22, scale: 0.94, transition: { duration: 0.28 } }}
             style={{
-              position: 'absolute', top: 158, left: '50%', translateX: '-50%',
+              position: 'absolute', top: 168, left: '50%', translateX: '-50%',
               display: 'flex', alignItems: 'center', gap: 14, padding: '10px 26px',
               background: LQC.deep, borderRadius: 14,
               border: `2px solid ${accent || banner.glow}`,
@@ -375,13 +505,12 @@ export default function BroadcastOverlayPage() {
               pointerEvents: 'none',
             }}
           >
-            {/* Icono con pulso */}
             <motion.span
-              style={{ fontSize: 34, lineHeight: 1 }}
-              animate={{ scale: [1, 1.22, 1] }}
+              style={{ display: 'inline-flex' }}
+              animate={{ scale: [1, 1.18, 1] }}
               transition={{ duration: 0.9, repeat: 3, ease: 'easeInOut' }}
             >
-              {banner.icon}
+              <Img src={banner.icon} size={44} />
             </motion.span>
             <div style={{ textAlign: 'left' }}>
               <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: 2, color: '#fff', lineHeight: 1.05 }}>
@@ -391,18 +520,9 @@ export default function BroadcastOverlayPage() {
                 {banner.teamName.toUpperCase()}
               </div>
             </div>
-            {/* Barrido de brillo */}
-            <motion.div
-              aria-hidden
-              style={{
-                position: 'absolute', inset: 0, borderRadius: 14, overflow: 'hidden', pointerEvents: 'none',
-              }}
-            >
+            <motion.div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 14, overflow: 'hidden', pointerEvents: 'none' }}>
               <motion.div
-                style={{
-                  position: 'absolute', top: 0, bottom: 0, width: 70,
-                  background: 'linear-gradient(105deg, transparent, rgba(255,255,255,0.22), transparent)',
-                }}
+                style={{ position: 'absolute', top: 0, bottom: 0, width: 70, background: 'linear-gradient(105deg, transparent, rgba(255,255,255,0.22), transparent)' }}
                 initial={{ left: '-20%' }}
                 animate={{ left: '110%' }}
                 transition={{ duration: 1.1, delay: 0.15, ease: 'easeInOut' }}
@@ -413,7 +533,7 @@ export default function BroadcastOverlayPage() {
       </AnimatePresence>
 
       {/* ── Fila bajo la barra: reloj siempre; dragones/timers solo en la Grieta ── */}
-      <div style={{ position: 'absolute', top: 62, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 18 }}>
+      <div style={{ position: 'absolute', top: 96, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 18 }}>
         {d.isRift && <DragonRow list={d.dragonsOrder} align="right" />}
         <span style={{ padding: '3px 14px', borderRadius: 999, background: LQC.deep, color: '#fff', fontFamily: 'monospace', fontWeight: 700, fontSize: 17, border: '1px solid rgba(255,255,255,0.15)' }}>
           {fmt(d.gameTime)}
@@ -421,36 +541,39 @@ export default function BroadcastOverlayPage() {
         {d.isRift && <DragonRow list={d.dragonsChaos} align="left" />}
       </div>
       {d.isRift && (
-        <div style={{ position: 'absolute', top: 106, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 10 }}>
-          {timerChip('🐉 DRAGÓN', d.nextDragon, 'VIVO')}
+        <div style={{ position: 'absolute', top: 134, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 10 }}>
+          {timerChip(ICON.dragon, 'DRAGÓN', d.nextDragon, DRAGON_GLOW.Water)}
           {d.nextHerald != null
-            ? timerChip('👁️ HERALDO', d.nextHerald, 'VIVO')
-            : timerChip('🟣 BARÓN', d.nextBaron, 'VIVO')}
+            ? timerChip(ICON.herald, 'HERALDO', d.nextHerald, '#9fb4d8')
+            : timerChip(ICON.baron, 'BARÓN', d.nextBaron, '#b06bff')}
           {(d.baronsOrder > 0 || d.baronsChaos > 0) && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: LQC.deep, border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>
-              🟣 {d.baronsOrder} - {d.baronsChaos}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: LQC.deep, border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: 700, fontFamily: FONT }}>
+              <Img src={ICON.baron} size={16} /> {d.baronsOrder} - {d.baronsChaos}
             </span>
           )}
         </div>
       )}
 
-      {/* ── Scoreboard inferior ── */}
+      {/* ── Scoreboard inferior: MATCHUPS por línea ── */}
       <div style={{
         position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
         background: LQC.deep, borderTop: `3px solid ${accent || LQC.blue}`, borderRadius: '14px 14px 0 0',
-        padding: '8px 14px 10px', minWidth: 1080,
+        padding: '8px 14px 10px', minWidth: 1180,
+        boxShadow: '0 -10px 34px rgba(0,0,0,0.55)',
       }}>
-        <div style={{ textAlign: 'center', fontSize: 12, letterSpacing: 3, color: LQC.cyan, fontWeight: 700, marginBottom: 6 }}>
-          {(feed.matchLabel || `LQC · ${String(channel).toUpperCase()}`).toUpperCase()}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 5 }}>
+          <span style={{ height: 1, width: 120, background: `linear-gradient(90deg, transparent, ${LQC.cyan}88)` }} />
+          <span style={{ fontSize: 12.5, letterSpacing: 3.5, color: LQC.cyan, fontWeight: 800, fontFamily: FONT }}>
+            {(feed.matchLabel || `LQC · ${String(channel).toUpperCase()}`).toUpperCase()}
+          </span>
+          <span style={{ height: 1, width: 120, background: `linear-gradient(270deg, transparent, ${LQC.pink}88)` }} />
         </div>
-        <div style={{ display: 'flex', gap: 26 }}>
-          <div style={{ flex: 1 }}>
-            {d.order.map((p, i) => <ScoreRow key={i} p={p} side="left" />)}
-          </div>
-          <div style={{ width: 2, background: `linear-gradient(180deg, transparent, ${LQC.blue}, transparent)` }} />
-          <div style={{ flex: 1 }}>
-            {d.chaos.map((p, i) => <ScoreRow key={i} p={p} side="right" />)}
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {d.matchups.map((m, i) => (
+            <div key={i} style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+              <MatchupRow m={m} />
+            </div>
+          ))}
         </div>
       </div>
     </div>
