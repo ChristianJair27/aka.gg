@@ -8,6 +8,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { BladeWipe } from "@/components/BladeWipe";
 import { AppRouter } from "@/routes/router";
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 
 // El overlay de caster (/broadcast/:canal/overlay) se usa como Browser Source
 // en OBS: debe renderizar SIN navbar/footer y con fondo transparente para
@@ -29,15 +30,17 @@ const Shell = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Shell />
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <AppErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Shell />
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </AppErrorBoundary>
 );
 
 export default App;

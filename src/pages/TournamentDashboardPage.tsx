@@ -1738,15 +1738,70 @@ function StatsTab({ id }: { id: string }) {
 }
 
 function ReglasTab({ data }: { data: TdBoardPayload }) {
-  const t = data.tournament;
-  const lines = [
-    `Formato: ${t.format || 'Por confirmar'}.`,
-    ...(t.fearless ? ['FEARLESS DRAFT: los campeones jugados en partidas anteriores del torneo quedan bloqueados para ambos equipos. La lista de bloqueados está en el Resumen; los capitanes son responsables de respetarla en el lobby.'] : []),
-    `Parche de juego: ${t.patch || 'Por confirmar'}. Región: ${t.region || '—'}.`,
-    'Todos los jugadores deben completar el check-in antes del cierre indicado; los equipos sin check-in serán descalificados.',
-    'Los partidos se juegan con los códigos de torneo oficiales de Riot Games. La suplantación o el uso de cuentas no verificadas conlleva descalificación.',
+  const t = data.tournament as any;
+
+  // Reglas generadas según el tipo de torneo (tamaño, mapa, bracket, series):
+  // cada formato explica sus propias mecánicas y el avance automático.
+  const size = Number(t.teamSize) || 5;
+  const vs = `${size}v${size}`;
+  const gameMap: string = t.gameMap || 'SR';
+  const bt: string = t.bracketType || 'single_elim';
+  const st = Number(t.seriesTo) || 1;
+  const fst = Number(t.finalSeriesTo) || st;
+  const serieName = (n: number) => (n === 1 ? 'Bo1 (un juego)' : n === 2 ? 'Bo3 (primero a 2 victorias)' : 'Bo5 (primero a 3 victorias)');
+
+  const lines: string[] = [];
+
+  // Formato de juego
+  if (gameMap === 'ARENA') {
+    lines.push(
+      'Modo ARENA (ladder de duplas): no hay lobbies personalizados — cada dupla juega partidas de Arena normales durante la ventana del evento.',
+      'Puntuación por placement: 1º = 10 pts, 2º = 7, 3º = 6, 4º = 5, 5º = 4, 6º = 3, 7º = 2, 8º = 1. Cuentan tus 5 mejores partidas: colocarse alto vale más que jugar muchas.',
+      'Ambos miembros de la dupla deben estar en la MISMA partida y el mismo equipo para que puntúe. La detección es automática desde el historial.',
+      'Al cerrar la ventana, la clasificación final decide al campeón automáticamente.',
+    );
+  } else {
+    lines.push(
+      `Formato de juego: ${vs} en ${gameMap === 'ARAM' ? 'el Abismo de los Lamentos (ARAM, All Random)' : 'la Grieta del Invocador'}.`,
+      size === 1
+        ? 'En 1v1 tu cuenta ES tu equipo: te inscribes solo, sin suplentes.'
+        : `Roster: ${size} titulares y hasta 2 suplentes. Solo juegan cuentas inscritas — los códigos están restringidos a los jugadores registrados.`,
+    );
+    if (bt === 'single_elim') {
+      lines.push(
+        'Eliminación directa: pierdes la serie y quedas fuera. Los ganadores avanzan automáticamente y cada nueva ronda recibe su código sola — no hay que reportar nada.',
+      );
+    } else if (bt === 'round_robin') {
+      lines.push(
+        'Liga (round robin): todos contra todos por jornadas. Victoria = 3 puntos; la clasificación final decide al campeón. Los códigos de cada jornada se activan automáticamente al completarse la anterior.',
+      );
+    } else if (bt === 'swiss') {
+      lines.push(
+        `Sistema suizo: cada ronda enfrentas a un rival con tu mismo récord, sin revanchas.${t.swissRounds
+          ? ` Son ${t.swissRounds} rondas con avance y cierre automáticos; la última ronda se juega a ${serieName(fst)}.`
+          : ' El organizador genera cada ronda al completarse la anterior.'}`,
+      );
+    }
+    lines.push(
+      st === fst
+        ? `Series: ${serieName(st)} en todos los enfrentamientos.`
+        : `Series: ${serieName(st)} durante el torneo; la final a ${serieName(fst)}.`,
+      'Resultados 100% automáticos: juega con el código oficial del enfrentamiento y el sistema detecta ganador, marcador y estadísticas al terminar cada juego.',
+    );
+  }
+
+  if (t.isPrivate) {
+    lines.push('Torneo privado: solo pueden ver e inscribirse los jugadores invitados por el organizador.');
+  }
+  if (t.fearless) {
+    lines.push('FEARLESS DRAFT: los campeones jugados en partidas anteriores del torneo quedan bloqueados para ambos equipos. La lista de bloqueados está en el Resumen; los capitanes son responsables de respetarla en el lobby.');
+  }
+  lines.push(
+    `Parche de juego: ${t.patch || 'Por confirmar'}. Región: ${(t.region || '—').toUpperCase()}.`,
+    ...(t.checkinDeadline ? ['Todos los jugadores deben completar el check-in antes del cierre indicado; los equipos sin check-in serán descalificados.'] : []),
+    ...(gameMap !== 'ARENA' ? ['Los partidos se juegan con los códigos de torneo oficiales de Riot Games. La suplantación o el uso de cuentas no verificadas conlleva descalificación.'] : []),
     'Las decisiones de los administradores del torneo son definitivas.',
-  ];
+  );
   return (
     <Card>
       <SectionHead
