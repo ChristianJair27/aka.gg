@@ -32,6 +32,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Aurora from '@/components/Aurora';
 import { SwissBracket } from '@/components/SwissBracket';
 import { TournamentTeamModal } from '@/components/TournamentTeamModal';
+import { TournamentRegisterModal } from '@/components/TournamentRegisterModal';
 import { useProfileIcons, iconFor } from '@/hooks/useProfileIcons';
 import { dd } from '@/lib/dataDragon';
 import '@/styles/tournament-dashboard.css';
@@ -113,6 +114,16 @@ export default function TournamentDashboardPage() {
   const setTab = (t: Tab) =>
     setParams((prev) => { const p = new URLSearchParams(prev); p.set('tab', t); return p; }, { replace: true });
 
+  // Inscripción SIN salir de la página: modal propio. `?register=1` lo abre
+  // solo (así el flujo "acepté la invitación → inscribe tu equipo" es directo).
+  const [registerOpen, setRegisterOpen] = useState(false);
+  useEffect(() => {
+    if (!data || params.get('register') !== '1') return;
+    if (data.tournament.phase === 'registration') setRegisterOpen(true);
+    setParams((prev) => { const p = new URLSearchParams(prev); p.delete('register'); return p; }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, params]);
+
   return (
     <div
       className="td-root"
@@ -149,7 +160,7 @@ export default function TournamentDashboardPage() {
           <DashboardSkeleton />
         ) : (
           <>
-            <Hero data={data} onBracket={() => setTab('bracket')} navigate={go} />
+            <Hero data={data} onBracket={() => setTab('bracket')} onRegister={() => setRegisterOpen(true)} />
             <BroadcastBanner channel={id} navigate={go} />
             <Tiles t={data.tournament} />
             {data.viewerAccess === 'owner' && (
@@ -185,6 +196,16 @@ export default function TournamentDashboardPage() {
             </div>
             {/* Nav flotante inferior (móvil / tablet) */}
             <BottomNav value={tab} onChange={setTab} live={data.tournament.status === 'live'} />
+
+            {/* Modal de inscripción in-page — roster del tamaño del formato */}
+            <TournamentRegisterModal
+              tournamentId={id}
+              tournamentName={data.tournament.name}
+              teamSize={(data.tournament as any).teamSize}
+              open={registerOpen}
+              onOpenChange={setRegisterOpen}
+              onRegistered={() => refetch()}
+            />
           </>
         )}
       </div>
@@ -443,8 +464,8 @@ function CountUp({ to }: { to: number }) {
 
 // Editorial: tipografía display de la marca, una sola línea de metadatos y la
 // bolsa de premios como panel propio. Menos chips, más jerarquía.
-function Hero({ data, onBracket, navigate }: {
-  data: TdBoardPayload; onBracket: () => void; navigate: (to: string) => void;
+function Hero({ data, onBracket, onRegister }: {
+  data: TdBoardPayload; onBracket: () => void; onRegister: () => void;
 }) {
   const t = data.tournament;
   const words = t.name.trim().split(/\s+/);
@@ -535,12 +556,12 @@ function Hero({ data, onBracket, navigate }: {
             </div>
           </div>
           {/* Con registro externo (formulario de la liga) el botón manda ahí;
-              sin él, al listado donde vive el modal de inscripción. */}
+              sin él, abre el modal de inscripción AQUÍ mismo. */}
           {t.status === 'registration' && (
             <Button variant="primary" icon={<Zap size={15} />} full
               onClick={() => t.registrationUrl
                 ? window.open(t.registrationUrl, '_blank', 'noopener')
-                : navigate('/tournaments')}>
+                : onRegister()}>
               INSCRIBIR EQUIPO
             </Button>
           )}

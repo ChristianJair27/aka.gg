@@ -1,7 +1,7 @@
 // Panel "Mis torneos" del dashboard: invitaciones, mis equipos (con códigos)
 // y torneos que administro. Lenguaje vision: glass, cuadrados de icono,
 // monogramas de equipo con color determinista y chips de fase en español.
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Trophy, Shield, Users, Copy, Check, Loader2, Crown, Zap, ArrowRight, Swords,
@@ -87,6 +87,17 @@ function SectionHeader({ icon, title, count, sub }: {
 export function TournamentDashboardPanel() {
   const { data, isLoading } = useMyTournamentDashboard();
   const respond = useRespondInvitation();
+  const navigate = useNavigate();
+  // Invitación de ACCESO (torneo privado): al aceptar, directo al torneo con
+  // el formulario de inscripción abierto — sin pasos intermedios.
+  const acceptInvite = (invId: number) =>
+    respond.mutate({ invId, action: 'accept' }, {
+      onSuccess: (resp: any) => {
+        if (resp?.accessOnly && resp?.tournamentId) {
+          navigate(`/tournaments/${resp.tournamentId}?register=1`);
+        }
+      },
+    });
 
   if (isLoading) {
     return (
@@ -184,7 +195,7 @@ export function TournamentDashboardPanel() {
                     </button>
                     <button
                       disabled={respond.isPending || (!linkedRiotId && !!inv.teamName)}
-                      onClick={() => respond.mutate({ invId: inv.id, action: 'accept' })}
+                      onClick={() => acceptInvite(inv.id)}
                       className="vs-btn"
                       style={{ height: 36, padding: '0 16px', fontSize: 12.5 }}
                     >
