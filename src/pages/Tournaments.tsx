@@ -7,6 +7,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TournamentRegisterModal } from '@/components/TournamentRegisterModal';
+import { DailyTournamentsRail } from '@/components/DailyTournamentsRail';
 import { TournamentCreateModal } from '@/components/TournamentCreateModal';
 import { ScrollVideoBg } from '@/components/ScrollVideoBg';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,11 +24,13 @@ gsap.registerPlugin(ScrollTrigger);
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Tournament {
   id: string; name: string;
-  phase: 'registration' | 'checkin' | 'active' | 'complete';
+  phase: 'registration' | 'checkin' | 'active' | 'complete' | 'cancelled';
   status: string; participants: number; maxParticipants: number;
   prize: string; startDate: string; format: string; description: string;
   riotTournamentId?: number; codesAvailable?: number;
   registrationUrl?: string; rulesUrl?: string;
+  teamSize?: number; gameMap?: 'SR' | 'ARAM' | 'ARENA';
+  isPrivate?: boolean;
 }
 
 const PHASE_CONFIG = {
@@ -35,6 +38,7 @@ const PHASE_CONFIG = {
   checkin:      { label: 'Check-in',        dot: 'bg-yellow-400', badge: 'border-yellow-500/40 text-yellow-300 bg-yellow-500/10', icon: <CheckCircle className="h-3.5 w-3.5" /> },
   active:       { label: 'En Curso',        dot: 'bg-teal-400',   badge: 'border-teal-500/40 text-teal-300 bg-teal-500/10',   icon: <Zap className="h-3.5 w-3.5" /> },
   complete:     { label: 'Finalizado',      dot: 'bg-gray-500',   badge: 'border-gray-600/40 text-gray-400 bg-gray-500/10',   icon: <Shield className="h-3.5 w-3.5" /> },
+  cancelled:    { label: 'Cancelado',       dot: 'bg-gray-600',   badge: 'border-gray-700/40 text-gray-500 bg-gray-600/10',   icon: <Shield className="h-3.5 w-3.5" /> },
 } as const;
 
 const FILTERS = [
@@ -50,7 +54,7 @@ function TournamentCard({
   t, index, onRegister,
 }: {
   t: Tournament; index: number;
-  onRegister: (t: { id: string; name: string }) => void;
+  onRegister: (t: { id: string; name: string; teamSize?: number }) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -99,6 +103,24 @@ function TournamentCard({
                   border border-[#c8aa6e]/40 text-[#e8d5a8] bg-[#c8aa6e]/10">
                   <Zap className="h-3 w-3" /> Riot Oficial
                 </span>
+              )}
+              {t.isPrivate && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs
+                  border border-amber-400/40 text-amber-300 bg-amber-400/10">
+                  <Shield className="h-3 w-3" /> Privado
+                </span>
+              )}
+              {t.gameMap === 'ARAM' && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs
+                  border border-cyan-400/40 text-cyan-300 bg-cyan-400/10">ARAM</span>
+              )}
+              {t.gameMap === 'ARENA' && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs
+                  border border-amber-400/40 text-amber-300 bg-amber-400/10">Arena Ladder</span>
+              )}
+              {(t.teamSize ?? 5) !== 5 && t.gameMap !== 'ARENA' && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs
+                  border border-white/[0.12] text-gray-300 bg-white/[0.05]">{t.teamSize}v{t.teamSize}</span>
               )}
             </div>
             <h3 className="text-lg font-semibold text-white group-hover:text-white/80 transition-colors truncate">
@@ -178,7 +200,7 @@ function TournamentCard({
               </a>
             ) : (
               <button
-                onClick={(e) => { e.stopPropagation(); onRegister({ id: t.id, name: t.name }); }}
+                onClick={(e) => { e.stopPropagation(); onRegister({ id: t.id, name: t.name, teamSize: t.teamSize }); }}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
                   bg-foreground text-background hover:bg-foreground/90
                   transition-all duration-200">
@@ -269,7 +291,7 @@ export default function TournamentsPage() {
   const [filter,             setFilter]             = useState<string>('todos');
   const [registerOpen,       setRegisterOpen]       = useState(false);
   const [createOpen,         setCreateOpen]         = useState(false);
-  const [selectedTournament, setSelectedTournament] = useState<{ id:string; name:string }|null>(null);
+  const [selectedTournament, setSelectedTournament] = useState<{ id:string; name:string; teamSize?:number }|null>(null);
   const [mousePos,           setMousePos]           = useState({ x:0, y:0 });
   const headerRef = useRef<HTMLDivElement>(null);
 
@@ -341,6 +363,9 @@ export default function TournamentsPage() {
         {/* Stats bar */}
         <StatBar tournaments={tournaments} />
 
+        {/* Torneos diarios programados (auto-creados por el backend) */}
+        <DailyTournamentsRail />
+
         {/* Filter pills */}
         <div className="flex flex-wrap gap-2 justify-center mb-10">
           {FILTERS.map(f => (
@@ -404,6 +429,7 @@ export default function TournamentsPage() {
         <TournamentRegisterModal
           tournamentId={selectedTournament.id}
           tournamentName={selectedTournament.name}
+          teamSize={selectedTournament.teamSize}
           open={registerOpen}
           onOpenChange={setRegisterOpen}
           onRegistered={refetchTournaments}

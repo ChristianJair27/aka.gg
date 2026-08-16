@@ -13,6 +13,7 @@ import {
   Trophy, Calendar, Clock, Users, Zap, Play, Check, ArrowRight, BarChart3,
   AlertTriangle, RefreshCw, Swords, Settings2, Lock, KeySquare, FolderSync,
   LayoutDashboard, Network, ScrollText, ChevronDown, ChevronUp, Crown, Skull, Flame,
+  Mail, Send,
 } from 'lucide-react';
 import {
   useTournamentDashboard, useCheckin, useBracket, useRegistrations,
@@ -154,7 +155,8 @@ export default function TournamentDashboardPage() {
             {data.viewerAccess === 'owner' && (
               <AdminPanel id={id} phase={data.tournament.phase} bracketType={data.tournament.bracketType}
                 seriesTo={data.tournament.seriesTo} finalSeriesTo={data.tournament.finalSeriesTo}
-                swissRounds={data.tournament.swissRounds ?? null} />
+                swissRounds={data.tournament.swissRounds ?? null}
+                isPrivate={(data.tournament as any).isPrivate} />
             )}
             <div className="td-shell">
               <aside className="td-side">
@@ -957,9 +959,9 @@ function ScheduleCard({ data }: { data: TdBoardPayload }) {
 }
 
 // ── ADMIN PANEL (solo organizador) ───────────────────────────────────────────
-function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRounds }: {
+function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRounds, isPrivate }: {
   id: string; phase: string; bracketType?: string; seriesTo?: number; finalSeriesTo?: number;
-  swissRounds?: number | null;
+  swissRounds?: number | null; isPrivate?: boolean;
 }) {
   const closeReg = useCloseRegistration(id);
   const start    = useStartTournament(id);
@@ -1015,7 +1017,32 @@ function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRoun
     { show: phase === 'active' && bracketType === 'swiss', label: 'FINALIZAR TORNEO', icon: <Trophy size={14} />, onClick: completeT, pending: false },
   ];
   const visible = actions.filter(a => a.show);
-  if (!visible.length && !canPickFormat) return null;
+
+  // ── Invitados (torneo privado): invitar por correo + lista de accesos ──
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [invites, setInvites] = useState<Array<{ id: number; status: string; email: string; name: string | null }> | null>(null);
+  const loadInvites = () => {
+    axiosInstance.get(`/api/tournaments/${id}/invites`)
+      .then(r => setInvites(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setInvites([]));
+  };
+  useEffect(() => { if (isPrivate) loadInvites(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [isPrivate, id]);
+  const sendInvite = async () => {
+    const email = inviteEmail.trim();
+    if (!email.includes('@')) { toast.error('Correo inválido'); return; }
+    setInviteBusy(true);
+    try {
+      const { data } = await axiosInstance.post(`/api/tournaments/${id}/invite`, { email });
+      toast.success(data.message || 'Invitación enviada');
+      setInviteEmail('');
+      loadInvites();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error ?? 'No se pudo invitar');
+    } finally { setInviteBusy(false); }
+  };
+
+  if (!visible.length && !canPickFormat && !isPrivate) return null;
 
   // Guía de fase: qué sigue, en lenguaje claro
   const stepHint =
@@ -1088,6 +1115,69 @@ function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRoun
           </>
         )}
       </div>
+
+      {/* Visibilidad: público (lista abierta) o privado (solo invitados) */}
+      <div style={{ marginTop: 14 }}>
+        <div className="td-over" style={{ marginBottom: 8 }}>VISIBILIDAD</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <OptionBtn active={!isPrivate} accent="var(--td-green)" label="PÚBLICO"
+            hint="Aparece en la lista de torneos; cualquiera se inscribe."
+            onClick={() => isPrivate && patchT({ isPrivate: false }, 'Torneo público')} />
+          <OptionBtn active={!!isPrivate} accent="var(--td-amber)" label="PRIVADO"
+            hint="Oculto al público; solo entran los que invites por correo."
+            onClick={() => !isPrivate && patchT({ isPrivate: true }, 'Torneo privado — invita por correo abajo')} />
+        </div>
+      </div>
+
+      {/* Invitados del torneo privado: correo → invitación por email + acceso */}
+      {isPrivate && (
+        <div style={{ marginTop: 14 }}>
+          <div className="td-over" style={{ marginBottom: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Mail size={12} /> INVITADOS · SOLO ELLOS PUEDEN VER E INSCRIBIRSE
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); sendInvite(); } }}
+              placeholder="correo@delcapitan.com (debe tener cuenta ATAK.GG)"
+              style={{
+                flex: '1 1 260px', height: 38, padding: '0 12px', fontSize: 13,
+                background: 'rgba(0,0,0,0.35)', border: '1px solid var(--td-border)',
+                borderRadius: 10, color: '#fff', outline: 'none',
+              }}
+            />
+            <Button variant="primary" icon={<Send size={13} />} disabled={inviteBusy} onClick={sendInvite}>
+              {inviteBusy ? '...' : 'INVITAR'}
+            </Button>
+          </div>
+          {invites && invites.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+              {invites.map(inv => (
+                <span key={inv.id} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '5px 10px', borderRadius: 999, fontSize: 11.5,
+                  border: '1px solid var(--td-border)', background: 'rgba(255,255,255,0.03)',
+                  color: 'var(--td-text-2)',
+                }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: '50%',
+                    background: inv.status === 'accepted' ? 'var(--td-green)'
+                      : inv.status === 'declined' ? 'var(--td-red)' : 'var(--td-amber)',
+                  }} />
+                  {inv.email}
+                  <span style={{ color: 'var(--td-muted)' }}>
+                    {inv.status === 'accepted' ? 'aceptó' : inv.status === 'declined' ? 'rechazó' : 'pendiente'}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
+          <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--td-muted)' }}>
+            El invitado recibe un correo y la invitación en su dashboard; con ella puede ver el torneo e inscribir a su equipo.
+          </p>
+        </div>
+      )}
 
       {/* Piloto automático suizo: rondas planeadas → el sync avanza y cierra solo.
           Editable incluso con el torneo activo (es un interruptor, no toca lo jugado). */}

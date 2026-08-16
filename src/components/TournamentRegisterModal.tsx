@@ -20,16 +20,15 @@ interface PlayerSlot {
 interface TournamentRegisterModalProps {
   tournamentId: string;
   tournamentName: string;
+  /** Tamaño de equipo del torneo (1-5). Default 5 para torneos previos. */
+  teamSize?: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRegistered?: () => void;
 }
 
-const MIN_PLAYERS = 5;
-const MAX_PLAYERS = 7;
-
 const emptySlot = (): PlayerSlot => ({ name: '', riotId: '', inviteEmail: '', mode: 'riot' });
-const emptyRoster = (): PlayerSlot[] => Array.from({ length: MIN_PLAYERS }, emptySlot);
+const emptyRoster = (n: number): PlayerSlot[] => Array.from({ length: n }, emptySlot);
 
 const fieldCls =
   'w-full bg-white/[0.05] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-white ' +
@@ -38,8 +37,11 @@ const fieldCls =
 const looksLikeRiotId = (v: string) => /^.+#.{2,}$/.test(v.trim());
 
 export const TournamentRegisterModal = ({
-  tournamentId, tournamentName, open, onOpenChange, onRegistered,
+  tournamentId, tournamentName, teamSize, open, onOpenChange, onRegistered,
 }: TournamentRegisterModalProps) => {
+  // Roster según formato: teamSize titulares + hasta 2 suplentes (0 en 1v1).
+  const minPlayers = Math.min(5, Math.max(1, Number(teamSize) || 5));
+  const maxPlayers = minPlayers === 1 ? 1 : Math.min(7, minPlayers + 2);
   const { isAuthenticated } = useAuth();
   const { data: overview } = useOverview();
   const linked = overview?.linked ? overview.profile : null;
@@ -48,8 +50,19 @@ export const TournamentRegisterModal = ({
 
   const [teamName, setTeamName] = useState('');
   const [contact, setContact] = useState('');
-  const [players, setPlayers] = useState<PlayerSlot[]>(emptyRoster);
+  const [players, setPlayers] = useState<PlayerSlot[]>(() => emptyRoster(minPlayers));
   const [loading, setLoading] = useState(false);
+
+  // Ajusta el roster al tamaño del formato al abrir (recorta o rellena slots).
+  useEffect(() => {
+    if (!open) return;
+    setPlayers(prev => {
+      if (prev.length === minPlayers) return prev;
+      return prev.length > maxPlayers
+        ? prev.slice(0, maxPlayers)
+        : [...prev, ...emptyRoster(Math.max(0, minPlayers - prev.length))];
+    });
+  }, [open, minPlayers, maxPlayers]);
 
   // Pre-fill captain slot (index 0) with linked account
   useEffect(() => {
@@ -69,12 +82,12 @@ export const TournamentRegisterModal = ({
     ));
   };
 
-  const addPlayer = () => setPlayers(prev => (prev.length < MAX_PLAYERS ? [...prev, emptySlot()] : prev));
+  const addPlayer = () => setPlayers(prev => (prev.length < maxPlayers ? [...prev, emptySlot()] : prev));
   const removePlayer = (index: number) =>
-    setPlayers(prev => (prev.length > MIN_PLAYERS ? prev.filter((_, i) => i !== index) : prev));
+    setPlayers(prev => (prev.length > minPlayers ? prev.filter((_, i) => i !== index) : prev));
 
   const reset = () => {
-    setTeamName(''); setContact(''); setPlayers(emptyRoster());
+    setTeamName(''); setContact(''); setPlayers(emptyRoster(minPlayers));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -200,10 +213,10 @@ export const TournamentRegisterModal = ({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-gray-400">
-                Roster ({players.length}/{MAX_PLAYERS}) · mínimo {MIN_PLAYERS}
+                Roster ({players.length}/{maxPlayers}) · {minPlayers === 1 ? 'formato 1v1' : `mínimo ${minPlayers}`}
               </Label>
               <Button type="button" size="sm" variant="outline"
-                onClick={addPlayer} disabled={players.length >= MAX_PLAYERS}
+                onClick={addPlayer} disabled={players.length >= maxPlayers}
                 className="h-8 text-xs border-white/10 bg-white/[0.04] hover:bg-white/[0.08]">
                 <Plus className="h-3.5 w-3.5 mr-1.5" /> Suplente
               </Button>
@@ -257,7 +270,7 @@ export const TournamentRegisterModal = ({
                   )}
 
                   {i > 0 && (
-                    <button type="button" onClick={() => removePlayer(i)} disabled={players.length <= MIN_PLAYERS}
+                    <button type="button" onClick={() => removePlayer(i)} disabled={players.length <= minPlayers}
                       className="text-xs text-gray-600 hover:text-red-400 transition disabled:opacity-20 flex items-center gap-1">
                       <X className="h-3 w-3" /> Quitar suplente
                     </button>

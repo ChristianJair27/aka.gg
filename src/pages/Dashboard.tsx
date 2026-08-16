@@ -3,7 +3,7 @@
 // winrate y tarjeta de bienvenida con splash. Misma lógica/datos de siempre.
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth, syncAuthFromStorage } from "@/features/auth/useAuth";
 import {
   User as UserIcon,
@@ -14,7 +14,11 @@ import {
   Target,
   Award,
   ArrowRight,
+  LayoutDashboard,
+  CalendarClock,
+  Activity,
 } from "lucide-react";
+import { DailySchedulesAdmin } from "@/components/DailySchedulesAdmin";
 import { axiosInstance } from "@/lib/axios";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tip } from "@/components/ui/Tip";
@@ -138,10 +142,115 @@ type OverviewResponse = {
 
 const regions = ["la1", "la2", "na1", "br1", "oc1", "euw1", "eun1", "kr", "jp1", "ru", "tr1"];
 
+// ─── Sidebar de administración ───────────────────────────────────────────────
+type DashSection = "resumen" | "torneos" | "actividad" | "diarios";
+
+const SIDE_ITEMS: Array<{ key: DashSection; label: string; sub: string; Icon: typeof Trophy; adminOnly?: boolean }> = [
+  { key: "resumen",   label: "Resumen",        sub: "Stats y perfil",        Icon: LayoutDashboard },
+  { key: "torneos",   label: "Mis torneos",    sub: "Equipos e invitaciones", Icon: Trophy },
+  { key: "actividad", label: "Actividad",      sub: "Partidas y accesos",     Icon: Activity },
+  { key: "diarios",   label: "Torneos diarios", sub: "Plantillas automáticas", Icon: CalendarClock, adminOnly: true },
+];
+
+function DashSidebar({
+  section, onSelect, isAdmin,
+}: { section: DashSection; onSelect: (s: DashSection) => void; isAdmin: boolean }) {
+  const items = SIDE_ITEMS.filter(i => !i.adminOnly || isAdmin);
+  return (
+    <>
+      {/* Desktop: columna sticky con stagger de entrada */}
+      <motion.aside
+        className="dash-side vs-card"
+        initial={{ opacity: 0, x: -24 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        style={{ padding: 12 }}
+      >
+        <p className="vs-over" style={{ margin: "6px 10px 10px" }}>Administración</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {items.map((it, i) => {
+            const active = section === it.key;
+            return (
+              <motion.button
+                key={it.key}
+                onClick={() => onSelect(it.key)}
+                initial={{ opacity: 0, x: -14 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 + i * 0.06, duration: 0.35, ease: "easeOut" }}
+                whileHover={{ x: 3 }}
+                style={{
+                  position: "relative", display: "flex", alignItems: "center", gap: 12,
+                  padding: "11px 12px", borderRadius: 12, border: "none", cursor: "pointer",
+                  textAlign: "left", width: "100%",
+                  background: active ? "rgba(225,36,46,0.12)" : "transparent",
+                  transition: "background 0.25s ease",
+                }}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="dash-side-ind"
+                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                    style={{
+                      position: "absolute", left: 0, top: 8, bottom: 8, width: 3,
+                      borderRadius: 4, background: C.red,
+                      boxShadow: "0 0 12px rgba(225,36,46,0.7)",
+                    }}
+                  />
+                )}
+                <span className="vs-ico" style={{
+                  width: 36, height: 36,
+                  color: active ? "#ff8a90" : undefined,
+                  borderColor: active ? "rgba(225,36,46,0.4)" : undefined,
+                }}>
+                  <it.Icon size={16} />
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: "block", fontFamily: FONT_COND, fontWeight: 700, fontSize: 14.5, color: active ? "#fff" : "rgba(255,255,255,0.75)" }}>
+                    {it.label}
+                  </span>
+                  <span style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.38)" }}>{it.sub}</span>
+                </span>
+              </motion.button>
+            );
+          })}
+        </div>
+      </motion.aside>
+
+      {/* Móvil: pills horizontales */}
+      <div className="dash-side-m">
+        {items.map(it => {
+          const active = section === it.key;
+          return (
+            <button key={it.key} onClick={() => onSelect(it.key)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap",
+                padding: "9px 14px", borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                color: active ? "#fff" : "rgba(255,255,255,0.55)",
+                background: active ? "rgba(225,36,46,0.2)" : "rgba(255,255,255,0.05)",
+                border: `1px solid ${active ? "rgba(225,36,46,0.5)" : "rgba(255,255,255,0.09)"}`,
+                transition: "all 0.25s ease",
+              }}>
+              <it.Icon size={13} /> {it.label}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+const SECTION_ANIM = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -10 },
+  transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
+};
+
 const Dashboard = () => {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [section, setSection] = useState<DashSection>("resumen");
 
   // ===== estado de overview / link =====
   const overviewQ = useOverview();
@@ -294,13 +403,10 @@ const Dashboard = () => {
     { to: "/social", icon: <Users size={22} />, title: "Social", desc: "Conecta con otros" },
   ];
 
-  return (
-    <div className="vs-page" style={{ fontFamily: FONT_BODY, lineHeight: 1.5 }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "92px 20px 80px" }}>
-
-        <div className="vs-grid">
-          {/* ── Fila 1: stat cards ── */}
-          {statCards.map((c, i) => (
+  const resumen = (
+    <div className="vs-grid">
+      {/* ── Fila 1: stat cards ── */}
+      {statCards.map((c, i) => (
             <Card key={c.label} delay={i * 0.05} hover className="vs-col-3" style={{ padding: "16px 18px" }}>
               <Tip label={c.tip}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
@@ -434,13 +540,51 @@ const Dashboard = () => {
               Editar perfil
             </button>
           </Card>
+    </div>
+  );
 
-          {/* ── Fila 3: panel de torneos existente ── */}
-          <div className="vs-col-12">
-            <TournamentDashboardPanel />
+  const torneos = (
+    <div className="vs-grid">
+      {/* Panel de torneos existente (equipos, invitaciones, administrando) */}
+      <div className="vs-col-12">
+        <TournamentDashboardPanel />
+      </div>
+      <Card className="vs-col-4" style={{ padding: 24 }}>
+        <CardTitle>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <Calendar size={15} color={C.gold} /> Próximo torneo
+          </span>
+        </CardTitle>
+        {nextT ? (
+          <div onClick={() => navigate(`/tournaments/${nextT.id}`)} style={{ cursor: "pointer" }}>
+            <div style={{ fontFamily: FONT_COND, fontWeight: 700, fontSize: 18, color: "#fff", lineHeight: 1.15, marginBottom: 8 }}>
+              {nextT.name}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "rgba(255,255,255,0.6)" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Calendar size={13} />
+                {new Date(nextT.startDate).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}
+              </span>
+              {nextT.prize ? <span style={{ color: C.gold }}>🏆 {nextT.prize}</span> : null}
+            </div>
+            <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span className="vs-over" style={{ color: nextT.phase === "active" ? C.win : C.gold }}>
+                {nextT.phase === "registration" ? "Inscripciones" : nextT.phase === "checkin" ? "Check-in" : "En curso"}
+              </span>
+              <span style={{ fontSize: 12.5, color: C.red, fontWeight: 700 }}>Ver →</span>
+            </div>
           </div>
+        ) : (
+          <p style={{ textAlign: "center", fontSize: 13.5, color: "rgba(255,255,255,0.45)", margin: "16px 0" }}>
+            No hay torneos próximos
+          </p>
+        )}
+      </Card>
+    </div>
+  );
 
-          {/* ── Fila 4: acciones + actividad + próximo torneo ── */}
+  const actividad = (
+    <div className="vs-grid">
           <Card className="vs-col-4" style={{ padding: 24 }}>
             <CardTitle sub="Accede a las funciones principales">Acciones rápidas</CardTitle>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -490,42 +634,47 @@ const Dashboard = () => {
               )}
             </div>
           </Card>
+    </div>
+  );
 
-          <Card className="vs-col-3" delay={0.1} style={{ padding: 24 }}>
-            <CardTitle>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <Calendar size={15} color={C.gold} /> Próximo torneo
-              </span>
-            </CardTitle>
-            {nextT ? (
-              <div onClick={() => navigate(`/tournaments/${nextT.id}`)} style={{ cursor: "pointer" }}>
-                <div style={{ fontFamily: FONT_COND, fontWeight: 700, fontSize: 18, color: "#fff", lineHeight: 1.15, marginBottom: 8 }}>
-                  {nextT.name}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "rgba(255,255,255,0.6)" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <Calendar size={13} />
-                    {new Date(nextT.startDate).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}
-                  </span>
-                  {nextT.prize ? <span style={{ color: C.gold }}>🏆 {nextT.prize}</span> : null}
-                </div>
-                <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span className="vs-over" style={{ color: nextT.phase === "active" ? C.win : C.gold }}>
-                    {nextT.phase === "registration" ? "Inscripciones" : nextT.phase === "checkin" ? "Check-in" : "En curso"}
-                  </span>
-                  <span style={{ fontSize: 12.5, color: C.red, fontWeight: 700 }}>Ver →</span>
-                </div>
-              </div>
-            ) : (
-              <p style={{ textAlign: "center", fontSize: 13.5, color: "rgba(255,255,255,0.45)", margin: "16px 0" }}>
-                No hay torneos próximos
-              </p>
-            )}
-          </Card>
+  const isAdmin = (user as any)?.role === "admin";
+
+  return (
+    <div className="vs-page" style={{ fontFamily: FONT_BODY, lineHeight: 1.5 }}>
+      <div style={{ maxWidth: 1320, margin: "0 auto", padding: "92px 20px 80px" }}>
+        <div className="dash-shell">
+          <DashSidebar section={section} onSelect={setSection} isAdmin={isAdmin} />
+
+          <div style={{ minWidth: 0 }}>
+            <AnimatePresence mode="wait">
+              <motion.div key={section} {...SECTION_ANIM}>
+                {section === "resumen" && resumen}
+                {section === "torneos" && torneos}
+                {section === "actividad" && actividad}
+                {section === "diarios" && isAdmin && <DailySchedulesAdmin />}
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
 
         {err && <div style={{ fontSize: 13, color: C.loss, marginTop: 22 }}>{err}</div>}
       </div>
+
+      {/* Responsive del shell: sidebar sticky en desktop, pills arriba en móvil */}
+      <style>{`
+        .dash-shell { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 20px; align-items: start; }
+        .dash-side { position: sticky; top: 92px; }
+        .dash-side-m { display: none; }
+        @media (max-width: 900px) {
+          .dash-shell { grid-template-columns: 1fr; }
+          .dash-side { display: none; }
+          .dash-side-m {
+            display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px;
+            -webkit-overflow-scrolling: touch; scrollbar-width: none;
+          }
+          .dash-side-m::-webkit-scrollbar { display: none; }
+        }
+      `}</style>
     </div>
   );
 };

@@ -240,6 +240,10 @@ export const Navbar = () => {
   const [mobileOpen, setMobileOpen]     = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled]         = useState(false);
+  // Hide-on-scroll: la pastilla se esconde al bajar y reaparece al primer
+  // gesto hacia arriba (o cerca del top). Nunca se esconde con menús abiertos.
+  const [hidden, setHidden]             = useState(false);
+  const lastY = useRef(0);
   const location = useLocation();
   const menuRef  = useRef<HTMLDivElement>(null);
 
@@ -252,8 +256,16 @@ export const Navbar = () => {
     : '/dashboard';
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', onScroll);
+    const onScroll = () => {
+      const y = window.scrollY;
+      setScrolled(y > 20);
+      const delta = y - lastY.current;
+      if (y < 80) setHidden(false);          // cerca del top siempre visible
+      else if (delta > 8) setHidden(true);   // bajando → esconder
+      else if (delta < -8) setHidden(false); // subiendo → mostrar
+      lastY.current = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
@@ -270,8 +282,17 @@ export const Navbar = () => {
   const initial = user?.name?.[0]?.toUpperCase() || '?';
   const isHome  = location.pathname === '/';
 
+  const navHidden = hidden && !mobileOpen && !userMenuOpen;
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 px-3 pt-3 md:px-5 pointer-events-none">
+    <nav
+      className="fixed top-0 left-0 right-0 z-50 px-3 pt-3 md:px-5 pointer-events-none"
+      style={{
+        transform: navHidden ? 'translateY(calc(-100% - 16px))' : 'translateY(0)',
+        opacity: navHidden ? 0 : 1,
+        transition: 'transform 0.5s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.35s ease',
+      }}
+    >
       {/* Pastilla flotante (estilo React Bits): cápsula con blur separada del
           borde, más presente al scrollear. El hairline pasa a ser el borde. */}
       <div className={`pointer-events-auto max-w-6xl mx-auto rounded-full border transition-all duration-500 ${

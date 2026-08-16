@@ -152,14 +152,22 @@ export function TournamentDashboardPanel() {
                   className="flex flex-wrap items-center gap-3 p-3.5 rounded-2xl
                     bg-red-500/[0.05] border border-red-500/20"
                 >
-                  <TeamMark name={inv.teamName} size={40} />
+                  <TeamMark name={inv.teamName || inv.tournamentName} size={40} />
                   <div className="flex-1 min-w-[180px]">
                     <p className="font-semibold text-white text-sm">{inv.tournamentName}</p>
-                    <p className="text-xs text-white/50">
-                      Equipo <span className="text-red-400 font-semibold">{inv.teamName}</span>
-                      {' · '}slot {inv.playerName || inv.slotIndex + 1}
-                    </p>
-                    {!linkedRiotId && (
+                    {inv.teamName ? (
+                      <p className="text-xs text-white/50">
+                        Equipo <span className="text-red-400 font-semibold">{inv.teamName}</span>
+                        {' · '}slot {inv.playerName || inv.slotIndex + 1}
+                      </p>
+                    ) : (
+                      // Invitación de ACCESO a torneo privado (sin equipo): al
+                      // aceptar puedes ver el torneo e inscribir tu propio equipo.
+                      <p className="text-xs text-amber-300/90">
+                        Torneo privado · te invitaron a participar — inscribe a tu equipo al aceptar
+                      </p>
+                    )}
+                    {!linkedRiotId && inv.teamName && (
                       <p className="text-[11px] text-amber-400/90 mt-1">
                         ⚠ Vincula tu Riot ID antes de aceptar
                       </p>
@@ -175,7 +183,7 @@ export function TournamentDashboardPanel() {
                       Rechazar
                     </button>
                     <button
-                      disabled={respond.isPending || !linkedRiotId}
+                      disabled={respond.isPending || (!linkedRiotId && !!inv.teamName)}
                       onClick={() => respond.mutate({ invId: inv.id, action: 'accept' })}
                       className="vs-btn"
                       style={{ height: 36, padding: '0 16px', fontSize: 12.5 }}
