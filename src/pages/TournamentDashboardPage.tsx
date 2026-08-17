@@ -1639,7 +1639,8 @@ function PartidasTab({ id }: { id: string }) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {matches.filter((m) => m.round === r).map((m) => (
-              <MatchRow key={m.id} id={id} m={m} defaultOpen={autoOpen && m.matchStatus !== 'pending'} />
+              <MatchRow key={m.id} id={id} m={m} defaultOpen={autoOpen && m.matchStatus !== 'pending'}
+                isOwner={data.viewerAccess === 'owner'} />
             ))}
           </div>
         </section>
@@ -1648,9 +1649,41 @@ function PartidasTab({ id }: { id: string }) {
   );
 }
 
-function MatchRow({ id, m, defaultOpen }: { id: string; m: BracketMatch; defaultOpen: boolean }) {
+function MatchRow({ id, m, defaultOpen, isOwner }: { id: string; m: BracketMatch; defaultOpen: boolean; isOwner?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   const hasStats = m.matchStatus !== 'pending';
+  const qc = useQueryClient();
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: qk.bracket(id) });
+    qc.invalidateQueries({ queryKey: qk.tournamentBoard(id) });
+  };
+
+  // ── P0 admin: horario, W.O., desvincular juego ──
+  const [schedDraft, setSchedDraft] = useState(() =>
+    m.scheduledAt ? new Date(m.scheduledAt).toISOString().slice(0, 16) : ''
+  );
+  const [busy, setBusy] = useState(false);
+  const call = async (fn: () => Promise<any>, okMsg: string) => {
+    if (busy) return;
+    setBusy(true);
+    try { await fn(); toast.success(okMsg); refresh(); }
+    catch (e: any) { toast.error(e?.response?.data?.error ?? 'No se pudo guardar'); }
+    finally { setBusy(false); }
+  };
+  const saveSchedule = () => call(
+    () => axiosInstance.patch(`/api/tournaments/${id}/matches/${m.id}`, {
+      scheduledAt: schedDraft ? new Date(schedDraft).toISOString() : null,
+    }),
+    schedDraft ? 'Horario guardado — se avisa en el calendario y el correo del código' : 'Horario eliminado',
+  );
+  const declareForfeit = (winner: string) => {
+    if (!window.confirm(`¿Declarar W.O.? ${winner} gana porque el rival no se presentó.`)) return;
+    call(() => axiosInstance.post(`/api/tournaments/${id}/matches/${m.id}/forfeit`, { winner }), `W.O. — gana ${winner}`);
+  };
+  const unlinkGame = (gameId: number) => {
+    if (!window.confirm(`¿Desvincular el juego ${gameId} de esta serie? Se borran sus stats y se recalcula el marcador.`)) return;
+    call(() => axiosInstance.post(`/api/tournaments/${id}/matches/${m.id}/unlink-game`, { gameId }), 'Juego desvinculado');
+  };
   const statusChip =
     m.matchStatus === 'complete' ? <StatusChip kind="pos" dot={false}>FINALIZADO</StatusChip>
     : m.matchStatus === 'active' ? <StatusChip kind="live">EN JUEGO</StatusChip>
@@ -1711,6 +1744,90 @@ function MatchRow({ id, m, defaultOpen }: { id: string; m: BracketMatch; default
           {hasStats && (open ? <ChevronUp size={16} color="var(--td-muted)" /> : <ChevronDown size={16} color="var(--td-muted)" />)}
         </span>
       </button>
+
+      {/* Chips informativos: horario oficial · W.O. · resultado sin atribuir */}
+      {(m.scheduledAt || m.forfeit || m.needsManualResult) && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+          {m.scheduledAt && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700,
+              padding: '4px 10px', borderRadius: 999, color: '#c8aa6e',
+              border: '1px solid rgba(200,170,110,0.35)', background: 'rgba(200,170,110,0.08)',
+            }}>
+              <Calendar size={11} />
+              {new Date(m.scheduledAt).toLocaleString('es-MX', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          {m.forfeit && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700,
+              padding: '4px 10px', borderRadius: 999, color: 'var(--td-muted)',
+              border: '1px solid var(--td-border)', background: 'rgba(255,255,255,0.03)',
+            }}>
+              W.O. — rival no se presentó
+            </span>
+          )}
+          {m.needsManualResult && m.matchStatus !== 'complete' && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 800,
+              padding: '4px 10px', borderRadius: 999, color: '#ff5a64',
+              border: '1px solid rgba(225,36,46,0.5)', background: 'rgba(225,36,46,0.1)',
+            }}>
+              <AlertTriangle size={11} />
+              GANADOR SIN ATRIBUIR — ¿lados mezclados? Reporta el resultado manualmente
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* P0 herramientas del organizador */}
+      {isOwner && (
+        <div style={{
+          display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
+          marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--td-border)',
+        }}>
+          <span className="td-over" style={{ letterSpacing: '1px' }}>ADMIN</span>
+          <input
+            type="datetime-local" value={schedDraft}
+            onChange={(e) => setSchedDraft(e.target.value)}
+            style={{
+              height: 32, padding: '0 10px', fontSize: 12, colorScheme: 'dark',
+              background: 'rgba(0,0,0,0.35)', border: '1px solid var(--td-border)',
+              borderRadius: 8, color: '#fff', outline: 'none',
+            }}
+          />
+          <Button variant="secondary" disabled={busy} onClick={saveSchedule}>
+            {m.scheduledAt ? 'CAMBIAR HORARIO' : 'FIJAR HORARIO'}
+          </Button>
+          {m.matchStatus !== 'complete' && m.team1 && m.team2 && (
+            <>
+              <Button variant="secondary" disabled={busy} onClick={() => declareForfeit(m.team1!)}>
+                W.O. → {m.team1}
+              </Button>
+              <Button variant="secondary" disabled={busy} onClick={() => declareForfeit(m.team2!)}>
+                W.O. → {m.team2}
+              </Button>
+            </>
+          )}
+          {(m.games ?? []).map((g, i) => (
+            <span key={g.gameId} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5,
+              padding: '4px 8px', borderRadius: 8, color: 'var(--td-text-2)',
+              border: '1px solid var(--td-border)', background: 'rgba(0,0,0,0.25)',
+            }}>
+              J{i + 1} · {g.winner ?? (g.ambiguous ? 'sin atribuir' : '—')}
+              <button
+                onClick={() => unlinkGame(g.gameId)} disabled={busy}
+                title={`Desvincular juego ${g.gameId}`}
+                style={{ background: 'none', border: 'none', color: '#ff5a64', cursor: 'pointer', padding: 0, display: 'inline-flex' }}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
       <AnimatePresence initial={false}>
         {open && hasStats && (
           <motion.div

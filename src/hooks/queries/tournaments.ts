@@ -25,6 +25,15 @@ export interface BracketMatch {
   score2?: number;
   gameId?: number;
   gameRegion?: string;
+  seriesTo?: number;
+  /** Horario oficial fijado por el organizador (ISO). */
+  scheduledAt?: string | null;
+  /** Serie cerrada por W.O. */
+  forfeit?: boolean;
+  /** Juegos de la serie (Bo3/Bo5); ambiguous = ganador no atribuible. */
+  games?: Array<{ gameId: number; gameRegion?: string; winner?: string | null; ambiguous?: boolean }>;
+  /** Algún juego quedó sin ganador → requiere reporte manual del organizador. */
+  needsManualResult?: boolean;
 }
 
 export type ViewerAccess = "owner" | "participant" | "public";
