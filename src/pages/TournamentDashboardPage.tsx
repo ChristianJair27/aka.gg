@@ -1067,7 +1067,7 @@ function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRoun
 
   // Guía de fase: qué sigue, en lenguaje claro
   const stepHint =
-    phase === 'registration' ? 'Paso 1 · Elige formato y series, y cuando el cupo esté listo cierra inscripciones o inicia directo.'
+    phase === 'registration' ? 'Paso 1 · Elige formato y series. Los equipos ya pueden hacer check-in desde ahora; cuando el cupo esté listo cierra inscripciones o inicia directo.'
     : phase === 'checkin' ? 'Paso 2 · Los equipos hacen check-in. Cuando estén listos, inicia el torneo (genera la ronda 1 con códigos).'
     : phase === 'active' && bracketType === 'swiss' ? 'Torneo en curso · Al terminar todos los partidos de la ronda, genera la siguiente. Cierra el torneo tras la última ronda.'
     : phase === 'active' ? 'Torneo en curso · Los resultados y stats se detectan solos; sincroniza si algo tarda.'
