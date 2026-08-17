@@ -168,7 +168,8 @@ export default function TournamentDashboardPage() {
                 seriesTo={data.tournament.seriesTo} finalSeriesTo={data.tournament.finalSeriesTo}
                 swissRounds={data.tournament.swissRounds ?? null}
                 isPrivate={(data.tournament as any).isPrivate}
-                discordWebhookUrl={(data.tournament as any).discordWebhookUrl} />
+                discordWebhookUrl={(data.tournament as any).discordWebhookUrl}
+                playoffsSize={(data.tournament as any).playoffsSize} />
             )}
             <div className="td-shell">
               <aside className="td-side">
@@ -981,9 +982,10 @@ function ScheduleCard({ data }: { data: TdBoardPayload }) {
 }
 
 // ── ADMIN PANEL (solo organizador) ───────────────────────────────────────────
-function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRounds, isPrivate, discordWebhookUrl }: {
+function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRounds, isPrivate, discordWebhookUrl, playoffsSize }: {
   id: string; phase: string; bracketType?: string; seriesTo?: number; finalSeriesTo?: number;
   swissRounds?: number | null; isPrivate?: boolean; discordWebhookUrl?: string | null;
+  playoffsSize?: number;
 }) {
   const closeReg = useCloseRegistration(id);
   const start    = useStartTournament(id);
@@ -1259,6 +1261,27 @@ function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRoun
               Resultados y stats se detectan solos igualmente; esto solo automatiza el paso de ronda.
             </p>
           )}
+
+          {/* Suizo → playoffs: qué pasa al terminar la fase suiza */}
+          <div className="td-over" style={{ margin: '14px 0 8px' }}>
+            AL TERMINAR LA FASE SUIZA
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <OptionBtn active={!playoffsSize} accent="var(--td-neutral)" label="SUIZO PURO"
+              hint="El líder de la clasificación es el campeón directo."
+              onClick={() => playoffsSize !== 0 && patchT({ playoffsSize: 0 }, 'Suizo puro: el líder de tabla es campeón')} />
+            <OptionBtn active={playoffsSize === 4} accent="var(--td-red)" label="TOP 4 → PLAYOFFS"
+              hint="Semifinales sembradas (1º vs 4º, 2º vs 3º) y gran final."
+              onClick={() => playoffsSize !== 4 && patchT({ playoffsSize: 4 }, 'Playoffs top 4 al cerrar el suizo')} />
+            <OptionBtn active={playoffsSize === 8} accent="var(--td-red)" label="TOP 8 → PLAYOFFS"
+              hint="Cuartos sembrados, semifinales y gran final."
+              onClick={() => playoffsSize !== 8 && patchT({ playoffsSize: 8 }, 'Playoffs top 8 al cerrar el suizo')} />
+          </div>
+          <p style={{ margin: '8px 0 0', fontSize: 11.5, color: playoffsSize ? 'var(--td-green)' : 'var(--td-muted)' }}>
+            {playoffsSize
+              ? `✓ Al completarse la última ronda suiza se genera solo el bracket de playoffs (top ${playoffsSize} por tabla), con códigos y series Bo${(seriesTo || 1) * 2 - 1}; la gran final a Bo${(finalSeriesTo || seriesTo || 1) * 2 - 1}. El campeón es el ganador de la final.`
+              : 'Con playoffs, la última serie Bo grande se reserva para la gran final del bracket en vez de la última ronda suiza.'}
+          </p>
         </div>
       )}
 
@@ -1650,7 +1673,14 @@ function PartidasTab({ id }: { id: string }) {
   }
 
   const maxRound = Math.max(...matches.map((m) => m.round));
+  // Rondas de playoffs (suizo multi-fase): etiquetas de bracket, no "Ronda N".
+  const playoffRounds = new Set(matches.filter((m) => m.stage === 'playoffs').map((m) => m.round));
+  const maxPlayoff = playoffRounds.size ? Math.max(...playoffRounds) : 0;
   const rlabel = (r: number) => {
+    if (playoffRounds.has(r)) {
+      const d = maxPlayoff - r;
+      return d === 0 ? '🏆 Gran Final' : d === 1 ? 'Playoffs · Semifinales' : 'Playoffs · Cuartos';
+    }
     if (data.bracketType === 'round_robin') return `Jornada ${r}`;
     if (data.bracketType === 'swiss') return `Ronda ${r}`;
     const d = maxRound - r;
@@ -1954,10 +1984,16 @@ function ReglasTab({ data }: { data: TdBoardPayload }) {
         'Liga (round robin): todos contra todos por jornadas. Victoria = 3 puntos; la clasificación final decide al campeón. Los códigos de cada jornada se activan automáticamente al completarse la anterior.',
       );
     } else if (bt === 'swiss') {
+      const ps = Number(t.playoffsSize) || 0;
       lines.push(
         `Sistema suizo: cada ronda enfrentas a un rival con tu mismo récord, sin revanchas.${t.swissRounds
-          ? ` Son ${t.swissRounds} rondas con avance y cierre automáticos; la última ronda se juega a ${serieName(fst)}.`
+          ? ` Son ${t.swissRounds} rondas con avance automático.`
           : ' El organizador genera cada ronda al completarse la anterior.'}`,
+        ...(ps >= 2 ? [
+          `Playoffs: al cerrar la fase suiza, los ${ps} mejores de la clasificación pasan a eliminación directa sembrada (el 1º y el 2º solo pueden cruzarse en la gran final). La gran final se juega a ${serieName(fst)} y su ganador es el campeón.`,
+        ] : t.swissRounds ? [
+          `La última ronda suiza se juega a ${serieName(fst)} y el líder de la clasificación final es el campeón.`,
+        ] : []),
       );
     }
     lines.push(

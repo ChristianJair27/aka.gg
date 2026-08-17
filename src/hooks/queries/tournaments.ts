@@ -34,6 +34,8 @@ export interface BracketMatch {
   games?: Array<{ gameId: number; gameRegion?: string; winner?: string | null; ambiguous?: boolean }>;
   /** Algún juego quedó sin ganador → requiere reporte manual del organizador. */
   needsManualResult?: boolean;
+  /** Matches de playoffs (suizo multi-fase). */
+  stage?: 'playoffs';
 }
 
 export type ViewerAccess = "owner" | "participant" | "public";
