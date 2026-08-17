@@ -1787,6 +1787,7 @@ function ReglasTab({ data }: { data: TdBoardPayload }) {
         ? `Series: ${serieName(st)} en todos los enfrentamientos.`
         : `Series: ${serieName(st)} durante el torneo; la final a ${serieName(fst)}.`,
       'Resultados 100% automáticos: juega con el código oficial del enfrentamiento y el sistema detecta ganador, marcador y estadísticas al terminar cada juego.',
+      ...(size > 1 ? ['IMPORTANTE: en el lobby cada equipo debe jugar junto en su propio lado, igual que se registró. Si los lados quedan mezclados, el sistema no puede atribuir al ganador y el organizador tendrá que reportar el resultado a mano.'] : []),
     );
   }
 
