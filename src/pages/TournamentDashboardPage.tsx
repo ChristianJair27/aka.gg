@@ -167,7 +167,8 @@ export default function TournamentDashboardPage() {
               <AdminPanel id={id} phase={data.tournament.phase} bracketType={data.tournament.bracketType}
                 seriesTo={data.tournament.seriesTo} finalSeriesTo={data.tournament.finalSeriesTo}
                 swissRounds={data.tournament.swissRounds ?? null}
-                isPrivate={(data.tournament as any).isPrivate} />
+                isPrivate={(data.tournament as any).isPrivate}
+                discordWebhookUrl={(data.tournament as any).discordWebhookUrl} />
             )}
             <div className="td-shell">
               <aside className="td-side">
@@ -980,9 +981,9 @@ function ScheduleCard({ data }: { data: TdBoardPayload }) {
 }
 
 // ── ADMIN PANEL (solo organizador) ───────────────────────────────────────────
-function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRounds, isPrivate }: {
+function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRounds, isPrivate, discordWebhookUrl }: {
   id: string; phase: string; bracketType?: string; seriesTo?: number; finalSeriesTo?: number;
-  swissRounds?: number | null; isPrivate?: boolean;
+  swissRounds?: number | null; isPrivate?: boolean; discordWebhookUrl?: string | null;
 }) {
   const closeReg = useCloseRegistration(id);
   const start    = useStartTournament(id);
@@ -1062,6 +1063,13 @@ function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRoun
       toast.error(e?.response?.data?.error ?? 'No se pudo invitar');
     } finally { setInviteBusy(false); }
   };
+
+  // ── Discord webhook del torneo ──
+  const [webhookDraft, setWebhookDraft] = useState(discordWebhookUrl ?? '');
+  const saveWebhook = () => patchT(
+    { discordWebhookUrl: webhookDraft.trim() },
+    webhookDraft.trim() ? 'Discord conectado — avisos de códigos, resultados y campeón' : 'Webhook de Discord eliminado',
+  );
 
   if (!visible.length && !canPickFormat && !isPrivate) return null;
 
@@ -1199,6 +1207,31 @@ function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRoun
           </p>
         </div>
       )}
+
+      {/* Discord del torneo: pega la URL del webhook y el torneo avisa solo */}
+      <div style={{ marginTop: 14 }}>
+        <div className="td-over" style={{ marginBottom: 8 }}>
+          DISCORD · AVISOS AUTOMÁTICOS {discordWebhookUrl ? '· CONECTADO ✓' : ''}
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input
+            value={webhookDraft}
+            onChange={(e) => setWebhookDraft(e.target.value)}
+            placeholder="https://discord.com/api/webhooks/… (Ajustes del canal → Integraciones → Webhooks)"
+            style={{
+              flex: '1 1 320px', height: 38, padding: '0 12px', fontSize: 12.5,
+              background: 'rgba(0,0,0,0.35)', border: '1px solid var(--td-border)',
+              borderRadius: 10, color: '#fff', outline: 'none', fontFamily: 'var(--td-font-mono, monospace)',
+            }}
+          />
+          <Button variant="secondary" disabled={savingType} onClick={saveWebhook}>
+            {discordWebhookUrl ? 'ACTUALIZAR' : 'CONECTAR'}
+          </Button>
+        </div>
+        <p style={{ margin: '6px 0 0', fontSize: 11.5, color: 'var(--td-muted)' }}>
+          El canal recibe: código asignado (con horario), resultado de cada serie y campeón. El código en sí NO se publica — llega por correo a los equipos.
+        </p>
+      </div>
 
       {/* Piloto automático suizo: rondas planeadas → el sync avanza y cierra solo.
           Editable incluso con el torneo activo (es un interruptor, no toca lo jugado). */}
@@ -1649,6 +1682,33 @@ function PartidasTab({ id }: { id: string }) {
   );
 }
 
+// P1: sala de espera — quién ya entró al lobby de Riot del código (poll 30s).
+function LobbyStatus({ id, matchId }: { id: string; matchId: string }) {
+  const { data } = useQuery({
+    queryKey: ['tournament-lobby', id, matchId],
+    queryFn: async () => (await axiosInstance.get(`/api/tournaments/${id}/matches/${matchId}/lobby`)).data,
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+    retry: false,
+  });
+  if (!data?.hasCode) return null;
+  const full = data.joined >= data.expected;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700,
+      padding: '4px 10px', borderRadius: 999,
+      color: data.gameStarted ? 'var(--td-green)' : full ? 'var(--td-green)' : 'var(--td-text-2)',
+      border: `1px solid ${full || data.gameStarted ? 'rgba(47,191,138,0.4)' : 'var(--td-border)'}`,
+      background: full || data.gameStarted ? 'rgba(47,191,138,0.08)' : 'rgba(255,255,255,0.03)',
+    }}>
+      <Users size={11} />
+      {data.gameStarted ? 'EN PARTIDA'
+        : data.draftStarted ? 'EN DRAFT'
+        : `Lobby ${data.joined}/${data.expected}`}
+    </span>
+  );
+}
+
 function MatchRow({ id, m, defaultOpen, isOwner }: { id: string; m: BracketMatch; defaultOpen: boolean; isOwner?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   const hasStats = m.matchStatus !== 'pending';
@@ -1787,6 +1847,7 @@ function MatchRow({ id, m, defaultOpen, isOwner }: { id: string; m: BracketMatch
           marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--td-border)',
         }}>
           <span className="td-over" style={{ letterSpacing: '1px' }}>ADMIN</span>
+          {m.matchStatus === 'active' && <LobbyStatus id={id} matchId={m.id} />}
           <input
             type="datetime-local" value={schedDraft}
             onChange={(e) => setSchedDraft(e.target.value)}
