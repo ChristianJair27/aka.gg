@@ -1,9 +1,10 @@
 // src/components/Navbar.tsx — ATAK.GG red/black brand nav
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Clock, Menu, X, ChevronDown, LayoutDashboard, LogOut, Search, User, Zap } from 'lucide-react';
+import { Clock, Menu, X, ChevronDown, LayoutDashboard, LogOut, Search, Swords, User, Zap } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/features/auth/useAuth';
+import { useChampionMatches, type ChampionMatch } from '@/hooks/useChampionSearch';
 import { useOverview } from '@/hooks/queries/players';
 import { resolveRiotIdQueryOptions } from '@/hooks/queries/stats';
 import { getRecentSearches, saveRecentSearch, REGIONS } from '@/components/SummonerPrompt';
@@ -24,21 +25,30 @@ function NavSearch({ className = '', onDone }: { className?: string; onDone?: ()
   const rootRef = useRef<HTMLFormElement>(null);
 
   const players = usePlayerSuggestions(value, open);
+  // Campeones que matchean el texto (local, DDragon) — también se buscan aquí.
+  const champMatches = useChampionMatches(value, 3);
   const recents = getRecentSearches().filter(
     (r) => !value.trim() || r.id.toLowerCase().includes(value.trim().toLowerCase()),
   ).slice(0, 3);
 
-  // Lista plana para la navegación con teclado: recientes primero.
+  // Lista plana para la navegación con teclado: campeones → recientes → jugadores.
   const options: Array<
+    | { kind: 'champ'; c: ChampionMatch }
     | { kind: 'recent'; id: string; region: string }
     | { kind: 'player'; p: PlayerSuggestion }
   > = [
+    ...champMatches.map((c) => ({ kind: 'champ' as const, c })),
     ...recents.map((r) => ({ kind: 'recent' as const, id: r.id, region: r.region })),
     ...players
       // sin duplicar lo que ya está en recientes
       .filter((p) => !recents.some((r) => r.id.toLowerCase() === `${p.gameName}#${p.tagLine}`.toLowerCase()))
       .map((p) => ({ kind: 'player' as const, p })),
   ];
+
+  const goChamp = (c: ChampionMatch) => {
+    setOpen(false); setHighlight(-1); setValue(''); onDone?.();
+    navigate(`/champion/${c.id}`);
+  };
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -77,7 +87,8 @@ function NavSearch({ className = '', onDone }: { className?: string; onDone?: ()
     e.preventDefault();
     if (highlight >= 0 && options[highlight]) {
       const o = options[highlight];
-      if (o.kind === 'recent') void go(o.id, o.region);
+      if (o.kind === 'champ') goChamp(o.c);
+      else if (o.kind === 'recent') void go(o.id, o.region);
       else void go(`${o.p.gameName}#${o.p.tagLine}`, o.p.platform, o.p.puuid);
       return;
     }
@@ -133,12 +144,43 @@ function NavSearch({ className = '', onDone }: { className?: string; onDone?: ()
             border border-white/[0.10] bg-black/95 shadow-[0_16px_48px_rgba(0,0,0,0.6)]"
           style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
         >
+          {champMatches.length > 0 && (
+            <>
+              <div className="flex items-center gap-2 px-3.5 pt-3 pb-1.5 text-[10px] uppercase tracking-[0.22em] text-white/25">
+                <Swords className="h-3 w-3" /> Campeones
+              </div>
+              {champMatches.map((c, i) => (
+                <button
+                  key={`c-${c.id}`}
+                  type="button"
+                  role="option"
+                  aria-selected={highlight === i}
+                  onMouseEnter={() => setHighlight(i)}
+                  onMouseDown={(e) => { e.preventDefault(); goChamp(c); }}
+                  className={`flex w-full items-center gap-2.5 px-3.5 py-2 text-left transition-colors ${
+                    highlight === i ? 'bg-white/[0.07]' : ''
+                  }`}
+                >
+                  <img
+                    src={c.image} alt="" loading="lazy"
+                    className="h-7 w-7 rounded-lg object-cover flex-shrink-0 ring-1 ring-white/10"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
+                  />
+                  <span className="text-sm text-white/85 truncate">{c.name}</span>
+                  <span className="ml-auto text-[10px] text-[#c8aa6e]/70 uppercase flex-shrink-0">Análisis</span>
+                </button>
+              ))}
+            </>
+          )}
+
           {recents.length > 0 && (
             <>
               <div className="flex items-center gap-2 px-3.5 pt-3 pb-1.5 text-[10px] uppercase tracking-[0.22em] text-white/25">
                 <Clock className="h-3 w-3" /> Recientes
               </div>
-              {recents.map((r, i) => (
+              {recents.map((r, ri) => {
+                const i = champMatches.length + ri;
+                return (
                 <button
                   key={`r-${r.id}`}
                   type="button"
@@ -158,18 +200,19 @@ function NavSearch({ className = '', onDone }: { className?: string; onDone?: ()
                     {REGIONS.find(rg => rg.value === r.region)?.label || r.region}
                   </span>
                 </button>
-              ))}
+                );
+              })}
             </>
           )}
 
-          {options.length > recents.length && (
+          {options.length > champMatches.length + recents.length && (
             <>
               <div className="px-3.5 pt-3 pb-1.5 text-[10px] uppercase tracking-[0.22em] text-white/25">
                 Jugadores
               </div>
-              {options.slice(recents.length).map((o, idx) => {
+              {options.slice(champMatches.length + recents.length).map((o, idx) => {
                 if (o.kind !== 'player') return null;
-                const i = recents.length + idx;
+                const i = champMatches.length + recents.length + idx;
                 const p = o.p;
                 return (
                   <button

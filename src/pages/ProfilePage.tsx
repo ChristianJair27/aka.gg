@@ -1089,8 +1089,30 @@ function PersonalScore({ solo, flex, loading, leagueRank, opggData, enemyAvg, en
                   de {(ladderTotal / 1_000_000).toFixed(1)}M
                 </span>
               )}
+              {ladderTotal != null && ladderTotal > 0 && (
+                <span style={{
+                  fontFamily: FONT_BODY, fontSize: 10.5, fontWeight: 800, marginLeft: 8,
+                  padding: '2px 8px', borderRadius: 999, verticalAlign: 'middle',
+                  color: '#0bc4e3', border: '1px solid rgba(11,196,227,0.35)', background: 'rgba(11,196,227,0.08)',
+                }}>
+                  TOP {Math.max(0.1, (ladderRank / ladderTotal) * 100) < 1
+                    ? ((ladderRank / ladderTotal) * 100).toFixed(1)
+                    : Math.round((ladderRank / ladderTotal) * 100)}%
+                </span>
+              )}
             </div>
           </div>
+          {/* Peak de la temporada por cola (elo más alto alcanzado) */}
+          {(opggData?.season_peaks ?? []).map((p: any) => (
+            <div key={p.queue} style={{ borderLeft: '1px solid rgba(255,255,255,0.07)', paddingLeft: 14 }}>
+              <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(200,170,110,0.55)', fontWeight: 700, marginBottom: 2 }}>
+                Peak {p.queue === 'FLEXRANKED' ? 'Flex' : 'Solo/Dúo'}
+              </div>
+              <div style={{ fontFamily: FONT_COND, fontWeight: 700, fontSize: 16, color: C.gold }}>
+                {`${p.tier[0]}${p.tier.slice(1).toLowerCase()} ${p.division ?? ''}`.trim()}
+              </div>
+            </div>
+          ))}
           {seasonPlay > 0 && (
             <div style={{ borderLeft: '1px solid rgba(255,255,255,0.07)', paddingLeft: 14 }}>
               <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>Partidas temporada</div>

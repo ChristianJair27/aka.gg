@@ -9,6 +9,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRight, ChevronDown, Clock, Radio, User, X } from 'lucide-react';
 import { resolveRiotIdQueryOptions } from '@/hooks/queries/stats';
 import { usePlayerSuggestions, type PlayerSuggestion } from '@/hooks/usePlayerSuggestions';
+import { useChampionMatches, type ChampionMatch } from '@/hooks/useChampionSearch';
 import { dd } from '@/lib/dataDragon';
 
 export const REGIONS = [
@@ -109,7 +110,15 @@ export function SummonerPrompt({
   const visiblePlayers = suggested
     .filter((p) => !visibleRecent.some((r) => r.id.toLowerCase() === `${p.gameName}#${p.tagLine}`.toLowerCase()))
     .slice(0, 5);
-  const optionCount = visibleRecent.length + visiblePlayers.length;
+  // Campeones que matchean el texto (local, DDragon) — también se buscan aquí.
+  const champMatches = useChampionMatches(value, 3);
+  const optionCount = champMatches.length + visibleRecent.length + visiblePlayers.length;
+
+  const pickChamp = (c: ChampionMatch) => {
+    setRecentOpen(false);
+    setHighlight(-1);
+    navigate(`/champion/${c.id}`);
+  };
 
   // Cerrar región y recientes al clicar fuera.
   useEffect(() => {
@@ -216,8 +225,9 @@ export function SummonerPrompt({
       setHighlight((h) => (h <= 0 ? optionCount - 1 : h - 1));
     } else if (e.key === 'Enter' && highlight >= 0) {
       e.preventDefault();
-      if (highlight < visibleRecent.length) pickRecent(visibleRecent[highlight]);
-      else pickPlayer(visiblePlayers[highlight - visibleRecent.length]);
+      if (highlight < champMatches.length) pickChamp(champMatches[highlight]);
+      else if (highlight < champMatches.length + visibleRecent.length) pickRecent(visibleRecent[highlight - champMatches.length]);
+      else pickPlayer(visiblePlayers[highlight - champMatches.length - visibleRecent.length]);
     }
   };
 
@@ -362,13 +372,44 @@ export function SummonerPrompt({
             className="absolute left-0 right-0 top-full mt-2 z-40 overflow-hidden rounded-2xl
               border border-white/[0.08] bg-black/90 backdrop-blur-xl shadow-2xl"
           >
+            {champMatches.length > 0 && (
+              <>
+                <div className="px-4 pt-3 pb-2 text-[10px] uppercase tracking-[0.24em] text-white/25">
+                  Campeones
+                </div>
+                {champMatches.map((c, i) => (
+                  <button
+                    key={`ch-${c.id}`}
+                    type="button"
+                    role="option"
+                    aria-selected={i === highlight}
+                    onMouseEnter={() => setHighlight(i)}
+                    onMouseDown={(e) => { e.preventDefault(); pickChamp(c); }}
+                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                      i === highlight ? 'bg-white/[0.07]' : ''
+                    }`}
+                  >
+                    <img
+                      src={c.image} alt="" loading="lazy"
+                      className="h-8 w-8 rounded-lg object-cover flex-shrink-0 ring-1 ring-white/10"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
+                    />
+                    <span className="text-sm text-white/85">{c.name}</span>
+                    <span className="ml-auto text-[10px] uppercase tracking-wider text-[#c8aa6e]/70 flex-shrink-0">
+                      Análisis del campeón
+                    </span>
+                  </button>
+                ))}
+              </>
+            )}
+
             {visibleRecent.length > 0 && (
               <>
                 <div className="flex items-center gap-2 px-4 pt-3 pb-2 text-[10px] uppercase tracking-[0.24em] text-white/25">
                   <Clock className="h-3 w-3" />
                   Recientes
                 </div>
-                {visibleRecent.map((r, i) => (
+                {visibleRecent.map((r, ri) => { const i = champMatches.length + ri; return (
                   <div
                     key={`${r.id}-${r.region}`}
                     role="option"
@@ -403,7 +444,7 @@ export function SummonerPrompt({
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                ))}
+                );})}
               </>
             )}
 
@@ -413,7 +454,7 @@ export function SummonerPrompt({
                   Jugadores
                 </div>
                 {visiblePlayers.map((p, idx) => {
-                  const i = visibleRecent.length + idx;
+                  const i = champMatches.length + visibleRecent.length + idx;
                   return (
                     <button
                       key={p.puuid}
