@@ -1026,7 +1026,7 @@ export default function ProfilePage() {
                 champByKey={champByKey} region={platform}
               />
               <RolePerformance perf={rolePerf} loading={matchesLoading && !matches.length} />
-              <ChampionsTable rows={champRows} champByKey={champByKey} loading={matchesLoading && !matches.length} bestPlayers={bestPlayers} region={platform} opggChampStats={opggData?.champion_stats ?? null} />
+              <ChampionsTable rows={champRows} champByKey={champByKey} loading={matchesLoading && !matches.length} bestPlayers={bestPlayers} region={platform} opggChampStats={opggData?.champion_stats ?? null} puuid={puuid} />
             </div>
           </div>
 
@@ -1812,12 +1812,32 @@ function RolePerformance({ perf, loading }: { perf: Record<Role, { games: number
 }
 
 // ─── Champions table ────────────────────────────────────────────────────────
-function ChampionsTable({ rows, champByKey, loading, bestPlayers, region, opggChampStats }: {
+function ChampionsTable({ rows, champByKey, loading, bestPlayers, region, opggChampStats, puuid }: {
   rows: any[]; champByKey: any; loading: boolean;
   bestPlayers?: Record<string, any> | null; region: string;
   opggChampStats?: any[] | null;
+  puuid?: string;
 }) {
   const [showAll, setShowAll] = useState(false);
+
+  // Ranking ATAK por campeón (estilo League of Graphs): posición por puntos
+  // de maestría dentro de la base ATAK — regional y global. La base crece
+  // con cada perfil visitado.
+  const ranksQ = useQuery({
+    queryKey: ['champion-ranks', region, puuid],
+    enabled: !!puuid,
+    staleTime: 5 * 60_000,
+    retry: false,
+    queryFn: async () => {
+      const { data } = await axiosInstance.get(`/api/stats/champion-ranks/${region}/${puuid}`);
+      return data as { ranks: Array<{ championId: number; points: number; regionRank: number; regionTotal: number; globalRank: number; globalTotal: number }> };
+    },
+  });
+  const rankByChampId = useMemo(() => {
+    const m = new Map<number, { points: number; regionRank: number; regionTotal: number; globalRank: number; globalTotal: number }>();
+    for (const r of ranksQ.data?.ranks || []) m.set(r.championId, r);
+    return m;
+  }, [ranksQ.data]);
 
   // Build name → DDragon champion lookup (for OP.GG name matching)
   const champByName = useMemo(() => {
@@ -1927,7 +1947,7 @@ function ChampionsTable({ rows, champByKey, loading, bestPlayers, region, opggCh
                   {r.kda === '∞' ? <span style={{ color: C.teal }}>∞</span> : r.kda}
                 </span>
 
-                {/* Games + WR + server rank */}
+                {/* Games + WR + rankings (OP.GG servidor + ranking ATAK) */}
                 <div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
                     {r.play}P · <span style={{ color: r.wr >= 55 ? C.win : r.wr < 45 ? C.loss : C.gold, fontWeight: 700 }}>{r.wr}%</span>
@@ -1937,6 +1957,23 @@ function ChampionsTable({ rows, champByKey, loading, bestPlayers, region, opggCh
                   ) : (
                     <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>{r.win}V · {r.lose}D</div>
                   )}
+                  {(() => {
+                    const ar = c?.key != null ? rankByChampId.get(Number(c.key)) : null;
+                    if (!ar) return null;
+                    const top1 = ar.regionRank === 1 || ar.globalRank === 1;
+                    return (
+                      <div
+                        title={`Ranking ATAK.GG por puntos de maestría (${ar.points.toLocaleString()} pts) entre los invocadores de la comunidad — crece con cada perfil visitado`}
+                        style={{ fontSize: 10, fontWeight: 700, color: top1 ? C.gold : 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center', gap: 4 }}
+                      >
+                        {top1 && <span aria-hidden>👑</span>}
+                        #{ar.regionRank.toLocaleString()} {region.toUpperCase().replace(/\d+$/, '')}
+                        <span style={{ opacity: 0.45 }}>·</span>
+                        #{ar.globalRank.toLocaleString()} Global
+                        <span style={{ opacity: 0.4, fontWeight: 600 }}>ATAK</span>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Best player */}
