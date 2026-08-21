@@ -1042,6 +1042,34 @@ function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRoun
   ];
   const visible = actions.filter(a => a.show);
 
+  // ── Mover jugador de equipo (typos de nombre → equipos duplicados) ──
+  const canMovePlayers = phase === 'registration' || phase === 'checkin';
+  const { data: regsData } = useRegistrations(id);
+  const regs: any[] = Array.isArray(regsData) ? regsData : [];
+  const [moveFrom, setMoveFrom] = useState('');
+  const [movePlayer, setMovePlayer] = useState('');
+  const [moveTo, setMoveTo] = useState('');
+  const [moveBusy, setMoveBusy] = useState(false);
+  const fromReg = regs.find(r => r.teamName === moveFrom);
+  const doMovePlayer = async () => {
+    if (!moveFrom || !movePlayer || !moveTo) { toast.error('Elige equipo origen, jugador y destino'); return; }
+    if (!window.confirm(`¿Mover a ${movePlayer} de "${moveFrom}" a "${moveTo}"?${(fromReg?.players?.length ?? 0) <= 1 ? ` El equipo "${moveFrom}" quedará vacío y se eliminará.` : ''}`)) return;
+    setMoveBusy(true);
+    try {
+      const { data } = await axiosInstance.post(`/api/tournaments/${id}/registrations/move-player`, {
+        fromTeam: moveFrom, toTeam: moveTo, riotId: movePlayer,
+      });
+      toast.success(`${data.moved} ahora está en ${data.to}`, {
+        description: data.sourceDeleted ? `El equipo "${data.from}" quedó vacío y se eliminó.` : undefined,
+      });
+      setMoveFrom(''); setMovePlayer(''); setMoveTo('');
+      qc.invalidateQueries({ queryKey: qk.registrations(id) });
+      qc.invalidateQueries({ queryKey: qk.tournamentBoard(id) });
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error ?? 'No se pudo mover al jugador');
+    } finally { setMoveBusy(false); }
+  };
+
   // ── Invitados (torneo privado): invitar por correo + lista de accesos ──
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteBusy, setInviteBusy] = useState(false);
@@ -1206,6 +1234,73 @@ function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRoun
           )}
           <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--td-muted)' }}>
             El invitado recibe un correo y la invitación en su dashboard; con ella puede ver el torneo e inscribir a su equipo.
+          </p>
+        </div>
+      )}
+
+      {/* Mover jugador: alguien escribió mal el nombre y creó un equipo nuevo */}
+      {canMovePlayers && regs.length >= 2 && (
+        <div style={{ marginTop: 14 }}>
+          <div className="td-over" style={{ marginBottom: 8 }}>
+            MOVER JUGADOR DE EQUIPO · para equipos duplicados por error de nombre
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <select
+              value={moveFrom}
+              onChange={(e) => { setMoveFrom(e.target.value); setMovePlayer(''); }}
+              style={{
+                height: 36, padding: '0 10px', fontSize: 12.5, minWidth: 150,
+                background: 'rgba(0,0,0,0.35)', border: '1px solid var(--td-border)',
+                borderRadius: 10, color: '#fff', outline: 'none',
+              }}
+            >
+              <option value="" style={{ background: '#101014' }}>Equipo origen…</option>
+              {regs.map((r: any) => (
+                <option key={r.id} value={r.teamName} style={{ background: '#101014' }}>
+                  {r.teamName} ({r.players?.length ?? 0})
+                </option>
+              ))}
+            </select>
+            <select
+              value={movePlayer}
+              onChange={(e) => setMovePlayer(e.target.value)}
+              disabled={!fromReg}
+              style={{
+                height: 36, padding: '0 10px', fontSize: 12.5, minWidth: 170,
+                background: 'rgba(0,0,0,0.35)', border: '1px solid var(--td-border)',
+                borderRadius: 10, color: '#fff', outline: 'none', opacity: fromReg ? 1 : 0.5,
+              }}
+            >
+              <option value="" style={{ background: '#101014' }}>Jugador…</option>
+              {(fromReg?.players ?? []).map((p: any, i: number) => (
+                <option key={i} value={p.riotId || p.name} style={{ background: '#101014' }}>
+                  {p.riotId || p.name}
+                </option>
+              ))}
+            </select>
+            <ArrowRight size={14} color="var(--td-muted)" />
+            <select
+              value={moveTo}
+              onChange={(e) => setMoveTo(e.target.value)}
+              style={{
+                height: 36, padding: '0 10px', fontSize: 12.5, minWidth: 150,
+                background: 'rgba(0,0,0,0.35)', border: '1px solid var(--td-border)',
+                borderRadius: 10, color: '#fff', outline: 'none',
+              }}
+            >
+              <option value="" style={{ background: '#101014' }}>Equipo destino…</option>
+              {regs.filter((r: any) => r.teamName !== moveFrom).map((r: any) => (
+                <option key={r.id} value={r.teamName} style={{ background: '#101014' }}>
+                  {r.teamName} ({r.players?.length ?? 0})
+                </option>
+              ))}
+            </select>
+            <Button variant="primary" disabled={moveBusy || !moveFrom || !movePlayer || !moveTo} onClick={doMovePlayer}>
+              {moveBusy ? '...' : 'MOVER'}
+            </Button>
+          </div>
+          <p style={{ margin: '6px 0 0', fontSize: 11.5, color: 'var(--td-muted)' }}>
+            Conserva la verificación del jugador. Si el equipo origen queda vacío se elimina solo y se ajusta el cupo.
           </p>
         </div>
       )}
