@@ -1371,6 +1371,9 @@ function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRoun
             <OptionBtn active={playoffsSize === 8} accent="var(--td-red)" label="TOP 8 → PLAYOFFS"
               hint="Cuartos sembrados, semifinales y gran final."
               onClick={() => playoffsSize !== 8 && patchT({ playoffsSize: 8 }, 'Playoffs top 8 al cerrar el suizo')} />
+            <OptionBtn active={playoffsSize === 12} accent="var(--td-red)" label="TOP 12 → PLAYOFFS"
+              hint="Octavos con BYE para los seeds 1-4 (descansan la primera ronda), luego cuartos, semis y gran final."
+              onClick={() => playoffsSize !== 12 && patchT({ playoffsSize: 12 }, 'Playoffs top 12 al cerrar el suizo (1º-4º con BYE)')} />
           </div>
           <p style={{ margin: '8px 0 0', fontSize: 11.5, color: playoffsSize ? 'var(--td-green)' : 'var(--td-muted)' }}>
             {playoffsSize
@@ -1774,7 +1777,7 @@ function PartidasTab({ id }: { id: string }) {
   const rlabel = (r: number) => {
     if (playoffRounds.has(r)) {
       const d = maxPlayoff - r;
-      return d === 0 ? '🏆 Gran Final' : d === 1 ? 'Playoffs · Semifinales' : 'Playoffs · Cuartos';
+      return d === 0 ? '🏆 Gran Final' : d === 1 ? 'Playoffs · Semifinales' : d === 2 ? 'Playoffs · Cuartos' : 'Playoffs · Octavos';
     }
     if (data.bracketType === 'round_robin') return `Jornada ${r}`;
     if (data.bracketType === 'swiss') return `Ronda ${r}`;
@@ -2085,7 +2088,7 @@ function ReglasTab({ data }: { data: TdBoardPayload }) {
           ? ` Son ${t.swissRounds} rondas con avance automático.`
           : ' El organizador genera cada ronda al completarse la anterior.'}`,
         ...(ps >= 2 ? [
-          `Playoffs: al cerrar la fase suiza, los ${ps} mejores de la clasificación pasan a eliminación directa sembrada (el 1º y el 2º solo pueden cruzarse en la gran final). La gran final se juega a ${serieName(fst)} y su ganador es el campeón.`,
+          `Playoffs: al cerrar la fase suiza, los ${ps} mejores de la clasificación pasan a eliminación directa sembrada (el 1º y el 2º solo pueden cruzarse en la gran final)${(ps & (ps - 1)) !== 0 ? ' — los mejores seeds descansan la primera ronda (BYE)' : ''}. La gran final se juega a ${serieName(fst)} y su ganador es el campeón.`,
         ] : t.swissRounds ? [
           `La última ronda suiza se juega a ${serieName(fst)} y el líder de la clasificación final es el campeón.`,
         ] : []),
