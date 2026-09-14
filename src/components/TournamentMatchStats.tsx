@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import axiosInstance from '@/lib/axios';
 import { Swords, RefreshCw, Trophy, Eye, Skull, Target, Zap, Shield } from 'lucide-react';
 import { useChampions } from '@/hooks/use-ddragon';
+import { Skeleton } from '@/components/ui/skeleton';
 import { dd } from '@/lib/dataDragon';
 
 interface MatchParticipant {
@@ -230,9 +231,13 @@ interface TournamentMatchStatsProps {
   tournamentId: string;
   match: BracketMatch;
   isActive: boolean;
+  /** Salida del estado "spectator pendiente": filtrar Partidas por esta ronda. */
+  onSeeRound?: () => void;
+  /** Enlace a la página en vivo de esta serie. */
+  liveHref?: string;
 }
 
-export function TournamentMatchStats({ tournamentId, match, isActive }: TournamentMatchStatsProps) {
+export function TournamentMatchStats({ tournamentId, match, isActive, onSeeRound, liveHref }: TournamentMatchStatsProps) {
   const [stats, setStats]       = useState<MatchStats | null>(null);
   const [loading, setLoading]   = useState(false);
   const [polling, setPolling]   = useState(false);
@@ -315,9 +320,26 @@ export function TournamentMatchStats({ tournamentId, match, isActive }: Tourname
         </Button>
       </div>
 
+      {/* Esqueleto con la forma del scoreboard: dos columnas de 5 jugadores. */}
       {loading && !stats && (
-        <div className="text-center py-8 text-gray-500 text-sm animate-pulse">
-          Cargando stats...
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3" aria-busy="true" aria-label="Cargando scoreboard">
+          {[0, 1].map((side) => (
+            <div key={side} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3">
+              <Skeleton variant="line" width="42%" height={11} />
+              <div className="mt-3 space-y-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Skeleton variant="block" width={28} height={28} style={{ borderRadius: 8 }} />
+                    <div className="flex-1 min-w-0">
+                      <Skeleton variant="line" width="60%" height={9} />
+                      <div className="mt-1"><Skeleton variant="line" width="35%" height={8} /></div>
+                    </div>
+                    <Skeleton variant="line" width={46} height={10} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -333,14 +355,38 @@ export function TournamentMatchStats({ tournamentId, match, isActive }: Tourname
         </div>
       )}
 
+      {/* Serie en curso sin datos todavía: se dice por qué y qué hacer, en vez
+          de dejar un spinner eterno o un marcador falso a 0-0. */}
       {!stats && !loading && match.matchStatus === 'active' && (
-        <div className="text-center py-6 text-gray-600 text-xs bg-white/[0.03] rounded-xl border border-white/[0.08]">
-          <Swords className="h-6 w-6 mx-auto mb-2 text-gray-700" />
-          <p>Partida en curso. Las stats aparecerán automáticamente cuando termine.</p>
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-5 text-center">
+          <Swords className="h-6 w-6 mx-auto mb-2 text-white/20" />
+          <p className="text-sm font-semibold text-white/70">Ronda activa — spectator pendiente</p>
+          <p className="mt-1 text-xs text-white/40 max-w-md mx-auto leading-relaxed">
+            La serie está en curso. El marcador en vivo aparecerá cuando el Spectator Companion
+            esté conectado; las stats completas se guardan al terminar cada partida.
+          </p>
           {match.code && (
-            <p className="mt-1 text-purple-400">
+            <p className="mt-2 text-[11px] text-purple-300/80">
               Código activo: <span className="font-mono">{match.code}</span>
             </p>
+          )}
+          {(onSeeRound || liveHref) && (
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+              {onSeeRound && (
+                <button type="button" onClick={onSeeRound}
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold text-white/80
+                    border border-white/[0.14] hover:border-white/30 hover:text-white transition">
+                  Ver Partidas de la ronda
+                </button>
+              )}
+              {liveHref && (
+                <a href={liveHref}
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold text-[#e1242e]
+                    border border-[#e1242e]/40 hover:bg-[#e1242e]/10 transition">
+                  Abrir página en vivo
+                </a>
+              )}
+            </div>
           )}
         </div>
       )}

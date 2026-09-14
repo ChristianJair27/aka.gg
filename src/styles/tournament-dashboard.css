@@ -426,3 +426,9 @@
   .td-root .td-bottomnav-item { min-width: 50px; padding: 8px 6px; }
   .td-root .td-bottomnav-label { font-size: 8.5px; }
 }
+
+/* Cabecera del cajón de detalle de serie (móvil / tablet) */
+.td-root .td-drawer-head {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 14px 16px 10px; border-bottom: 1px solid var(--td-border-soft); flex-wrap: wrap;
+}

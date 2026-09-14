@@ -1,6 +1,7 @@
 // src/pages/TournamentLivePage.tsx — Cinematic live broadcast viewer
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 import { axiosInstance } from '@/lib/axios';
@@ -421,7 +422,9 @@ function MatchCard({
   const hasGame  = match.blueTeam.length > 0 || match.redTeam.length > 0;
 
   return (
-    <div ref={ref} className="relative rounded-2xl overflow-hidden border border-white/[0.07] bg-black">
+    // data-live-match: ancla del enlace `?match=` que llega desde el dashboard.
+    <div ref={ref} data-live-match={match.matchId}
+      className="relative rounded-2xl overflow-hidden border border-white/[0.07] bg-black">
 
       {/* LIVE top shimmer */}
       {match.isLive && (
@@ -507,15 +510,23 @@ function MatchCard({
           </div>
         </div>
       ) : (
-        /* No spectator data yet */
-        <div className="flex items-center justify-center h-32 bg-black/40">
+        /* Sin datos de spectator: se explica el porqué, sin spinner eterno */
+        <div className="flex items-center justify-center py-8 px-5 bg-black/40">
           <div className="text-center">
             <Swords className="h-8 w-8 text-gray-700 mx-auto mb-2" />
-            <p className="text-sm text-gray-600">
+            <p className="text-sm font-semibold text-white/70">
               {match.matchStatus === 'ready'
-                ? 'Partida lista — esperando que los jugadores entren al lobby'
+                ? 'Partida lista — esperando el lobby'
+                : match.matchStatus === 'active'
+                ? 'Ronda activa — spectator pendiente'
                 : 'Esperando que empiece la partida…'}
             </p>
+            {match.matchStatus === 'active' && (
+              <p className="mt-1 text-xs text-white/40 max-w-sm mx-auto leading-relaxed">
+                La serie está en curso. El marcador en vivo aparecerá cuando el Spectator Companion
+                esté conectado.
+              </p>
+            )}
             {canViewCodes && match.code && (
               <p className="text-xs text-gray-700 mt-1">Código: <span className="font-mono text-gray-500">{match.code}</span></p>
             )}
@@ -798,6 +809,25 @@ export default function TournamentLivePage() {
   const liveMatches    = (data?.matches ?? []).filter(m => m.isLive);
   const pendingMatches = (data?.matches ?? []).filter(m => !m.isLive);
   const totalRounds    = data?.matches?.length ? Math.max(...data.matches.map(m => m.round)) : 1;
+
+  // `?match=` — llegada desde el dashboard ("Abrir página en vivo" / ESPECTAR):
+  // se enfoca esa serie. Si no está en el payload se avisa en vez de dejar al
+  // espectador buscándola entre las demás.
+  const [search] = useSearchParams();
+  const focusMatch = search.get('match');
+  const focusedOnce = useRef(false);
+  useEffect(() => {
+    if (!focusMatch || !data || focusedOnce.current) return;
+    focusedOnce.current = true;
+    const found = (data.matches ?? []).some(m => m.matchId === focusMatch);
+    if (!found) { toast.info('Partida no encontrada'); return; }
+    const el = document.querySelector(`[data-live-match="${focusMatch}"]`);
+    if (!el) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    el.classList.add('td-pulse-hint');
+    window.setTimeout(() => el.classList.remove('td-pulse-hint'), 1200);
+  }, [focusMatch, data]);
 
   return (
     <div className="min-h-screen text-white bg-[#080808] relative overflow-x-hidden">

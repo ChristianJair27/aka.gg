@@ -37,6 +37,7 @@ import { Tip } from '@/components/ui/Tip';
 import { playerKey } from '@/components/TournamentGlobalStats';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import Aurora from '@/components/Aurora';
 import { SwissBracket } from '@/components/SwissBracket';
 import { TournamentTeamModal } from '@/components/TournamentTeamModal';
@@ -988,7 +989,21 @@ function LiveCard({ data, navigate, id, onRound }: {
   data: TdBoardPayload; navigate: (to: string) => void; id: string; onRound: (round: string) => void;
 }) {
   const live = data.liveMatch;
-  if (!live) return <NextMatchCard data={data} onRound={onRound} />;
+  // El backend devuelve `liveMatch` para la serie activa aunque el Spectator
+  // Companion no esté emitiendo: llega sin cronómetro, sin picks, sin oro y
+  // 0-0. Pintar eso como "EN DIRECTO · MAPA 1" es mentirle al espectador, así
+  // que sin señal real se trata como pendiente (verificado 14-sep: las 9 series
+  // de la ronda 3 llegaban con isLive:false y equipos vacíos).
+  const hasFeed = !!live && (
+    live.timer != null
+    || (live.goldDiffSeries?.length ?? 0) > 0
+    || (live.teamA.picks?.length ?? 0) > 0
+    || (live.teamB.picks?.length ?? 0) > 0
+    || (live.teamA.score ?? 0) > 0 || (live.teamB.score ?? 0) > 0
+  );
+  if (!live || !hasFeed) {
+    return <NextMatchCard data={data} onRound={onRound} pendingSeries={live ?? null} id={id} navigate={navigate} />;
+  }
   const timer = live.timer != null
     ? `${pad(Math.floor(live.timer / 60))}:${pad(live.timer % 60)}`
     : null;
@@ -1051,7 +1066,12 @@ function TeamCol({ team }: { team: NonNullable<TdBoardPayload['liveMatch']>['tea
   );
 }
 
-function NextMatchCard({ data, onRound }: { data: TdBoardPayload; onRound: (round: string) => void }) {
+function NextMatchCard({ data, onRound, pendingSeries, id, navigate }: {
+  data: TdBoardPayload; onRound: (round: string) => void;
+  /** Serie activa sin emisión: se nombra en vez de fingir un marcador. */
+  pendingSeries?: TdBoardPayload['liveMatch'] | null;
+  id?: string; navigate?: (to: string) => void;
+}) {
   const next = data.schedule[0];
   // Sin feed de spectator: en vez de un muro, se explica por qué y se ofrece la
   // ronda en juego. El aviso sale una sola vez por navegador.
@@ -1068,8 +1088,33 @@ function NextMatchCard({ data, onRound }: { data: TdBoardPayload; onRound: (roun
 
   return (
     <Card accent="rgba(59,130,246,0.25)" anchor="data-td-live">
-      <SectionHead icon={<Play size={14} color={BLUE} />} title="PRÓXIMA PARTIDA" />
-      {!next ? (
+      <SectionHead
+        icon={<Play size={14} color={BLUE} />}
+        title={pendingSeries ? 'RONDA ACTIVA — SPECTATOR PENDIENTE' : 'PRÓXIMA PARTIDA'}
+      />
+      {pendingSeries ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <TeamCol team={pendingSeries.teamA} />
+            <StatusChip kind="dim" dot={false}>EN CURSO</StatusChip>
+            <TeamCol team={pendingSeries.teamB} />
+          </div>
+          <p style={{ margin: 0, fontSize: 12, lineHeight: 1.55, color: 'var(--td-muted)', textAlign: 'center' }}>
+            La serie está en curso. El marcador en vivo aparecerá cuando el Spectator Companion
+            esté conectado.
+          </p>
+          {id && navigate && (
+            <Tip label="Puede no haber feed todavía">
+              <span style={{ display: 'block' }}>
+                <Button variant="secondary" icon={<Play size={14} />} full
+                  onClick={() => navigate(`/tournaments/${id}/live?match=${pendingSeries.matchId}`)}>
+                  ESPECTAR
+                </Button>
+              </span>
+            </Tip>
+          )}
+        </div>
+      ) : !next ? (
         <EmptyState>No hay partidas en directo ni programadas</EmptyState>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -1661,6 +1706,8 @@ function BracketTab({ id, data }: { id: string; data: TdBoardPayload }) {
   const activate = useActivateMatch(id);
   const report   = useReportResult(id);
   const narrow   = useMediaQuery('(max-width: 760px)');
+  // Misma regla que en Partidas: una serie desplegada a la vez (un sondeo).
+  const [bracketOpenId, setBracketOpenId] = useState<string | null>(null);
 
   if (isError) {
     return (
@@ -1723,7 +1770,9 @@ function BracketTab({ id, data }: { id: string; data: TdBoardPayload }) {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {bracket.filter((m) => m.round === r).map((m) => (
-                <MatchRow key={m.id} id={id} m={m as BracketMatch} defaultOpen={false} />
+                <MatchRow key={m.id} id={id} m={m as BracketMatch}
+                  open={bracketOpenId === m.id}
+                  onToggle={() => setBracketOpenId((cur) => (cur === m.id ? null : m.id))} />
               ))}
             </div>
           </section>
@@ -2054,9 +2103,13 @@ function PartidasTab({ id, swissRounds }: { id: string; swissRounds: number | nu
   // `?match=` (muestra "Ver stats de una serie" / enlace compartido): esa serie
   // se despliega sola y se resalta cuando aparece en pantalla.
   const urlMatch = params.get('match');
+  const [openId, setOpenId] = useState<string | null>(null);
   useEffect(() => {
-    if (urlMatch) pulseSelector(`[data-td-match="${urlMatch}"]`);
+    if (!urlMatch) return;
+    setOpenId(urlMatch);
+    pulseSelector(`[data-td-match="${urlMatch}"]`);
   }, [urlMatch]);
+  const toggleMatch = (mid: string) => setOpenId((cur) => (cur === mid ? null : mid));
 
   const urlRound = params.get('round');
   const round: number | null =
@@ -2104,9 +2157,11 @@ function PartidasTab({ id, swissRounds }: { id: string; swissRounds: number | nu
     return d === 0 ? 'Final' : d === 1 ? 'Semifinales' : d === 2 ? 'Cuartos' : `Ronda ${r}`;
   };
 
-  // Agrupado por ronda, stats colapsables: con muchas partidas la página no
-  // dispara N fetches a la vez ni se hace infinita. Con ≤2 partidas se abren solas.
-  const autoOpen = matches.filter((m) => m.matchStatus !== 'pending').length <= 2;
+  // Una serie abierta a la vez: cada TournamentMatchStats monta su propio
+  // sondeo de 30 s, así que abrir varias multiplicaba las peticiones. Antes se
+  // abrían solas cuando había ≤2 partidas sin empezar; con 30 series eso ya no
+  // aplica, y el auto-abrir se limita a la que llega por `?match=`.
+  const narrow = useMediaQuery('(max-width: 1100px)');
 
   // RoundRail: "Todas" + una pill por ronda existente (las rondas futuras del
   // suizo aparecen solas cuando el backend las genera).
@@ -2125,6 +2180,7 @@ function PartidasTab({ id, swissRounds }: { id: string; swissRounds: number | nu
     ? `Filtra por ronda — este torneo tiene ${swissRounds} rondas suizas`
     : 'Filtra por ronda';
 
+  const openMatch = matches.find((m) => m.id === openId) ?? null;
   const needle = q.trim().toLowerCase();
   const visible = matches.filter((m) =>
     (round === null || m.round === round)
@@ -2177,13 +2233,45 @@ function PartidasTab({ id, swissRounds }: { id: string; swissRounds: number | nu
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {visible.filter((m) => m.round === r).map((m) => (
                   <MatchRow key={m.id} id={id} m={m}
-                    defaultOpen={(autoOpen || m.id === urlMatch) && m.matchStatus !== 'pending'}
+                    open={openId === m.id}
+                    onToggle={() => toggleMatch(m.id)}
+                    inlineStats={!narrow}
+                    onSeeRound={() => pickRound(String(m.round))}
                     isOwner={data.viewerAccess === 'owner'} />
                 ))}
               </div>
             </section>
           ))}
         </div>
+      )}
+
+      {/* ≤1100px: el detalle va en cajón. Al cerrarlo se desmonta el sondeo. */}
+      {narrow && (
+        <Drawer open={!!openMatch} onOpenChange={(o) => { if (!o) setOpenId(null); }}>
+          <DrawerContent className="td-root border-white/10 bg-[#0c0b10] max-h-[92vh]">
+            {openMatch && (
+              <>
+                <div className="td-drawer-head">
+                  <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--td-text)' }}>
+                    {openMatch.team1} vs {openMatch.team2}
+                  </span>
+                  {(openMatch.seriesTo ?? 1) > 1 && (
+                    <span className="td-num" style={{ fontSize: 10.5, fontWeight: 800, color: '#c8aa6e' }}>
+                      BO{(openMatch.seriesTo ?? 1) * 2 - 1}
+                    </span>
+                  )}
+                </div>
+                <div style={{ overflowY: 'auto', padding: '0 12px 20px' }}>
+                  <TournamentMatchStats
+                    tournamentId={id} match={openMatch} isActive
+                    onSeeRound={() => { setOpenId(null); pickRound(String(openMatch.round)); }}
+                    liveHref={`/tournaments/${id}/live?match=${openMatch.id}`}
+                  />
+                </div>
+              </>
+            )}
+          </DrawerContent>
+        </Drawer>
       )}
     </div>
   );
@@ -2216,15 +2304,21 @@ function LobbyStatus({ id, matchId }: { id: string; matchId: string }) {
   );
 }
 
-function MatchRow({ id, m, defaultOpen, isOwner }: { id: string; m: BracketMatch; defaultOpen: boolean; isOwner?: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
+function MatchRow({ id, m, open, onToggle, inlineStats = true, onSeeRound, isOwner }: {
+  id: string; m: BracketMatch;
+  /** Abierta la controla PartidasTab: solo una serie a la vez. */
+  open: boolean;
+  onToggle: () => void;
+  /** false en móvil: el detalle va en el cajón, no dentro de la fila. */
+  inlineStats?: boolean;
+  onSeeRound?: () => void;
+  isOwner?: boolean;
+}) {
   const hasStats = m.matchStatus !== 'pending';
   // Primera vez que alguien despliega una serie: se explica qué hay dentro.
   const toggleOpen = () => {
-    setOpen((o) => {
-      if (!o) discoveryToast('match-expand', () => toast.message('Compara daño, oro y visión entre equipos'));
-      return !o;
-    });
+    if (!open) discoveryToast('match-expand', () => toast.message('Compara daño, oro y visión entre equipos'));
+    onToggle();
   };
   const qc = useQueryClient();
   const refresh = () => {
@@ -2350,13 +2444,15 @@ function MatchRow({ id, m, defaultOpen, isOwner }: { id: string; m: BracketMatch
             </span>
           )}
           {m.needsManualResult && m.matchStatus !== 'complete' && (
+            // Tono atenuado: para el espectador no es un error, es un trámite
+            // del organizador. La acción sigue en el panel de abajo.
             <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 800,
-              padding: '4px 10px', borderRadius: 999, color: '#ff5a64',
-              border: '1px solid rgba(225,36,46,0.5)', background: 'rgba(225,36,46,0.1)',
+              display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600,
+              padding: '4px 10px', borderRadius: 999, color: 'var(--td-text-2)',
+              border: '1px solid var(--td-border)', background: 'rgba(255,255,255,0.03)',
             }}>
-              <AlertTriangle size={11} />
-              GANADOR SIN ATRIBUIR — ¿lados mezclados? Reporta el resultado manualmente
+              <AlertTriangle size={11} color="var(--td-amber)" />
+              Ganador pendiente de atribución
             </span>
           )}
         </div>
@@ -2412,7 +2508,7 @@ function MatchRow({ id, m, defaultOpen, isOwner }: { id: string; m: BracketMatch
       )}
 
       <AnimatePresence initial={false}>
-        {open && hasStats && (
+        {open && hasStats && inlineStats && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
@@ -2420,7 +2516,11 @@ function MatchRow({ id, m, defaultOpen, isOwner }: { id: string; m: BracketMatch
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
             style={{ overflow: 'hidden' }}
           >
-            <TournamentMatchStats tournamentId={id} match={m} isActive />
+            <TournamentMatchStats
+              tournamentId={id} match={m} isActive
+              onSeeRound={onSeeRound}
+              liveHref={`/tournaments/${id}/live?match=${m.id}`}
+            />
           </motion.div>
         )}
       </AnimatePresence>
