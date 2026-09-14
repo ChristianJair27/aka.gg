@@ -36,6 +36,7 @@ import { useDiscoveryNav, discoveryToast, pulseSelector } from '@/hooks/useTourn
 import { Tip } from '@/components/ui/Tip';
 import { playerKey } from '@/components/TournamentGlobalStats';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import Aurora from '@/components/Aurora';
 import { SwissBracket } from '@/components/SwissBracket';
 import { TournamentTeamModal } from '@/components/TournamentTeamModal';
@@ -189,6 +190,7 @@ export default function TournamentDashboardPage() {
           <DashboardSkeleton />
         ) : (
           <>
+            <Breadcrumbs name={data.tournament.name} tab={tab} onHome={() => go('/tournaments')} />
             <Hero data={data} onBracket={() => setTab('bracket')} onRegister={() => setRegisterOpen(true)} />
             {/* Descubrimiento: banner descartable con muestras reales (no bloquea) */}
             <DiscoveryBanner tournamentId={id} data={discovery} />
@@ -317,6 +319,24 @@ function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void 
 }
 
 // ── SIDE NAV (desktop) ───────────────────────────────────────────────────────
+// Migas: de vuelta al listado sin usar el botón atrás del navegador.
+function Breadcrumbs({ name, tab, onHome }: { name: string; tab: Tab; onHome: () => void }) {
+  const current = NAV_ITEMS.find((i) => i.key === tab);
+  return (
+    <nav className="td-crumbs" aria-label="Ruta">
+      <button type="button" onClick={onHome} className="td-crumb-link">Torneos</button>
+      <span className="td-crumb-sep" aria-hidden>›</span>
+      <span className={tab === 'resumen' ? 'td-crumb-current' : 'td-crumb-link-static'}>{name}</span>
+      {tab !== 'resumen' && current && (
+        <>
+          <span className="td-crumb-sep" aria-hidden>›</span>
+          <span className="td-crumb-current">{current.label}</span>
+        </>
+      )}
+    </nav>
+  );
+}
+
 const NAV_ITEMS: Array<{ key: Tab; label: string; icon: ReactNode }> = [
   { key: 'resumen', label: 'Resumen', icon: <LayoutDashboard size={16} /> },
   { key: 'bracket', label: 'Bracket', icon: <Network size={16} /> },
@@ -325,6 +345,16 @@ const NAV_ITEMS: Array<{ key: Tab; label: string; icon: ReactNode }> = [
   { key: 'stats', label: 'Estadísticas', icon: <BarChart3 size={16} /> },
   { key: 'reglas', label: 'Reglas', icon: <ScrollText size={16} /> },
 ];
+
+// Qué hay en cada sección: los iconos del nav inferior van con etiqueta mínima.
+const NAV_TIPS: Record<Tab, string> = {
+  resumen: 'Directo, clasificación y líderes del torneo',
+  bracket: 'Bracket por rondas con el marcador de cada serie',
+  equipos: 'Equipos inscritos, plantillas y análisis',
+  partidas: 'Todas las series con su scoreboard',
+  stats: 'Ranking de jugadores, radar y gráficos',
+  reglas: 'Reglamento y formato del torneo',
+};
 
 // Sidebar de navegación (desktop). En móvil se oculta y toma el relevo la
 // BottomNav flotante.
@@ -364,8 +394,8 @@ function BottomNav({ value, onChange, live }: { value: Tab; onChange: (t: Tab) =
       {NAV_ITEMS.map((it) => {
         const active = value === it.key;
         return (
+          <Tip key={it.key} label={NAV_TIPS[it.key]} side="top">
           <button
-            key={it.key}
             className="td-bottomnav-item"
             data-active={active}
             aria-current={active ? 'page' : undefined}
@@ -382,6 +412,7 @@ function BottomNav({ value, onChange, live }: { value: Tab; onChange: (t: Tab) =
             </span>
             <span className="td-bottomnav-label">{it.label}</span>
           </button>
+          </Tip>
         );
       })}
     </nav>
@@ -526,6 +557,33 @@ function Hero({ data, onBracket, onRegister }: {
   const statusLabel = t.status === 'live' ? 'EN DIRECTO' : t.status === 'registration' ? 'INSCRIPCIONES ABIERTAS' : 'FINALIZADO';
   const regPct = t.teamsMax > 0 ? (t.teamsRegistered / t.teamsMax) * 100 : 0;
 
+  // Con el torneo en marcha, "19/32 equipos inscritos" es ruido: las
+  // inscripciones cerraron hace semanas y el jugador quiere saber por dónde va
+  // la competición. El cupo sigue visible como dato en los tiles de abajo.
+  const inProgress = t.status === 'live' || t.phase === 'active' || t.phase === 'complete';
+  const currentRound = useMemo(() => {
+    const rounds = data.bracket ?? [];
+    const open = rounds.filter((r) => r.matches.some((m) => m.matchStatus !== 'complete'));
+    return (open[0] ?? rounds[rounds.length - 1])?.round ?? null;
+  }, [data.bracket]);
+  const liveContext = useMemo(() => {
+    const parts: string[] = [];
+    if (currentRound != null) {
+      parts.push(t.swissRounds ? `Ronda ${currentRound} de ${t.swissRounds}` : `Ronda ${currentRound}`);
+    }
+    const shape = t.bracketType === 'swiss' ? 'Suizo'
+      : t.bracketType === 'round_robin' ? 'Liga'
+      : t.bracketType === 'single_elim' ? 'Eliminación' : null;
+    const bo = (t.seriesTo ?? 1) > 1 ? `Bo${(t.seriesTo! * 2) - 1}` : null;
+    const fmt = [shape, bo].filter(Boolean).join(' ');
+    if (fmt) parts.push(fmt);
+    return parts.join('  ·  ');
+  }, [currentRound, t.swissRounds, t.bracketType, t.seriesTo]);
+  const activeSeries = useMemo(
+    () => (data.bracket ?? []).reduce((acc, r) => acc + r.matches.filter((m) => m.matchStatus === 'active').length, 0),
+    [data.bracket],
+  );
+
   return (
     <Card style={{ position: 'relative', overflow: 'hidden', padding: 0 }}>
       {/* Fondo: banner del torneo (si hay) fundido a la izquierda + glow */}
@@ -571,17 +629,30 @@ function Hero({ data, onBracket, onRegister }: {
             </p>
           )}
 
-          {/* Cupo: número protagonista + barra fina */}
-          <div style={{ marginTop: 22, maxWidth: 440 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 7 }}>
-              <span className="td-num" style={{ fontSize: 26, fontWeight: 700, color: 'var(--td-text)' }}>
-                <CountUp to={t.teamsRegistered} />
-                <span style={{ color: 'var(--td-muted)', fontWeight: 500 }}> / {t.teamsMax}</span>
-              </span>
-              <span className="td-over" style={{ letterSpacing: '2px' }}>EQUIPOS INSCRITOS</span>
+          {/* En marcha: contexto de la competición. Antes de empezar: cupo. */}
+          {inProgress ? (
+            <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              {activeSeries > 0 && (
+                <StatusChip kind="live">{activeSeries} {activeSeries === 1 ? 'SERIE EN JUEGO' : 'SERIES EN JUEGO'}</StatusChip>
+              )}
+              {liveContext && (
+                <span className="td-num" style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--td-text-2)', letterSpacing: '0.3px' }}>
+                  {liveContext}
+                </span>
+              )}
             </div>
-            <ProgressBar kind="red" pct={regPct} height={5} />
-          </div>
+          ) : (
+            <div style={{ marginTop: 22, maxWidth: 440 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 7 }}>
+                <span className="td-num" style={{ fontSize: 26, fontWeight: 700, color: 'var(--td-text)' }}>
+                  <CountUp to={t.teamsRegistered} />
+                  <span style={{ color: 'var(--td-muted)', fontWeight: 500 }}> / {t.teamsMax}</span>
+                </span>
+                <span className="td-over" style={{ letterSpacing: '2px' }}>EQUIPOS INSCRITOS</span>
+              </div>
+              <ProgressBar kind="red" pct={regPct} height={5} />
+            </div>
+          )}
         </div>
 
         {/* Derecha: premio + CTAs como panel propio */}
@@ -651,7 +722,8 @@ function ResumenGrid({ data, id, navigate, onStats, onRound }: {
   /** Salto a Partidas con la ronda elegida (?tab=partidas&round=N). */
   onRound: (round: string) => void;
 }) {
-  // Eco fino del RoundRail: una pill por ronda con partidas → deep-link a Partidas.
+  // Eco del RoundRail de Partidas (mismo componente, no una tira paralela): una
+  // pill por ronda → salto a Partidas ya filtrado. La ronda vigente va marcada.
   const roundItems: RoundRailItem[] = useMemo(() => (data.bracket ?? []).map((r) => ({
     key: String(r.round),
     label: r.label,
@@ -659,9 +731,14 @@ function ResumenGrid({ data, id, navigate, onStats, onRound }: {
     live: r.matches.filter((m) => m.matchStatus === 'active').length,
     done: r.matches.length > 0 && r.matches.every((m) => m.matchStatus === 'complete'),
   })), [data.bracket]);
+  const currentRound = useMemo(() => {
+    const open = (data.bracket ?? []).filter((r) => r.matches.some((m) => m.matchStatus !== 'complete'));
+    return open.length ? String(open[0].round) : null;
+  }, [data.bracket]);
+  const shortName = data.tournament.name.split(' ')[0];
   const roundTip = data.tournament.bracketType === 'swiss' && data.tournament.swissRounds
-    ? `Ir a las partidas de la ronda — ${data.tournament.name} tiene ${data.tournament.swissRounds} rondas suizas`
-    : 'Ir a las partidas de la ronda';
+    ? `Filtra por ronda — ${shortName} tiene ${data.tournament.swissRounds} rondas suizas`
+    : 'Filtra por ronda';
 
   return (
     <div className="td-dash-grid">
@@ -672,12 +749,12 @@ function ResumenGrid({ data, id, navigate, onStats, onRound }: {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
         <LiveCard data={data} navigate={navigate} id={id} onRound={onRound} />
-        {data.tournament.fearless && <FearlessCard id={id} />}
+        {data.tournament.fearless && <FearlessCard id={id} myTeam={data.myTeam?.tag ?? null} />}
         {data.myTeam && <MyTeamCard data={data} id={id} />}
         {roundItems.length > 1 && (
           <Card style={{ padding: '12px 14px' }}>
             <div className="td-over" style={{ marginBottom: 8 }}>RONDAS</div>
-            <RoundRail items={roundItems} value={null} onChange={onRound} tip={roundTip} compact />
+            <RoundRail items={roundItems} value={currentRound} onChange={onRound} tip={roundTip} compact />
           </Card>
         )}
         <ScheduleCard data={data} />
@@ -687,7 +764,25 @@ function ResumenGrid({ data, id, navigate, onStats, onRound }: {
 }
 
 // ── FEARLESS: campeones bloqueados por equipo ────────────────────────────────
-function FearlessCard({ id }: { id: string }) {
+// Con 19 equipos y 42 partidas jugadas la lista completa mide ~1950px: abierta
+// empujaba Clasificación y el directo fuera de pantalla. Por defecto se muestra
+// un resumen (y el equipo propio si lo hay); el resto se despliega a petición,
+// un equipo cada vez.
+function ChampGrid({ champs, dim }: { champs: string[]; dim?: boolean }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      {champs.map((c) => (
+        <img key={c} src={dd.champion(c)} alt={c} title={`${c} — bloqueado`} loading="lazy"
+          style={{ width: 30, height: 30, borderRadius: 7, objectFit: 'cover',
+            filter: dim ? 'grayscale(0.7)' : 'grayscale(0.5)',
+            boxShadow: dim ? undefined : '0 0 0 1.5px rgba(245,158,11,0.4)' }}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+      ))}
+    </div>
+  );
+}
+
+function FearlessCard({ id, myTeam }: { id: string; myTeam?: string | null }) {
   const q = useQuery({
     queryKey: ['tournament', id, 'fearless'],
     queryFn: async () => (await axiosInstance.get(`/api/tournaments/${id}/fearless`)).data as {
@@ -698,6 +793,12 @@ function FearlessCard({ id }: { id: string }) {
     refetchInterval: 60_000,
   });
   const d = q.data;
+  const [openAll, setOpenAll] = useState(false);
+  const [openTeam, setOpenTeam] = useState<string | null>(null);
+
+  const mine = myTeam ? d?.teams.find((t) => t.team === myTeam) ?? null : null;
+  const rest = d ? d.teams.filter((t) => t.team !== mine?.team) : [];
+
   return (
     <Card accent="rgba(245,158,11,0.35)">
       <SectionHead icon={<Swords size={14} color="var(--td-amber)" />} title="FEARLESS · CAMPEONES BLOQUEADOS" />
@@ -707,33 +808,59 @@ function FearlessCard({ id }: { id: string }) {
         <EmptyState>Aún no hay campeones bloqueados — se llenan al terminar cada partida</EmptyState>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {d.teams.map((tm) => (
-            <div key={tm.team}>
-              <div className="td-over" style={{ marginBottom: 6 }}>{tm.team} · {tm.usedChampions.length}</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {tm.usedChampions.map((c) => (
-                  <img key={c} src={dd.champion(c)} alt={c} title={`${c} — bloqueado`} loading="lazy"
-                    style={{ width: 30, height: 30, borderRadius: 7, objectFit: 'cover',
-                      filter: 'grayscale(0.5)', boxShadow: '0 0 0 1.5px rgba(245,158,11,0.4)' }}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                ))}
-              </div>
-            </div>
-          ))}
-          {d.unassigned.length > 0 && (
+          <div style={{ fontSize: 12.5, color: 'var(--td-text-2)' }}>
+            <strong style={{ color: 'var(--td-text)' }}>{d.allUsed.length}</strong> campeones bloqueados ·{' '}
+            <strong style={{ color: 'var(--td-text)' }}>{d.teams.length}</strong> equipos ·{' '}
+            {d.gamesCounted} partidas
+          </div>
+
+          {/* Tu equipo siempre a la vista: es lo único accionable antes del draft */}
+          {mine && (
             <div>
-              <div className="td-over" style={{ marginBottom: 6 }}>OTROS · {d.unassigned.length}</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {d.unassigned.map((c) => (
-                  <img key={c} src={dd.champion(c)} alt={c} title={`${c} — bloqueado`} loading="lazy"
-                    style={{ width: 30, height: 30, borderRadius: 7, objectFit: 'cover', filter: 'grayscale(0.7)' }}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                ))}
+              <div className="td-over" style={{ marginBottom: 6, color: 'var(--td-amber)' }}>
+                TU EQUIPO · {mine.team} · {mine.usedChampions.length}
               </div>
+              <ChampGrid champs={mine.usedChampions} />
             </div>
           )}
+
+          <Collapsible open={openAll} onOpenChange={setOpenAll}>
+            <CollapsibleTrigger asChild>
+              <button type="button" className="td-collapse-trigger">
+                {openAll ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {openAll ? 'Ocultar el resto' : `Ver todos los equipos (${rest.length})`}
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                {rest.map((tm) => {
+                  const open = openTeam === tm.team;
+                  return (
+                    <div key={tm.team}>
+                      <button type="button" className="td-fearless-team"
+                        onClick={() => setOpenTeam(open ? null : tm.team)} aria-expanded={open}>
+                        {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {tm.team}
+                        </span>
+                        <span className="td-num" style={{ color: 'var(--td-amber)' }}>{tm.usedChampions.length}</span>
+                      </button>
+                      {open && <div style={{ padding: '8px 2px 4px' }}><ChampGrid champs={tm.usedChampions} /></div>}
+                    </div>
+                  );
+                })}
+                {d.unassigned.length > 0 && (
+                  <div>
+                    <div className="td-over" style={{ margin: '6px 0' }}>OTROS · {d.unassigned.length}</div>
+                    <ChampGrid champs={d.unassigned} dim />
+                  </div>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
           <p style={{ margin: 0, fontSize: 11, color: 'var(--td-muted)' }}>
-            {d.gamesCounted} partida(s) contadas · el lobby no lo bloquea automáticamente — es responsabilidad de los capitanes respetarlo
+            El lobby no lo bloquea automáticamente — es responsabilidad de los capitanes respetarlo
           </p>
         </div>
       )}
@@ -1099,6 +1226,14 @@ function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRoun
   swissRounds?: number | null; isPrivate?: boolean; discordWebhookUrl?: string | null;
   playoffsSize?: number;
 }) {
+  // Plegado por defecto; la preferencia del organizador persiste.
+  const [adminOpen, setAdminOpen] = useState(() => {
+    try { return window.localStorage.getItem('td-admin-open') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem('td-admin-open', adminOpen ? '1' : '0'); } catch { /* sin persistencia */ }
+  }, [adminOpen]);
+
   const closeReg = useCloseRegistration(id);
   const start    = useStartTournament(id);
   const codes    = useGenerateCodes(id);
@@ -1247,16 +1382,24 @@ function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRoun
   );
 
   return (
-    <Card accent="var(--td-red-glow)" style={{ marginTop: 16, padding: 16 }}>
+    // Plegado por defecto: abierto empujaba Clasificación y el directo por
+    // debajo del pliegue en cada visita del organizador. La preferencia se
+    // recuerda en td-admin-open.
+    <Collapsible open={adminOpen} onOpenChange={setAdminOpen}>
+      <Card accent="var(--td-red-glow)" style={{ marginTop: 16, padding: 16 }}>
       {/* Encabezado + guía de fase */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-          <Settings2 size={14} color={RED} />
-          <span className="td-over" style={{ color: RED, letterSpacing: '2px' }}>PANEL DEL ORGANIZADOR</span>
-        </span>
-        <span style={{ fontSize: 12, color: 'var(--td-text-2)' }}>{stepHint}</span>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: adminOpen ? 12 : 0 }}>
+        <CollapsibleTrigger asChild>
+          <button type="button" className="td-collapse-trigger" style={{ color: RED }}>
+            {adminOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            <Settings2 size={14} />
+            {adminOpen ? 'Ocultar administración' : 'Panel de administración'}
+          </button>
+        </CollapsibleTrigger>
+        {adminOpen && <span style={{ fontSize: 12, color: 'var(--td-text-2)' }}>{stepHint}</span>}
       </div>
 
+      <CollapsibleContent>
       <div className="td-admin-grid">
         {/* Configuración (solo antes de iniciar) */}
         {canPickFormat && (
@@ -1506,7 +1649,9 @@ function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRoun
           ))}
         </div>
       )}
-    </Card>
+      </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }
 

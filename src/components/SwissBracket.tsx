@@ -2,7 +2,7 @@
 // No hay árbol de eliminación, así que el "bracket" son columnas por ronda con
 // cards grandes: marcador protagonista, chips BO, avance del pareo por récord
 // y stats de la serie expandibles a lo ancho. Animado con stagger por columna.
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, Copy, Crown, Radio, Swords, Trophy, X } from 'lucide-react';
 import { TeamBadge } from '@/components/tournament/ui';
@@ -139,6 +139,29 @@ export function SwissBracket({
   const rounds = Array.from(new Set(bracket.map((m) => m.round))).sort((a, b) => a - b);
   const openMatch = bracket.find((m) => m.id === openId) ?? null;
 
+  // Con 3+ rondas la columna vigente queda fuera de pantalla al abrir el
+  // bracket: se enfoca sola (scroll horizontal del contenedor, no de la página)
+  // cuando el torneo está en marcha.
+  const focusRound = useMemo(() => {
+    if (!isActive) return null;
+    const open = rounds.filter((r) => bracket.some((m) => m.round === r && m.matchStatus !== 'complete'));
+    return open.length ? open[0] : null;
+  }, [isActive, rounds, bracket]);
+  const focusRef = useRef<HTMLDivElement | null>(null);
+  const focused = useRef(false);
+  useEffect(() => {
+    if (focused.current || focusRound == null || !focusRef.current) return;
+    focused.current = true;
+    const el = focusRef.current;
+    const scroller = el.closest('[data-td-bracket]') as HTMLElement | null;
+    if (!scroller) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    scroller.scrollTo({
+      left: Math.max(0, el.offsetLeft - 24),
+      behavior: reduce ? 'auto' : 'smooth',
+    });
+  }, [focusRound]);
+
   const roundLabel = (r: number) => (bracketType === 'round_robin' ? `Jornada ${r}` : `Ronda ${r}`);
   const roundState = (r: number) => {
     const ms = bracket.filter((m) => m.round === r);
@@ -166,8 +189,10 @@ export function SwissBracket({
             const ms = bracket.filter((m) => m.round === r);
             const isFinalRound = ri === rounds.length - 1 && champion != null;
             return (
-              // data-td-round: ancla para el resalte de la muestra "Bracket en vivo".
-              <div key={r} className="flex items-start gap-8" data-td-round={r}>
+              // data-td-round: ancla para el resalte de la muestra "Bracket en vivo"
+              // y para el enfoque automático de la ronda vigente.
+              <div key={r} className="flex items-start gap-8" data-td-round={r}
+                ref={r === focusRound ? focusRef : undefined}>
                 <div className="flex flex-col gap-4">
                   {/* Cabecera de la ronda */}
                   <motion.div
@@ -176,8 +201,13 @@ export function SwissBracket({
                     transition={{ delay: ri * 0.12 }}
                     className="flex items-baseline justify-between px-1"
                   >
-                    <span className="text-[12px] font-black uppercase tracking-[0.18em] text-white/85">
+                    <span className={`text-[12px] font-black uppercase tracking-[0.18em] ${
+                      r === focusRound ? 'text-white' : 'text-white/85'
+                    }`}>
                       {roundLabel(r)}
+                      {r === focusRound && (
+                        <span className="ml-2 align-middle inline-block w-1.5 h-1.5 rounded-full bg-[#e1242e] td-dot-pulse" />
+                      )}
                     </span>
                     <span className={`text-[10.5px] font-bold uppercase tracking-wider ${st.cls}`}>{st.txt}</span>
                   </motion.div>

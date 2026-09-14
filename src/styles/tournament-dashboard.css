@@ -388,3 +388,41 @@
   .td-root .td-radar-card { grid-template-columns: 1fr; }
   .td-root .td-charts-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Migas de pan ─────────────────────────────────────────────────────────── */
+.td-root .td-crumbs {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 12px; font-size: 12px; font-family: var(--td-font-ui);
+}
+.td-root .td-crumb-link {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--td-text-2); font: inherit; transition: color .15s;
+}
+.td-root .td-crumb-link:hover { color: var(--td-red); }
+.td-root .td-crumb-link-static { color: var(--td-text-2); }
+.td-root .td-crumb-current { color: var(--td-text); font-weight: 600; }
+.td-root .td-crumb-sep { color: var(--td-disabled); }
+
+/* ── Disparador de secciones plegables (admin, fearless) ──────────────────── */
+.td-root .td-collapse-trigger {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  background: none; border: none; padding: 0; font-family: var(--td-font-ui);
+  font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--td-text-2); transition: color .15s;
+}
+.td-root .td-collapse-trigger:hover { color: var(--td-text); }
+.td-root .td-fearless-team {
+  display: flex; align-items: center; gap: 8px; width: 100%; cursor: pointer;
+  padding: 7px 9px; border-radius: 9px; text-align: left;
+  background: rgba(255,255,255,0.025); border: 1px solid var(--td-border-soft);
+  color: var(--td-text-2); font-family: var(--td-font-ui); font-size: 12px; font-weight: 600;
+  transition: border-color .15s, color .15s;
+}
+.td-root .td-fearless-team:hover { border-color: var(--td-border-hov); color: var(--td-text); }
+
+/* Nav inferior: a 360px las 6 secciones cabían justas y el carril scrolleaba
+   sin indicio visible. Se estrechan los ítems para que entren todos de una. */
+@media (max-width: 380px) {
+  .td-root .td-bottomnav-item { min-width: 50px; padding: 8px 6px; }
+  .td-root .td-bottomnav-label { font-size: 8.5px; }
+}
