@@ -2,12 +2,9 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-function b64urlToJson<T = unknown>(s: string): T {
-  // decode base64url -> json
-  const normalized = s.replace(/-/g, "+").replace(/_/g, "/");
-  const json = atob(normalized);
-  return JSON.parse(json);
-}
+// El decodificador correcto vive en src/lib/utf8.ts: `atob` a secas devuelve
+// Latin-1 y rompía los acentos del nombre ("Pérez" → "PÃ©rez").
+import { b64urlToJsonUtf8 as b64urlToJson } from "@/lib/utf8";
 
 export default function OAuthCallback() {
   const nav = useNavigate();

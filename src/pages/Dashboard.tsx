@@ -21,6 +21,8 @@ import {
 import { DailySchedulesAdmin } from "@/components/DailySchedulesAdmin";
 import { axiosInstance } from "@/lib/axios";
 import { toast } from "sonner";
+import { REGIONS, regionLabel } from "@/lib/regions";
+import { fixMojibakeUtf8, b64urlToJsonUtf8, repairStoredUserName } from "@/lib/utf8";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tip } from "@/components/ui/Tip";
 import { useQueryClient } from "@tanstack/react-query";
@@ -120,11 +122,10 @@ function Gauge({ pct, label, sub }: { pct: number; label: string; sub?: string }
 }
 
 // ==== helpers ====
-function b64urlToJson<T = any>(s: string): T {
-  const normalized = s.replace(/-/g, "+").replace(/_/g, "/");
-  const json = atob(normalized);
-  return JSON.parse(json);
-}
+// Antes: `JSON.parse(atob(...))`. `atob` devuelve Latin-1, así que un nombre
+// UTF-8 como "Osvaldo Pérez Ochoa" se guardaba como "Osvaldo PÃ©rez Ochoa".
+// El decodificador correcto vive en src/lib/utf8.ts.
+const b64urlToJson = b64urlToJsonUtf8;
 
 type OverviewResponse = {
   ok: boolean;
@@ -141,7 +142,8 @@ type OverviewResponse = {
   recent?: Array<{ win?: boolean; queueName?: string; championName?: string; duration?: number }>;
 };
 
-const regions = ["la1", "la2", "na1", "br1", "oc1", "euw1", "eun1", "kr", "jp1", "ru", "tr1"];
+// Las regiones viven en src/lib/regions.ts: el <select> envía el platform id
+// ("la1") pero muestra la etiqueta que usa la gente ("LAN").
 
 // ─── Sidebar de administración ───────────────────────────────────────────────
 type DashSection = "resumen" | "torneos" | "actividad" | "diarios";
@@ -249,6 +251,11 @@ const SECTION_ANIM = {
 
 const Dashboard = () => {
   const { user } = useAuth();
+  // Sesiones anteriores quedaron guardadas con el nombre roto por el `atob`
+  // viejo: se repara al mostrar (y una vez en localStorage, ya que el
+  // decodificador también está arreglado).
+  useEffect(() => { repairStoredUserName(); }, []);
+  const displayName = fixMojibakeUtf8(user?.name);
   const location = useLocation();
   const navigate = useNavigate();
   const [section, setSection] = useState<DashSection>("resumen");
@@ -389,8 +396,10 @@ const Dashboard = () => {
               <div>
                 <label className="vs-over" style={{ display: "block", marginBottom: 7 }}>Región</label>
                 <select value={platform} onChange={(e) => setPlatform(e.target.value)} style={inputStyle}>
-                  {regions.map((r) => (
-                    <option key={r} value={r} style={{ background: "#101014" }}>{r.toUpperCase()}</option>
+                  {REGIONS.map((r) => (
+                    <option key={r.value} value={r.value} style={{ background: "#101014" }}>
+                      {r.flag} {r.label} — {r.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -471,11 +480,11 @@ const Dashboard = () => {
               <div>
                 <p className="vs-over" style={{ margin: 0 }}>Bienvenido de vuelta,</p>
                 <h1 style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 32, color: "#fff", margin: "6px 0 8px", lineHeight: 1.05 }}>
-                  {user?.name || "Invocador"}
+                  {displayName || "Invocador"}
                 </h1>
                 <p style={{ margin: 0, fontSize: 13.5, color: "rgba(255,255,255,0.65)", maxWidth: 300 }}>
                   {overview?.profile?.gameName
-                    ? `${overview.profile.gameName}#${overview.profile.tagLine} · ${overview.profile.platform?.toUpperCase()}`
+                    ? `${overview.profile.gameName}#${overview.profile.tagLine} · ${regionLabel(overview.profile.platform)}`
                     : "Tu resumen de actividad y estadísticas"}
                 </p>
               </div>
@@ -518,13 +527,13 @@ const Dashboard = () => {
                   background: `linear-gradient(135deg, ${C.red}, #3b0000)`,
                 }}>
                   <span style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 22, color: "#fff" }}>
-                    {user?.name?.[0]?.toUpperCase() || "U"}
+                    {displayName?.[0]?.toUpperCase() || "U"}
                   </span>
                 </div>
               )}
               <div style={{ minWidth: 0 }}>
                 <h3 style={{ margin: 0, fontFamily: FONT_COND, fontWeight: 700, fontSize: 17, color: "#fff" }}>
-                  {user?.name || "Usuario"}
+                  {displayName || "Usuario"}
                 </h3>
                 <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "rgba(255,255,255,0.45)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {user?.email}
@@ -554,7 +563,7 @@ const Dashboard = () => {
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "rgba(255,255,255,0.55)" }}>Región</span>
-                <span style={{ fontWeight: 600, color: "#fff" }}>{overview?.profile?.platform?.toUpperCase() ?? "—"}</span>
+                <span style={{ fontWeight: 600, color: "#fff" }}>{regionLabel(overview?.profile?.platform)}</span>
               </div>
             </div>
 

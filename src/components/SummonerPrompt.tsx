@@ -12,19 +12,10 @@ import { usePlayerSuggestions, type PlayerSuggestion } from '@/hooks/usePlayerSu
 import { useChampionMatches, type ChampionMatch } from '@/hooks/useChampionSearch';
 import { dd } from '@/lib/dataDragon';
 
-export const REGIONS = [
-  { value: 'la1',  label: 'LAN',  name: 'Latinoamérica Norte', flag: '🇲🇽' },
-  { value: 'la2',  label: 'LAS',  name: 'Latinoamérica Sur',   flag: '🇦🇷' },
-  { value: 'na1',  label: 'NA',   name: 'Norteamérica',        flag: '🇺🇸' },
-  { value: 'euw1', label: 'EUW',  name: 'Europa Oeste',        flag: '🇪🇺' },
-  { value: 'eun1', label: 'EUNE', name: 'Europa Nórdica',      flag: '🇪🇺' },
-  { value: 'kr',   label: 'KR',   name: 'Corea',               flag: '🇰🇷' },
-  { value: 'br1',  label: 'BR',   name: 'Brasil',              flag: '🇧🇷' },
-  { value: 'oc1',  label: 'OCE',  name: 'Oceanía',             flag: '🇦🇺' },
-  { value: 'ru',   label: 'RU',   name: 'Rusia',               flag: '🇷🇺' },
-  { value: 'tr1',  label: 'TR',   name: 'Turquía',             flag: '🇹🇷' },
-  { value: 'jp1',  label: 'JP',   name: 'Japón',               flag: '🇯🇵' },
-];
+// La lista vive en `src/lib/regions.ts` (fuente única, también la usa el
+// dashboard). Se reexporta para no tocar quien ya importa REGIONS desde aquí.
+export { REGIONS } from '@/lib/regions';
+import { REGIONS } from '@/lib/regions';
 
 // ── Recientes (compartido con /stats) ────────────────────────────────────────
 const RECENT_KEY = 'atakgg_recent_searches';

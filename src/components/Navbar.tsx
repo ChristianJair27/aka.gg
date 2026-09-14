@@ -4,6 +4,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Clock, Menu, X, ChevronDown, LayoutDashboard, LogOut, Search, Swords, User, Zap } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/features/auth/useAuth';
+// Nombres guardados por el `atob` viejo llegan con acentos rotos: se reparan al mostrar.
+import { fixMojibakeUtf8 } from '@/lib/utf8';
 import { useChampionMatches, type ChampionMatch } from '@/hooks/useChampionSearch';
 import { useOverview } from '@/hooks/queries/players';
 import { resolveRiotIdQueryOptions } from '@/hooks/queries/stats';
@@ -397,14 +399,14 @@ export const Navbar = () => {
                   <div className="w-7 h-7 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-xs font-black text-white flex-shrink-0">
                     {initial}
                   </div>
-                  <span className="text-sm font-medium text-white/80 max-w-[120px] truncate">{user.name}</span>
+                  <span className="text-sm font-medium text-white/80 max-w-[120px] truncate">{fixMojibakeUtf8(user.name)}</span>
                   <ChevronDown className={`h-3.5 w-3.5 text-gray-500 transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {userMenuOpen && (
                   <div className="absolute right-0 mt-2 w-52 bg-black/95 border border-red-900/30 rounded-xl shadow-2xl shadow-black/70 overflow-hidden z-50 backdrop-blur-xl">
                     <div className="px-4 py-3 border-b border-white/[0.05]">
-                      <p className="text-sm font-semibold text-white truncate">{user.name}</p>
+                      <p className="text-sm font-semibold text-white truncate">{fixMojibakeUtf8(user.name)}</p>
                       <p className="text-xs text-gray-600 truncate">{user.email}</p>
                     </div>
                     <div className="py-1">
