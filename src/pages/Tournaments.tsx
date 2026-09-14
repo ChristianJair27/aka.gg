@@ -16,7 +16,7 @@ import { useTournaments } from '@/hooks/queries/tournaments';
 import { qk } from '@/hooks/queries/keys';
 import {
   Trophy, Calendar, Users, Plus, ArrowRight,
-  Zap, Shield, Clock, CheckCircle,
+  Zap, Shield, Clock, CheckCircle, Search, X,
 } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -308,10 +308,17 @@ export default function TournamentsPage() {
     );
   }, [loading]);
 
-  const filtered = useMemo(() =>
-    filter === 'todos' ? tournaments : tournaments.filter(t => t.phase === filter),
-    [tournaments, filter]
-  );
+  // Búsqueda por texto (nombre, descripción, formato, mapa) sobre la fase elegida.
+  const [q, setQ] = useState('');
+  const filtered = useMemo(() => {
+    const byPhase = filter === 'todos' ? tournaments : tournaments.filter(t => t.phase === filter);
+    const needle = q.trim().toLowerCase();
+    if (!needle) return byPhase;
+    return byPhase.filter(t =>
+      [t.name, t.description, t.format, (t as { gameMap?: string }).gameMap, t.prize]
+        .filter(Boolean).join(' ').toLowerCase().includes(needle),
+    );
+  }, [tournaments, filter, q]);
 
   const isAuth = !!localStorage.getItem('access_token');
 
@@ -366,6 +373,29 @@ export default function TournamentsPage() {
         {/* Torneos diarios programados (auto-creados por el backend) */}
         <DailyTournamentsRail />
 
+        {/* Búsqueda por texto */}
+        <div className="flex justify-center mb-4">
+          <label className="relative w-full max-w-md">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30 pointer-events-none" />
+            <input
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              placeholder="Buscar torneo…"
+              aria-label="Buscar torneo"
+              className="w-full h-11 rounded-full pl-11 pr-10 text-sm text-white placeholder:text-white/30
+                bg-white/[0.05] border border-white/[0.08] backdrop-blur-md outline-none
+                focus:border-red-500/50 transition-colors"
+            />
+            {q && (
+              <button type="button" aria-label="Limpiar búsqueda" onClick={() => setQ('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center
+                  bg-white/[0.08] text-white/60 hover:bg-white/[0.15] hover:text-white transition-colors">
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </label>
+        </div>
+
         {/* Filter pills */}
         <div className="flex flex-wrap gap-2 justify-center mb-10">
           {FILTERS.map(f => (
@@ -412,9 +442,11 @@ export default function TournamentsPage() {
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               className="text-center py-24">
               <Trophy className="h-16 w-16 text-gray-800 mx-auto mb-5" />
-              <p className="text-gray-500 text-lg mb-3">No hay torneos en esta categoría</p>
-              {filter !== 'todos' && (
-                <button onClick={() => setFilter('todos')}
+              <p className="text-gray-500 text-lg mb-3">
+                {q.trim() ? <>Ningún torneo coincide con «{q.trim()}»</> : 'No hay torneos en esta categoría'}
+              </p>
+              {(filter !== 'todos' || q.trim()) && (
+                <button onClick={() => { setFilter('todos'); setQ(''); }}
                   className="text-red-400 text-sm hover:text-red-300 transition-colors">
                   Ver todos los torneos →
                 </button>

@@ -175,3 +175,77 @@
 .td-dot-pulse { animation: td-pulse 1.8s ease-in-out infinite; }
 
 .td-root :focus-visible { outline: 2px solid var(--td-red); outline-offset: 2px; }
+
+/* ── RoundRail (carrusel de rondas) ───────────────────────────────────────── */
+.td-root .td-roundrail { min-width: 0; }
+.td-root .td-roundrail-item {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 14px; border-radius: 999px; cursor: pointer;
+  font-family: var(--td-font-ui); font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  color: var(--td-text-2); background: transparent; border: 1px solid #26262c;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.td-root .td-roundrail-item:hover { border-color: var(--td-border-hov2); color: var(--td-text); }
+.td-root .td-roundrail-item[data-active='true'] { background: #fff; color: #0a0a0c; border-color: #fff; }
+.td-root .td-roundrail-item[data-done='true']:not([data-active='true']) { color: var(--td-muted); }
+.td-root .td-roundrail-live { width: 6px; height: 6px; border-radius: 50%; background: var(--td-live); }
+.td-root .td-roundrail-item[data-active='true'] .td-roundrail-live { background: #2563eb; }
+.td-root .td-roundrail-count {
+  font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+  background: rgba(255,255,255,0.06); color: inherit; opacity: .85;
+}
+.td-root .td-roundrail-item[data-active='true'] .td-roundrail-count { background: rgba(10,10,12,0.10); }
+.td-root .td-roundrail--compact .td-roundrail-item { height: 30px; padding: 0 11px; font-size: 11.5px; }
+
+/* ── Barra de filtros (Partidas / Estadísticas) ───────────────────────────── */
+.td-root .td-filterbar { display: flex; flex-direction: column; gap: 12px; padding: 12px 14px; }
+.td-root .td-filterbar-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
+.td-root .td-filterbar-row > .td-grow { flex: 1 1 220px; min-width: 0; }
+.td-root .td-filter-label { display: inline-flex; align-items: center; gap: 6px; cursor: default; }
+.td-root .td-search {
+  height: 36px; width: 100%; max-width: 340px; border-radius: 999px; padding: 0 16px 0 38px; min-width: 0;
+  background: var(--td-subcard); border: 1px solid var(--td-border);
+  color: var(--td-text); font-size: 13px; font-family: var(--td-font-ui); outline: none;
+  transition: border-color .15s;
+}
+.td-root .td-search::placeholder { color: var(--td-muted); }
+.td-root .td-search:focus { border-color: var(--td-red-glow); }
+.td-root .td-search-wrap { position: relative; display: flex; align-items: center; min-width: 0; flex: 1 1 220px; }
+.td-root .td-search-wrap > svg { position: absolute; left: 14px; color: var(--td-muted); pointer-events: none; }
+.td-root .td-search-clear {
+  position: absolute; right: 10px; display: inline-flex; width: 22px; height: 22px; border-radius: 50%;
+  align-items: center; justify-content: center; border: none; cursor: pointer;
+  background: rgba(255,255,255,0.06); color: var(--td-text-2);
+}
+.td-root .td-search-clear:hover { background: rgba(255,255,255,0.12); color: var(--td-text); }
+/* Chip de filtro activo (equipo elegido) con botón para quitarlo */
+.td-root .td-chip-x {
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 6px 0 12px;
+  border-radius: 999px; font-size: 12px; font-weight: 600; color: #fff;
+  background: rgba(232,50,60,0.14); border: 1px solid rgba(232,50,60,0.45);
+}
+.td-root .td-chip-x button {
+  display: inline-flex; width: 20px; height: 20px; border-radius: 50%; align-items: center; justify-content: center;
+  border: none; cursor: pointer; background: rgba(255,255,255,0.10); color: #fff;
+}
+/* Disparador de la paleta ⌘K */
+.td-root .td-cmd-trigger {
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px 0 14px;
+  border-radius: 999px; cursor: pointer; font-family: var(--td-font-ui); font-size: 12.5px; font-weight: 600;
+  color: var(--td-text-2); background: transparent; border: 1px solid #26262c; white-space: nowrap;
+  transition: border-color .15s, color .15s;
+}
+.td-root .td-cmd-trigger:hover { border-color: var(--td-border-hov2); color: var(--td-text); }
+.td-root .td-cmd-kbd {
+  font-family: var(--td-font-mono); font-size: 10px; padding: 2px 6px; border-radius: 6px;
+  background: rgba(255,255,255,0.06); border: 1px solid var(--td-border); color: var(--td-muted);
+}
+.td-root .td-filter-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 28px 12px; text-align: center; }
+
+/* Tabla de stats: alto acotado con cabecera pegajosa (108+ filas) */
+.td-root .td-stats-scroll [data-radix-scroll-area-viewport] { max-height: 560px; }
+.td-root .td-stats-scroll thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: rgba(16, 13, 18, 0.96);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}

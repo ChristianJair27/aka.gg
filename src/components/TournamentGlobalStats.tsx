@@ -7,11 +7,26 @@ import {
 } from 'recharts';
 import {
   Trophy, Sword, Coins, Eye, Star,
-  ChevronUp, ChevronDown, Zap, Activity, Users, RefreshCw, Skull,
+  ChevronUp, ChevronDown, Zap, Activity, Users, RefreshCw, Skull, Search, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { dd, fmtNumber } from '@/lib/dataDragon';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Tip } from '@/components/ui/Tip';
+import { FilterPills, Button } from '@/components/tournament/ui';
+import { PlayerTeamCommand } from '@/components/tournament/PlayerTeamCommand';
 import type { TournamentGlobalStats, PlayerAggregate, GlobalSortKey } from '@/types/tournament-global-stats';
+
+// Etiqueta para jugadores cuyo Riot ID no casa con ningún roster inscrito.
+export const NO_TEAM = 'Sin equipo';
+
+/** Clave normalizada "nombre#tag" (minúsculas, sin espacios) para cruzar
+ *  jugadores de stats con rosters. Exportada para que StatsTab construya el
+ *  mapa con la misma regla. */
+export function playerKey(name: string, tag?: string | null): string {
+  const n = (s: string) => s.toLowerCase().replace(/\s+/g, '');
+  return `${n(name || '')}#${n(tag || '')}`;
+}
 
 // ─── Mini image helper ────────────────────────────────────────────────────────
 
@@ -133,8 +148,11 @@ function SortableTable({ players }: { players: PlayerAggregate[] }) {
     else { setSortKey(key); setSortDir('desc'); }
   };
 
+  // 108+ filas en LQC: alto acotado (ScrollArea) + thead pegajoso vía CSS
+  // (.td-stats-scroll en tournament-dashboard.css). Sin virtualización: 100-200
+  // filas de texto plano no la necesitan.
   return (
-    <div className="overflow-x-auto rounded-2xl">
+    <ScrollArea className="td-stats-scroll rounded-2xl">
       <table className="w-full text-left">
         <thead>
           <tr className="border-b border-white/[0.08]">
@@ -229,7 +247,8 @@ function SortableTable({ players }: { players: PlayerAggregate[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+      <ScrollBar orientation="horizontal" />
+    </ScrollArea>
   );
 }
 
@@ -309,12 +328,61 @@ interface Props {
   data: TournamentGlobalStats;
   loading?: boolean;
   onRefresh?: () => void;
+  /** Equipo por jugador, clave = playerKey(nombre, tag) y, como respaldo,
+   *  playerKey(nombre). Lo construye StatsTab cruzando el roster inscrito; los
+   *  jugadores sin cruce se agrupan como "Sin equipo" (nunca se descartan). */
+  teamBySummoner?: Record<string, string>;
 }
 
-export function TournamentGlobalStats({ data, loading, onRefresh }: Props) {
+type MinGames = 'all' | '1' | '3' | '5';
+const MIN_GAMES: { key: MinGames; label: string }[] = [
+  { key: 'all', label: 'Todos' }, { key: '1', label: '≥1' }, { key: '3', label: '≥3' }, { key: '5', label: '≥5' },
+];
+
+export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner }: Props) {
   const [podiumCat, setPodiumCat] = useState<GlobalSortKey>('avgKda');
 
-  const { players, matchesCompleted } = data;
+  const { players: allPlayers, matchesCompleted } = data;
+
+  // ── Filtros (cliente): búsqueda, mín. partidas, equipo ──
+  const [q, setQ] = useState('');
+  const [minGames, setMinGames] = useState<MinGames>('all');
+  const [team, setTeam] = useState<string | null>(null);
+
+  const teamOf = (p: PlayerAggregate): string | null => {
+    if (!teamBySummoner) return null;
+    return teamBySummoner[playerKey(p.summonerName, p.tagLine)]
+      ?? teamBySummoner[playerKey(p.summonerName)]
+      ?? null;
+  };
+
+  const teams = useMemo(() => {
+    if (!teamBySummoner) return [] as string[];
+    const set = new Set<string>();
+    let orphan = false;
+    for (const p of allPlayers) { const t = teamOf(p); if (t) set.add(t); else orphan = true; }
+    const list = [...set].sort((a, b) => a.localeCompare(b));
+    return orphan ? [...list, NO_TEAM] : list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allPlayers, teamBySummoner]);
+
+  const players = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const min = minGames === 'all' ? 0 : Number(minGames);
+    return allPlayers.filter(p => {
+      if (p.gamesPlayed < min) return false;
+      if (team) { const t = teamOf(p) ?? NO_TEAM; if (t !== team) return false; }
+      if (needle) {
+        const hay = `${p.summonerName} ${p.tagLine} ${teamOf(p) ?? ''}`.toLowerCase();
+        if (!hay.includes(needle)) return false;
+      }
+      return true;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allPlayers, q, minGames, team, teamBySummoner]);
+
+  const hasFilters = q.trim() !== '' || minGames !== 'all' || team !== null;
+  const clearFilters = () => { setQ(''); setMinGames('all'); setTeam(null); };
 
   const mostPlayedChamp = useMemo(() => {
     const counts = new Map<string, number>();
@@ -356,7 +424,10 @@ export function TournamentGlobalStats({ data, loading, onRefresh }: Props) {
           </div>
           <div>
             <p className="text-[10px] text-white/30 uppercase tracking-wider">Jugadores</p>
-            <p className="text-xl font-black text-white">{players.length}</p>
+            <p className="text-xl font-black text-white">
+              {players.length}
+              {hasFilters && <span className="text-xs font-semibold text-white/30"> / {allPlayers.length}</span>}
+            </p>
           </div>
         </div>
         <div className="td-panel p-4 flex items-center gap-3">
@@ -377,8 +448,60 @@ export function TournamentGlobalStats({ data, loading, onRefresh }: Props) {
         </div>
       </div>
 
+      {/* Barra de filtros: la misma lista filtrada alimenta podio, gráfica y tabla */}
+      <div className="td-panel td-filterbar">
+        <div className="td-filterbar-row">
+          <div className="td-search-wrap">
+            <Search size={14} />
+            <input
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              placeholder="Buscar jugador…"
+              aria-label="Buscar jugador"
+              className="td-search"
+            />
+            {q && (
+              <button type="button" className="td-search-clear" aria-label="Limpiar búsqueda" onClick={() => setQ('')}>
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          <PlayerTeamCommand
+            players={allPlayers.map(p => ({ name: p.summonerName, tag: p.tagLine, team: teamOf(p) }))}
+            teams={teams}
+            onPickPlayer={name => setQ(name)}
+            onPickTeam={t => setTeam(t)}
+          />
+          {team && (
+            <span className="td-chip-x">
+              <Users size={12} /> {team}
+              <button type="button" aria-label="Quitar filtro de equipo" onClick={() => setTeam(null)}><X size={11} /></button>
+            </span>
+          )}
+        </div>
+        <div className="td-filterbar-row">
+          <Tip label="Mínimo de partidas jugadas en el torneo">
+            <span className="td-filter-label td-over">Mín. partidas</span>
+          </Tip>
+          <FilterPills<MinGames> items={MIN_GAMES} value={minGames} onChange={setMinGames} />
+          {hasFilters && (
+            <span style={{ marginLeft: 'auto' }}>
+              <Button variant="ghost" onClick={clearFilters}>Quitar filtros</Button>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {players.length === 0 && (
+        <div className="td-panel td-filter-empty">
+          <Users className="h-8 w-8 text-white/15" />
+          <p className="text-sm text-white/40">Ningún jugador coincide con los filtros</p>
+          <Button variant="secondary" onClick={clearFilters}>Quitar filtros</Button>
+        </div>
+      )}
+
       {/* Podium */}
-      <div className="td-panel p-5">
+      {players.length > 0 && <div className="td-panel p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <p className="text-xs text-white/40 uppercase tracking-widest font-bold">
             🏆 Top 3 — {PODIUM_CATS.find(c => c.key === podiumCat)?.label}
@@ -410,15 +533,15 @@ export function TournamentGlobalStats({ data, loading, onRefresh }: Props) {
             <Podium players={players} sortKey={podiumCat} />
           </motion.div>
         </AnimatePresence>
-      </div>
+      </div>}
 
       {/* Chart */}
-      <div className="td-panel p-5">
+      {players.length > 0 && <div className="td-panel p-5">
         <TopPlayersChart players={players} />
-      </div>
+      </div>}
 
       {/* Sortable table */}
-      <div className="td-panel p-5">
+      {players.length > 0 && <div className="td-panel p-5">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/[0.05]">
           <p className="text-xs text-white/50 uppercase tracking-widest font-bold">Tabla completa</p>
           {onRefresh && (
@@ -433,7 +556,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh }: Props) {
           )}
         </div>
         <SortableTable players={players} />
-      </div>
+      </div>}
     </div>
   );
 }

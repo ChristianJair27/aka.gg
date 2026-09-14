@@ -13,7 +13,7 @@ import {
   Trophy, Calendar, Clock, Users, Zap, Play, Check, ArrowRight, BarChart3,
   AlertTriangle, RefreshCw, Swords, Settings2, Lock, KeySquare, FolderSync,
   LayoutDashboard, Network, ScrollText, ChevronDown, ChevronUp, Crown, Skull, Flame,
-  Mail, Send,
+  Mail, Send, Search, X,
 } from 'lucide-react';
 import {
   useTournamentDashboard, useCheckin, useBracket, useRegistrations,
@@ -26,8 +26,10 @@ import { TournamentGlobalStats } from '@/components/TournamentGlobalStats';
 import { TournamentMatchStats } from '@/components/TournamentMatchStats';
 import { TournamentBracket } from '@/components/TournamentBracket';
 import {
-  Button, StatusChip, TeamBadge, StatTile, ProgressBar, SectionHead,
+  Button, StatusChip, TeamBadge, StatTile, ProgressBar, SectionHead, FilterPills,
 } from '@/components/tournament/ui';
+import { RoundRail, type RoundRailItem } from '@/components/tournament/RoundRail';
+import { playerKey } from '@/components/TournamentGlobalStats';
 import { Skeleton } from '@/components/ui/skeleton';
 import Aurora from '@/components/Aurora';
 import { SwissBracket } from '@/components/SwissBracket';
@@ -184,12 +186,17 @@ export default function TournamentDashboardPage() {
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                   >
-                    {tab === 'resumen' && <ResumenGrid data={data} id={id} navigate={go} onStats={() => setTab('stats')} />}
+                    {tab === 'resumen' && (
+                      <ResumenGrid data={data} id={id} navigate={go} onStats={() => setTab('stats')}
+                        onRound={(r) => setParams((prev) => {
+                          const p = new URLSearchParams(prev); p.set('tab', 'partidas'); p.set('round', r); return p;
+                        }, { replace: true })} />
+                    )}
                     {tab === 'bracket' && <BracketTab id={id} data={data} />}
                     {tab === 'equipos' && (
                       <EquiposTab id={id} region={data.tournament.region} standings={data.standings} />
                     )}
-                    {tab === 'partidas' && <PartidasTab id={id} />}
+                    {tab === 'partidas' && <PartidasTab id={id} swissRounds={data.tournament.swissRounds ?? null} />}
                     {tab === 'stats' && <StatsTab id={id} />}
                     {tab === 'reglas' && <ReglasTab data={data} />}
                   </motion.div>
@@ -606,9 +613,23 @@ function Tiles({ t }: { t: TdBoardPayload['tournament'] }) {
 }
 
 // ── RESUMEN GRID ─────────────────────────────────────────────────────────────
-function ResumenGrid({ data, id, navigate, onStats }: {
+function ResumenGrid({ data, id, navigate, onStats, onRound }: {
   data: TdBoardPayload; id: string; navigate: (to: string) => void; onStats: () => void;
+  /** Salto a Partidas con la ronda elegida (?tab=partidas&round=N). */
+  onRound: (round: string) => void;
 }) {
+  // Eco fino del RoundRail: una pill por ronda con partidas → deep-link a Partidas.
+  const roundItems: RoundRailItem[] = useMemo(() => (data.bracket ?? []).map((r) => ({
+    key: String(r.round),
+    label: r.label,
+    count: r.matches.length,
+    live: r.matches.filter((m) => m.matchStatus === 'active').length,
+    done: r.matches.length > 0 && r.matches.every((m) => m.matchStatus === 'complete'),
+  })), [data.bracket]);
+  const roundTip = data.tournament.bracketType === 'swiss' && data.tournament.swissRounds
+    ? `Ir a las partidas de la ronda — ${data.tournament.name} tiene ${data.tournament.swissRounds} rondas suizas`
+    : 'Ir a las partidas de la ronda';
+
   return (
     <div className="td-dash-grid">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
@@ -620,6 +641,12 @@ function ResumenGrid({ data, id, navigate, onStats }: {
         <LiveCard data={data} navigate={navigate} id={id} />
         {data.tournament.fearless && <FearlessCard id={id} />}
         {data.myTeam && <MyTeamCard data={data} id={id} />}
+        {roundItems.length > 1 && (
+          <Card style={{ padding: '12px 14px' }}>
+            <div className="td-over" style={{ marginBottom: 8 }}>RONDAS</div>
+            <RoundRail items={roundItems} value={null} onChange={onRound} tip={roundTip} compact />
+          </Card>
+        )}
         <ScheduleCard data={data} />
       </div>
     </div>
@@ -1745,8 +1772,51 @@ function TeamsBoard({ regs, id, region, standings }: {
 }
 
 // ── PARTIDAS: bracket crudo + stats reales por partido ───────────────────────
-function PartidasTab({ id }: { id: string }) {
+// Estados reales de BracketMatch.matchStatus (backend): pending | ready |
+// active | complete. Las pills los etiquetan en español; nada de enums inventados.
+type MatchStatusFilter = 'all' | 'pending' | 'ready' | 'active' | 'complete';
+const MATCH_STATUS_PILLS: { key: MatchStatusFilter; label: string }[] = [
+  { key: 'all', label: 'Todas' },
+  { key: 'pending', label: 'Pendientes' },
+  { key: 'ready', label: 'Listas' },
+  { key: 'active', label: 'En juego' },
+  { key: 'complete', label: 'Finalizadas' },
+];
+
+function PartidasTab({ id, swissRounds }: { id: string; swissRounds: number | null }) {
   const { data, isLoading, isError, error, refetch } = useBracket(id);
+
+  // ── Filtros (solo cliente). La ronda vive en la URL (?round=N | all) para que
+  // los deep-links funcionen; estado y equipo son locales. ──
+  const [params, setParams] = useSearchParams();
+  const [status, setStatus] = useState<MatchStatusFilter>('all');
+  const [q, setQ] = useState('');
+
+  const matches = useMemo(
+    () => (data?.bracket ?? []).filter((m) => m.team1 && m.team2 && m.team1 !== 'BYE' && m.team2 !== 'BYE'),
+    [data],
+  );
+  const rounds = useMemo(
+    () => Array.from(new Set(matches.map((m) => m.round))).sort((a, b) => a - b),
+    [matches],
+  );
+  // Ronda "vigente": la menor con partidas sin cerrar (LQC en ronda 3 → 3).
+  const currentRound = useMemo(() => {
+    const open = matches.filter((m) => m.matchStatus !== 'complete').map((m) => m.round);
+    return open.length ? Math.min(...open) : null;
+  }, [matches]);
+
+  const urlRound = params.get('round');
+  const round: number | null =
+    urlRound === 'all' ? null
+    : urlRound && Number.isFinite(Number(urlRound)) ? Number(urlRound)
+    : (data?.phase === 'active' ? currentRound : null);
+  const pickRound = (key: string) =>
+    setParams((prev) => { const p = new URLSearchParams(prev); p.set('round', key); return p; }, { replace: true });
+  const clearFilters = () => {
+    setStatus('all'); setQ('');
+    setParams((prev) => { const p = new URLSearchParams(prev); p.set('round', 'all'); return p; }, { replace: true });
+  };
 
   if (isError) {
     return (
@@ -1758,9 +1828,6 @@ function PartidasTab({ id }: { id: string }) {
   }
   if (isLoading || !data) return <Block h={280} r={16} />;
 
-  const matches = (data.bracket ?? []).filter(
-    (m) => m.team1 && m.team2 && m.team1 !== 'BYE' && m.team2 !== 'BYE',
-  );
   if (!matches.length) {
     return (
       <Card>
@@ -1787,25 +1854,84 @@ function PartidasTab({ id }: { id: string }) {
 
   // Agrupado por ronda, stats colapsables: con muchas partidas la página no
   // dispara N fetches a la vez ni se hace infinita. Con ≤2 partidas se abren solas.
-  const rounds = Array.from(new Set(matches.map((m) => m.round))).sort((a, b) => a - b);
   const autoOpen = matches.filter((m) => m.matchStatus !== 'pending').length <= 2;
 
+  // RoundRail: "Todas" + una pill por ronda existente (las rondas futuras del
+  // suizo aparecen solas cuando el backend las genera).
+  const roundItems: RoundRailItem[] = [
+    { key: 'all', label: 'Todas', count: matches.length, live: matches.filter((m) => m.matchStatus === 'active').length },
+    ...rounds.map((r) => {
+      const ms = matches.filter((m) => m.round === r);
+      return {
+        key: String(r), label: rlabel(r), count: ms.length,
+        live: ms.filter((m) => m.matchStatus === 'active').length,
+        done: ms.every((m) => m.matchStatus === 'complete'),
+      };
+    }),
+  ];
+  const roundTip = data.bracketType === 'swiss' && swissRounds
+    ? `Filtra por ronda — este torneo tiene ${swissRounds} rondas suizas`
+    : 'Filtra por ronda';
+
+  const needle = q.trim().toLowerCase();
+  const visible = matches.filter((m) =>
+    (round === null || m.round === round)
+    && (status === 'all' || m.matchStatus === status)
+    && (!needle || (m.team1 ?? '').toLowerCase().includes(needle) || (m.team2 ?? '').toLowerCase().includes(needle)),
+  );
+  const visibleRounds = rounds.filter((r) => visible.some((m) => m.round === r));
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-      {rounds.map((r) => (
-        <section key={r}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 2px 10px' }}>
-            <span className="td-over" style={{ color: RED, letterSpacing: '2px' }}>{rlabel(r).toUpperCase()}</span>
-            <div style={{ flex: 1, height: 1, background: 'var(--td-border)' }} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div className="td-panel td-filterbar">
+        <RoundRail items={roundItems} value={round === null ? 'all' : String(round)} onChange={pickRound} tip={roundTip} />
+        <div className="td-filterbar-row">
+          <FilterPills<MatchStatusFilter> items={MATCH_STATUS_PILLS} value={status} onChange={setStatus} />
+          <div className="td-search-wrap" style={{ marginLeft: 'auto', maxWidth: 320 }}>
+            <Search size={14} />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar equipo…"
+              aria-label="Buscar equipo"
+              className="td-search"
+            />
+            {q && (
+              <button type="button" className="td-search-clear" aria-label="Limpiar búsqueda" onClick={() => setQ('')}>
+                <X size={12} />
+              </button>
+            )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {matches.filter((m) => m.round === r).map((m) => (
-              <MatchRow key={m.id} id={id} m={m} defaultOpen={autoOpen && m.matchStatus !== 'pending'}
-                isOwner={data.viewerAccess === 'owner'} />
-            ))}
+        </div>
+      </div>
+
+      {visible.length === 0 ? (
+        <Card>
+          <div className="td-filter-empty">
+            <Swords size={28} color="var(--td-muted)" style={{ opacity: .5 }} />
+            <span style={{ fontSize: 13, color: 'var(--td-text-2)' }}>Ninguna partida coincide con los filtros</span>
+            <Button variant="secondary" onClick={clearFilters}>Quitar filtros</Button>
           </div>
-        </section>
-      ))}
+        </Card>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+          {visibleRounds.map((r) => (
+            <section key={r}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 2px 10px' }}>
+                <span className="td-over" style={{ color: RED, letterSpacing: '2px' }}>{rlabel(r).toUpperCase()}</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--td-border)' }} />
+                <span className="td-over">{visible.filter((m) => m.round === r).length} partidas</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {visible.filter((m) => m.round === r).map((m) => (
+                  <MatchRow key={m.id} id={id} m={m} defaultOpen={autoOpen && m.matchStatus !== 'pending'}
+                    isOwner={data.viewerAccess === 'owner'} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -2037,10 +2163,31 @@ function MatchRow({ id, m, defaultOpen, isOwner }: { id: string; m: BracketMatch
 // ── STATS GLOBALES DEL TORNEO ────────────────────────────────────────────────
 function StatsTab({ id }: { id: string }) {
   const { data, loading, error, refresh } = useTournamentGlobalStats({ tournamentId: id });
+  const { data: regs } = useRegistrations(id);
+
+  // Cruce roster → jugador de stats por Riot ID (nombre#tag normalizado, y el
+  // nombre solo como respaldo). Las stats de Riot traen el Riot ID con el que
+  // se JUGÓ, y algunos jugadores se inscriben con otro (typo, cuenta secundaria,
+  // "futaba#kıss" vs "futaba#kiss"…): en LQC 2026 casan ~102/108 (medido
+  // 14-sep-2026; al inicio del torneo eran ~87/108). Los que no casan siguen
+  // apareciendo en la tabla bajo "Sin equipo" — nunca se descartan.
+  const teamBySummoner = useMemo(() => {
+    if (!regs?.length) return undefined;
+    const map: Record<string, string> = {};
+    for (const r of regs) {
+      for (const p of r.players ?? []) {
+        const [gn, tl] = String(p.riotId || p.name || '').split('#');
+        if (!gn) continue;
+        map[playerKey(gn, tl)] = r.teamName;
+        if (!(playerKey(gn) in map)) map[playerKey(gn)] = r.teamName;
+      }
+    }
+    return map;
+  }, [regs]);
 
   if (error && !data) return <ErrorCard message={error} onRetry={refresh} />;
   if (!data) return <Block h={320} r={16} />;
-  return <TournamentGlobalStats data={data} loading={loading} onRefresh={refresh} />;
+  return <TournamentGlobalStats data={data} loading={loading} onRefresh={refresh} teamBySummoner={teamBySummoner} />;
 }
 
 function ReglasTab({ data }: { data: TdBoardPayload }) {
