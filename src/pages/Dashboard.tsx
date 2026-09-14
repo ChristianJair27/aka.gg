@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { DailySchedulesAdmin } from "@/components/DailySchedulesAdmin";
 import { axiosInstance } from "@/lib/axios";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tip } from "@/components/ui/Tip";
 import { useQueryClient } from "@tanstack/react-query";
@@ -294,14 +295,34 @@ const Dashboard = () => {
 
   // ===== vincular cuenta =====
   const qc = useQueryClient();
+  // Enfriamiento tras un 429 de Riot. El cliente NO reintenta solo (una sola
+  // petición por click, y queryClient tampoco reintenta 429): el límite lo
+  // impone Riot aguas arriba. Lo único útil desde aquí es decirlo claro y
+  // bloquear el botón unos segundos para que insistir no lo empeore.
+  const [cooldown, setCooldown] = useState(0);
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
   const linkAccount = async () => {
+    if (cooldown > 0) return;
     setLinking(true);
     setErr("");
     try {
       await axiosInstance.post("/api/players/link", { riotId, platform });
       await qc.invalidateQueries({ queryKey: qk.overview() });
     } catch (e: any) {
-      setErr(e?.response?.data?.msg || "No se pudo vincular la cuenta");
+      if (e?.response?.status === 429) {
+        // Retry-After llega en segundos cuando Riot lo manda; si no, 20 s.
+        const wait = Number(e?.response?.headers?.["retry-after"]) || 20;
+        setCooldown(wait);
+        setErr("Riot está limitando peticiones — reintenta en un momento");
+        toast.warning("Riot está limitando peticiones — reintenta en un momento");
+      } else {
+        setErr(e?.response?.data?.msg || "No se pudo vincular la cuenta");
+      }
     } finally {
       setLinking(false);
     }
@@ -374,8 +395,9 @@ const Dashboard = () => {
                 </select>
               </div>
               {err && <div style={{ fontSize: 13, color: C.loss }}>{err}</div>}
-              <button className="vs-btn" onClick={linkAccount} disabled={!riotId || linking} style={{ width: "100%" }}>
-                {linking ? "Vinculando…" : "Vincular cuenta"}
+              <button className="vs-btn" onClick={linkAccount}
+                disabled={!riotId || linking || cooldown > 0} style={{ width: "100%" }}>
+                {linking ? "Vinculando…" : cooldown > 0 ? `Reintenta en ${cooldown}s` : "Vincular cuenta"}
               </button>
             </div>
           </Card>

@@ -1144,8 +1144,12 @@ function MyTeamCard({ data, id }: { data: TdBoardPayload; id: string }) {
   const disabled = my.checkedIn || checkin.isPending;
 
   const doCheckin = () => {
-    // Dashboard payload only exposes the team tag; captainRiotId is resolved
-    // server-side from the authenticated session. See report note.
+    // El `captainRiotId: ''` NO es un hueco por rellenar: verificado en el
+    // backend (POST /:id/checkin), la autorización va por membresía real —
+    // quien registró el equipo, un jugador del roster por userId o por cuenta
+    // de Riot vinculada, o el organizador— y el campo del body se ignora a
+    // propósito porque el cliente puede omitirlo. Mandar algo aquí no cambia
+    // nada; el tipo lo pide, de ahí la cadena vacía.
     checkin.mutate(
       { teamName: my.tag, captainRiotId: '' },
       { onSuccess: () => toast.success('Check-in realizado') },
@@ -2289,6 +2293,11 @@ function LobbyStatus({ id, matchId }: { id: string; matchId: string }) {
   if (!data?.hasCode) return null;
   const full = data.joined >= data.expected;
   return (
+    <Tip label={
+      data.gameStarted ? 'La partida ya empezó'
+        : data.draftStarted ? 'Los equipos están en la fase de selección'
+        : `Jugadores dentro del lobby de Riot: ${data.joined} de ${data.expected}`
+    }>
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700,
       padding: '4px 10px', borderRadius: 999,
@@ -2301,6 +2310,7 @@ function LobbyStatus({ id, matchId }: { id: string; matchId: string }) {
         : data.draftStarted ? 'EN DRAFT'
         : `Lobby ${data.joined}/${data.expected}`}
     </span>
+    </Tip>
   );
 }
 
@@ -2399,7 +2409,8 @@ function MatchRow({ id, m, open, onToggle, inlineStats = true, onSeeRound, isOwn
               <span style={{ color: m.winner === m.team2 ? '#fff' : 'var(--td-text-2)' }}>{m.score2 ?? '–'}</span>
             </span>
             {boLabel && (
-              <span className="td-num" style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.1em', color: '#c8aa6e' }}>
+              <span className="td-num" style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.1em', color: '#c8aa6e' }}
+                title={`Serie al mejor de ${seriesTo * 2 - 1} — gana quien llegue a ${seriesTo}`}>
                 {boLabel}
               </span>
             )}

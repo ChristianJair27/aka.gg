@@ -3,6 +3,7 @@
 // gigante fantasma al fondo (momento de marca, estilo Flowty). Solo rutas reales.
 import { Link } from 'react-router-dom';
 import { Sword, Swords, Users, LayoutDashboard } from 'lucide-react';
+import { useAuth } from '@/features/auth/useAuth';
 
 const NAV = [
   { label: 'Stats',      href: '/stats',       Icon: Sword },
@@ -12,6 +13,11 @@ const NAV = [
 ];
 
 export const Footer = () => {
+  // El pie no consultaba la sesión: con el usuario dentro seguía ofreciendo
+  // "Iniciar sesión" y "Crear cuenta". Mismo store que la barra superior
+  // (useSyncExternalStore), así que ambos cambian a la vez al entrar o salir.
+  const { user, isAuthenticated, logout } = useAuth();
+
   return (
     <footer className="relative mt-auto overflow-hidden bg-[#050505]">
       {/* Umbral: filo dorado */}
@@ -59,18 +65,45 @@ export const Footer = () => {
           {/* Cuenta / companion */}
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-[#c8aa6e] mb-4">Tu cuenta</h3>
-            <ul className="space-y-2.5">
-              <li>
-                <Link to="/login" className="text-sm text-white/60 hover:text-white transition-colors duration-200">
-                  Iniciar sesión
-                </Link>
-              </li>
-              <li>
-                <Link to="/register" className="text-sm text-white/60 hover:text-white transition-colors duration-200">
-                  Crear cuenta
-                </Link>
-              </li>
-            </ul>
+            {isAuthenticated ? (
+              <ul className="space-y-2.5">
+                {user?.name && (
+                  <li className="text-sm text-white/80 font-semibold truncate max-w-[200px]">{user.name}</li>
+                )}
+                <li>
+                  <Link to="/dashboard" className="text-sm text-white/60 hover:text-white transition-colors duration-200">
+                    Dashboard
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/dashboard" className="text-sm text-white/60 hover:text-white transition-colors duration-200">
+                    Mi Perfil
+                  </Link>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="text-sm text-white/60 hover:text-white transition-colors duration-200"
+                  >
+                    Cerrar sesión
+                  </button>
+                </li>
+              </ul>
+            ) : (
+              <ul className="space-y-2.5">
+                <li>
+                  <Link to="/login" className="text-sm text-white/60 hover:text-white transition-colors duration-200">
+                    Iniciar sesión
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/register" className="text-sm text-white/60 hover:text-white transition-colors duration-200">
+                    Crear cuenta
+                  </Link>
+                </li>
+              </ul>
+            )}
             <p className="mt-6 text-xs leading-relaxed text-white/40">
               Companion in-game disponible vía Overwolf para overlays en vivo.
             </p>

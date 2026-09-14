@@ -1,3 +1,11 @@
+// TODO (CONVENTIONS §1 — datos vía React Query): este hook sigue con
+// useEffect + axios y su propio setInterval. Migrarlo a `src/hooks/queries/`
+// con `qk.tournamentGlobalStats(id)` y `refetchInterval` unificaría caché e
+// invalidación con el resto del dashboard. NO se hace ahora: lo consumen a la
+// vez StatsTab, StatsMainCard, TournamentTeamModal y PlayerRadarCard, y
+// cambiar la firma (`{data, loading, error, refresh}` → `{data, isLoading…}`)
+// en mitad del LQC en directo arriesga romper las cuatro superficies. Hacerlo
+// cuando cierre el torneo, con las cuatro pantallas verificables de una.
 import { useState, useEffect, useRef, useCallback } from 'react';
 import axiosInstance from '@/lib/axios';
 import type { TournamentGlobalStats } from '@/types/tournament-global-stats';

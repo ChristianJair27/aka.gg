@@ -2,6 +2,16 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/skeleton';
+
+/** Fase del torneo en español (el payload la trae en inglés). */
+const PHASE_ES: Record<string, string> = {
+  registration: 'Inscripciones',
+  checkin: 'Check-in',
+  active: 'En curso',
+  complete: 'Finalizado',
+  cancelled: 'Cancelado',
+};
 import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 import { axiosInstance } from '@/lib/axios';
@@ -880,7 +890,7 @@ export default function TournamentLivePage() {
                   {connected ? 'Transmisión en Vivo' : 'Modo Polling'}
                 </span>
                 <span className="text-xs text-gray-600 uppercase tracking-widest">{data.region.toUpperCase()}</span>
-                <span className="text-xs text-gray-600 capitalize">{data.phase}</span>
+                <span className="text-xs text-gray-600">{PHASE_ES[data.phase] ?? data.phase}</span>
               </div>
               <h1 data-h className="text-2xl md:text-3xl font-black text-white truncate">
                 {data.tournamentName}
@@ -906,11 +916,30 @@ export default function TournamentLivePage() {
       )}
 
       {/* ── States ─────────────────────────────────────────────────────────── */}
+      {/* Esqueleto con la forma de las tarjetas de partida: la página no salta
+          al llegar los datos (CONVENTIONS: nada de spinner a nivel de panel). */}
       {loading && !data && (
-        <div className="flex flex-col items-center justify-center py-40 gap-4">
-          <div className="w-12 h-12 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
-          <p className="text-gray-500 text-sm">Conectando a la transmisión…</p>
-        </div>
+        <main className="max-w-7xl mx-auto px-6 pb-24" aria-busy="true" aria-label="Cargando partidas">
+          <div className="space-y-5 mt-2">
+            {[0, 1].map((i) => (
+              <div key={i} className="rounded-2xl border border-white/[0.07] bg-black overflow-hidden">
+                <div className="flex items-center justify-between gap-4 px-5 py-4 border-b border-white/[0.05]">
+                  <Skeleton variant="line" width={130} height={13} />
+                  <Skeleton variant="line" width={70} height={11} />
+                </div>
+                <div className="flex items-center gap-3 px-5 py-6">
+                  {Array.from({ length: 5 }).map((_, k) => (
+                    <Skeleton key={`b${k}`} variant="block" width={58} height={72} style={{ borderRadius: 12 }} />
+                  ))}
+                  <Skeleton variant="line" width={28} height={22} />
+                  {Array.from({ length: 5 }).map((_, k) => (
+                    <Skeleton key={`r${k}`} variant="block" width={58} height={72} style={{ borderRadius: 12 }} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </main>
       )}
 
       {error && !data && (
