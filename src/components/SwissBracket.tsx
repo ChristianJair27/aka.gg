@@ -159,14 +159,15 @@ export function SwissBracket({
         </span>
       </div>
 
-      <div className="overflow-x-auto pb-2">
+      <div className="overflow-x-auto pb-2" data-td-bracket>
         <div className="flex items-start gap-8 min-w-max">
           {rounds.map((r, ri) => {
             const st = roundState(r);
             const ms = bracket.filter((m) => m.round === r);
             const isFinalRound = ri === rounds.length - 1 && champion != null;
             return (
-              <div key={r} className="flex items-start gap-8">
+              // data-td-round: ancla para el resalte de la muestra "Bracket en vivo".
+              <div key={r} className="flex items-start gap-8" data-td-round={r}>
                 <div className="flex flex-col gap-4">
                   {/* Cabecera de la ronda */}
                   <motion.div

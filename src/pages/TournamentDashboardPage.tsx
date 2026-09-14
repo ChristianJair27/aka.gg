@@ -29,6 +29,11 @@ import {
   Button, StatusChip, TeamBadge, StatTile, ProgressBar, SectionHead, FilterPills,
 } from '@/components/tournament/ui';
 import { RoundRail, type RoundRailItem } from '@/components/tournament/RoundRail';
+import {
+  DiscoveryBanner, GuiaRapidaButton, type DiscoverySamplesData,
+} from '@/components/tournament/DiscoveryHints';
+import { useDiscoveryNav, discoveryToast, pulseSelector } from '@/hooks/useTournamentDiscovery';
+import { Tip } from '@/components/ui/Tip';
 import { playerKey } from '@/components/TournamentGlobalStats';
 import { Skeleton } from '@/components/ui/skeleton';
 import Aurora from '@/components/Aurora';
@@ -82,13 +87,18 @@ const fmtTime = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : null;
 
 // ── Small local layout helper (uses tokens; not a primitive) ─────────────────
-function Card({ children, accent, style }: { children: ReactNode; accent?: string; style?: CSSProperties }) {
+function Card({ children, accent, style, anchor }: {
+  children: ReactNode; accent?: string; style?: CSSProperties;
+  /** data-td-* para que el descubrimiento pueda localizar y resaltar la tarjeta. */
+  anchor?: string;
+}) {
   // Panel opaco con hairline: sobre un dashboard denso, el cristal translúcido
   // dejaba el video de fondo peleando con las tablas. El acento solo cambia el
   // color del borde (live / error / fearless).
   return (
     <div
       className="td-panel td-card-in"
+      {...(anchor ? { [anchor]: '' } : null)}
       style={{ padding: 18, ...(accent ? { borderColor: accent } : null), ...style }}
     >
       {children}
@@ -115,6 +125,23 @@ export default function TournamentDashboardPage() {
   const tab = (params.get('tab') as Tab) || defaultTab;
   const setTab = (t: Tab) =>
     setParams((prev) => { const p = new URLSearchParams(prev); p.set('tab', t); return p; }, { replace: true });
+
+  // Muestras del descubrimiento: se calculan del payload real para que cada
+  // chip aterrice en algo que existe (equipo inscrito, serie ya jugada, ronda
+  // en juego) y nunca en una pantalla vacía.
+  const discovery: DiscoverySamplesData = useMemo(() => {
+    const rounds = data?.bracket ?? [];
+    const all = rounds.flatMap((r) => r.matches.map((m) => ({ ...m, round: r.round })));
+    const complete = all.filter((m) => m.matchStatus === 'complete' && m.teamA && m.teamB);
+    const sampleMatch =
+      complete.find((m) => m.round === 2) ?? complete[complete.length - 1] ?? null;
+    const active = all.filter((m) => m.matchStatus === 'active');
+    return {
+      sampleTeam: data?.myTeam?.tag ?? data?.standings?.[0]?.name ?? null,
+      sampleMatch: sampleMatch ? { id: sampleMatch.id, round: sampleMatch.round } : null,
+      liveRound: active.length ? Math.min(...active.map((m) => m.round)) : null,
+    };
+  }, [data]);
 
   // Inscripción SIN salir de la página: modal propio. `?register=1` lo abre
   // solo (así el flujo "acepté la invitación → inscribe tu equipo" es directo).
@@ -163,6 +190,8 @@ export default function TournamentDashboardPage() {
         ) : (
           <>
             <Hero data={data} onBracket={() => setTab('bracket')} onRegister={() => setRegisterOpen(true)} />
+            {/* Descubrimiento: banner descartable con muestras reales (no bloquea) */}
+            <DiscoveryBanner tournamentId={id} data={discovery} />
             <BroadcastBanner channel={id} navigate={go} />
             <Tiles t={data.tournament} />
             {data.viewerAccess === 'owner' && (
@@ -197,7 +226,7 @@ export default function TournamentDashboardPage() {
                       <EquiposTab id={id} region={data.tournament.region} standings={data.standings} />
                     )}
                     {tab === 'partidas' && <PartidasTab id={id} swissRounds={data.tournament.swissRounds ?? null} />}
-                    {tab === 'stats' && <StatsTab id={id} />}
+                    {tab === 'stats' && <StatsTab id={id} name={data.tournament.name} />}
                     {tab === 'reglas' && <ReglasTab data={data} />}
                   </motion.div>
                 </AnimatePresence>
@@ -205,6 +234,8 @@ export default function TournamentDashboardPage() {
             </div>
             {/* Nav flotante inferior (móvil / tablet) */}
             <BottomNav value={tab} onChange={setTab} live={data.tournament.status === 'live'} />
+            {/* Reabre las muestras a petición del jugador — nunca solo */}
+            <GuiaRapidaButton data={discovery} />
 
             {/* Modal de inscripción in-page — roster del tamaño del formato */}
             <TournamentRegisterModal
@@ -635,10 +666,10 @@ function ResumenGrid({ data, id, navigate, onStats, onRound }: {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
         {/* Las stats son el corazón del torneo: main card del resumen */}
         <StatsMainCard id={id} onFull={onStats} />
-        <StandingsCard data={data} />
+        <StandingsCard data={data} id={id} region={data.tournament.region} />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
-        <LiveCard data={data} navigate={navigate} id={id} />
+        <LiveCard data={data} navigate={navigate} id={id} onRound={onRound} />
         {data.tournament.fearless && <FearlessCard id={id} />}
         {data.myTeam && <MyTeamCard data={data} id={id} />}
         {roundItems.length > 1 && (
@@ -711,8 +742,15 @@ function FearlessCard({ id }: { id: string }) {
 // ── STANDINGS ────────────────────────────────────────────────────────────────
 // Columnas via clases .td-strow (media queries en ResponsiveStyles): en móvil
 // se ocultan WR y Racha para que no desborde.
-function StandingsCard({ data }: { data: TdBoardPayload }) {
+function StandingsCard({ data, id, region }: { data: TdBoardPayload; id: string; region: string }) {
   const rows = data.standings;
+  // Mismo destino que la tarjeta de Equipos: la fila de la tabla abre el
+  // análisis del equipo. `useRegistrations` comparte caché con la pestaña
+  // Equipos, así que no dispara una petición extra si ya se visitó.
+  const { data: regs } = useRegistrations(id);
+  const [openTeam, setOpenTeam] = useState<string | null>(null);
+  const reg = regs?.find((r) => r.teamName === openTeam) ?? null;
+
   return (
     <Card>
       <SectionHead icon={<BarChart3 size={14} color={BLUE} />} title="CLASIFICACIÓN" />
@@ -726,16 +764,22 @@ function StandingsCard({ data }: { data: TdBoardPayload }) {
             <span style={{ textAlign: 'right' }}>Pts</span>
           </div>
           {rows.map((s) => (
-            <div key={s.teamId} className="td-strow td-row-hover" style={{ padding: '9px 8px', borderRadius: 8 }}>
+            <div key={s.teamId} className="td-strow td-row-hover td-strow-click" style={{ padding: '9px 8px', borderRadius: 8 }}
+              role="button" tabIndex={0} aria-label={`Ver análisis de ${s.name}`}
+              onClick={() => setOpenTeam(s.name)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenTeam(s.name); } }}
+            >
               <span className="td-num" style={{ fontSize: 13, fontWeight: 700, color: s.position === 1 ? RED : 'var(--td-text-2)' }}>
                 {s.position}
               </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                <TeamBadge name={s.name} color={s.color} mono={s.mono} size={22} />
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {s.name}
-                </span>
-              </div>
+              <Tip label="Click para stats del equipo y jugadores">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <TeamBadge name={s.name} color={s.color} mono={s.mono} size={22} />
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {s.name}
+                  </span>
+                </div>
+              </Tip>
               <span className="td-num" style={{ fontSize: 12.5, color: 'var(--td-text-2)' }}>{s.wins}-{s.losses}</span>
               <div className="td-st-wr" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ flex: 1 }}><ProgressBar kind="wr" pct={s.winratePct} /></div>
@@ -754,6 +798,15 @@ function StandingsCard({ data }: { data: TdBoardPayload }) {
             </div>
           ))}
         </div>
+      )}
+      {reg && (
+        <TournamentTeamModal
+          tournamentId={id}
+          region={region}
+          reg={reg}
+          standing={rows.find((x) => x.name === reg.teamName) ?? null}
+          onClose={() => setOpenTeam(null)}
+        />
       )}
     </Card>
   );
@@ -802,14 +855,16 @@ function GoldDiffBars({ series }: { series: number[] }) {
   );
 }
 
-function LiveCard({ data, navigate, id }: { data: TdBoardPayload; navigate: (to: string) => void; id: string }) {
+function LiveCard({ data, navigate, id, onRound }: {
+  data: TdBoardPayload; navigate: (to: string) => void; id: string; onRound: (round: string) => void;
+}) {
   const live = data.liveMatch;
-  if (!live) return <NextMatchCard data={data} />;
+  if (!live) return <NextMatchCard data={data} onRound={onRound} />;
   const timer = live.timer != null
     ? `${pad(Math.floor(live.timer / 60))}:${pad(live.timer % 60)}`
     : null;
   return (
-    <Card accent="rgba(59,130,246,0.35)">
+    <Card accent="rgba(59,130,246,0.35)" anchor="data-td-live">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <span className="td-dot-pulse" style={{ width: 6, height: 6, borderRadius: '50%', background: BLUE }} />
         <span className="td-over" style={{ color: 'var(--td-live-text)', letterSpacing: '2px' }}>
@@ -846,7 +901,11 @@ function LiveCard({ data, navigate, id }: { data: TdBoardPayload; navigate: (to:
       {live.goldDiffSeries?.length ? <GoldDiffBars series={live.goldDiffSeries} /> : null}
 
       <div style={{ marginTop: 14 }}>
-        <Button variant="primary" icon={<Play size={15} />} full onClick={() => navigate(`/tournaments/${id}/live`)}>ESPECTAR</Button>
+        <Tip label="Ver la partida en vivo">
+          <span style={{ display: 'block' }}>
+            <Button variant="primary" icon={<Play size={15} />} full onClick={() => navigate(`/tournaments/${id}/live`)}>ESPECTAR</Button>
+          </span>
+        </Tip>
       </div>
     </Card>
   );
@@ -863,10 +922,23 @@ function TeamCol({ team }: { team: NonNullable<TdBoardPayload['liveMatch']>['tea
   );
 }
 
-function NextMatchCard({ data }: { data: TdBoardPayload }) {
+function NextMatchCard({ data, onRound }: { data: TdBoardPayload; onRound: (round: string) => void }) {
   const next = data.schedule[0];
+  // Sin feed de spectator: en vez de un muro, se explica por qué y se ofrece la
+  // ronda en juego. El aviso sale una sola vez por navegador.
+  const activeRound = useMemo(() => {
+    const rounds = (data.bracket ?? []).filter((r) => r.matches.some((m) => m.matchStatus === 'active'));
+    return rounds.length ? rounds[0].round : null;
+  }, [data.bracket]);
+  const isActive = data.tournament.phase === 'active';
+  useEffect(() => {
+    if (!isActive) return;
+    discoveryToast('live-empty', () =>
+      toast.info('Ronda activa — el spectator se conecta cuando empiece el juego'));
+  }, [isActive]);
+
   return (
-    <Card accent="rgba(59,130,246,0.25)">
+    <Card accent="rgba(59,130,246,0.25)" anchor="data-td-live">
       <SectionHead icon={<Play size={14} color={BLUE} />} title="PRÓXIMA PARTIDA" />
       {!next ? (
         <EmptyState>No hay partidas en directo ni programadas</EmptyState>
@@ -877,6 +949,13 @@ function NextMatchCard({ data }: { data: TdBoardPayload }) {
             <div className="td-num" style={{ fontSize: 15, fontWeight: 700, color: RED }}>{fmtTime(next.scheduledAt) ?? 'Por definir'}</div>
             <div className="td-over" style={{ marginTop: 2 }}>{next.roundLabel}</div>
           </div>
+        </div>
+      )}
+      {activeRound != null && (
+        <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center' }}>
+          <Button variant="secondary" icon={<Swords size={14} />} onClick={() => onRound(String(activeRound))}>
+            Ver Partidas de la ronda
+          </Button>
         </div>
       )}
     </Card>
@@ -943,9 +1022,13 @@ function MyTeamCard({ data, id }: { data: TdBoardPayload; id: string }) {
         ))}
       </div>
       <div style={{ marginTop: 14 }}>
-        <Button variant="primary" icon={<Check size={15} />} full disabled={disabled} onClick={doCheckin}>
-          {my.checkedIn ? 'CHECK-IN COMPLETADO' : 'HACER CHECK-IN'}
-        </Button>
+        <Tip label="Tu equipo en el torneo">
+          <span style={{ display: 'block' }}>
+            <Button variant="primary" icon={<Check size={15} />} full disabled={disabled} onClick={doCheckin}>
+              {my.checkedIn ? 'CHECK-IN COMPLETADO' : 'HACER CHECK-IN'}
+            </Button>
+          </span>
+        </Tip>
       </div>
     </Card>
   );
@@ -1484,9 +1567,9 @@ function BracketTab({ id, data }: { id: string; data: TdBoardPayload }) {
     };
     const rounds = Array.from(new Set(bracket.map((m) => m.round))).sort((a, b) => a - b);
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }} data-td-bracket>
         {rounds.map((r) => (
-          <section key={r}>
+          <section key={r} data-td-round={r}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 2px 10px' }}>
               <span className="td-over" style={{ color: RED, letterSpacing: '2px' }}>{rlabel(r).toUpperCase()}</span>
               <div style={{ flex: 1, height: 1, background: 'var(--td-border)' }} />
@@ -1554,7 +1637,15 @@ function TeamsBoard({ regs, id, region, standings }: {
 }) {
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<'estado' | 'nombre' | 'plantilla'>('estado');
-  const [openTeam, setOpenTeam] = useState<string | null>(null);
+  // El equipo abierto puede venir de un click o de `?team=` (muestra del
+  // descubrimiento / enlace compartido). Al cerrar se limpia el parámetro para
+  // que no se vuelva a abrir al navegar entre pestañas.
+  const { params: navParams, clearParam } = useDiscoveryNav();
+  const [clicked, setClicked] = useState<string | null>(null);
+  const urlTeam = navParams.get('team');
+  const openTeam = clicked ?? urlTeam;
+  const setOpenTeam = (name: string | null) => setClicked(name);
+  const closeTeam = () => { setClicked(null); if (urlTeam) clearParam('team'); };
 
   // Iconos de perfil de LoL de todos los jugadores inscritos (una llamada batch).
   const allRiotIds = useMemo(
@@ -1639,7 +1730,13 @@ function TeamsBoard({ regs, id, region, standings }: {
       </div>
 
       {!view.length ? (
-        <Card><EmptyState>Ningún equipo coincide con «{q}»</EmptyState></Card>
+        <Card>
+          <div className="td-filter-empty">
+            <Users size={28} color="var(--td-muted)" style={{ opacity: .5 }} />
+            <span style={{ fontSize: 13, color: 'var(--td-text-2)' }}>Ningún equipo coincide con «{q}»</span>
+            <Button variant="secondary" onClick={() => setQ('')}>Limpiar búsqueda</Button>
+          </div>
+        </Card>
       ) : (
         <div className="td-dash-teams">
           {view.map((r) => {
@@ -1647,8 +1744,8 @@ function TeamsBoard({ regs, id, region, standings }: {
             const confirmed = confirmedOf(r);
             const pct = players.length ? (confirmed / players.length) * 100 : 0;
             return (
+              <Tip key={r.teamName} label="Click para stats del equipo y jugadores">
               <div
-                key={r.teamName}
                 className="td-panel td-hoverable td-card-in"
                 style={{ overflow: 'hidden', cursor: 'pointer' }}
                 role="button"
@@ -1748,6 +1845,7 @@ function TeamsBoard({ regs, id, region, standings }: {
                   </div>
                 </div>
               </div>
+              </Tip>
             );
           })}
         </div>
@@ -1763,7 +1861,7 @@ function TeamsBoard({ regs, id, region, standings }: {
             region={region}
             reg={r}
             standing={standings.find((s) => s.name === r.teamName) ?? null}
-            onClose={() => setOpenTeam(null)}
+            onClose={closeTeam}
           />
         );
       })()}
@@ -1805,6 +1903,13 @@ function PartidasTab({ id, swissRounds }: { id: string; swissRounds: number | nu
     const open = matches.filter((m) => m.matchStatus !== 'complete').map((m) => m.round);
     return open.length ? Math.min(...open) : null;
   }, [matches]);
+
+  // `?match=` (muestra "Ver stats de una serie" / enlace compartido): esa serie
+  // se despliega sola y se resalta cuando aparece en pantalla.
+  const urlMatch = params.get('match');
+  useEffect(() => {
+    if (urlMatch) pulseSelector(`[data-td-match="${urlMatch}"]`);
+  }, [urlMatch]);
 
   const urlRound = params.get('round');
   const round: number | null =
@@ -1924,7 +2029,8 @@ function PartidasTab({ id, swissRounds }: { id: string; swissRounds: number | nu
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {visible.filter((m) => m.round === r).map((m) => (
-                  <MatchRow key={m.id} id={id} m={m} defaultOpen={autoOpen && m.matchStatus !== 'pending'}
+                  <MatchRow key={m.id} id={id} m={m}
+                    defaultOpen={(autoOpen || m.id === urlMatch) && m.matchStatus !== 'pending'}
                     isOwner={data.viewerAccess === 'owner'} />
                 ))}
               </div>
@@ -1966,6 +2072,13 @@ function LobbyStatus({ id, matchId }: { id: string; matchId: string }) {
 function MatchRow({ id, m, defaultOpen, isOwner }: { id: string; m: BracketMatch; defaultOpen: boolean; isOwner?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   const hasStats = m.matchStatus !== 'pending';
+  // Primera vez que alguien despliega una serie: se explica qué hay dentro.
+  const toggleOpen = () => {
+    setOpen((o) => {
+      if (!o) discoveryToast('match-expand', () => toast.message('Compara daño, oro y visión entre equipos'));
+      return !o;
+    });
+  };
   const qc = useQueryClient();
   const refresh = () => {
     qc.invalidateQueries({ queryKey: qk.bracket(id) });
@@ -2019,9 +2132,11 @@ function MatchRow({ id, m, defaultOpen, isOwner }: { id: string; m: BracketMatch
   );
 
   return (
+    // data-td-match: ancla para el resalte de `?match=` (muestras del descubrimiento).
+    <div data-td-match={m.id}>
     <Card accent={m.matchStatus === 'active' ? 'rgba(59,130,246,0.35)' : undefined} style={{ padding: '16px 18px' }}>
       <button
-        onClick={hasStats ? () => setOpen((o) => !o) : undefined}
+        onClick={hasStats ? toggleOpen : undefined}
         aria-expanded={open}
         className="td-match-head"
         style={{
@@ -2055,7 +2170,13 @@ function MatchRow({ id, m, defaultOpen, isOwner }: { id: string; m: BracketMatch
         </div>
         <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           {statusChip}
-          {hasStats && (open ? <ChevronUp size={16} color="var(--td-muted)" /> : <ChevronDown size={16} color="var(--td-muted)" />)}
+          {hasStats && (
+            <Tip label="Ver scoreboard de la serie">
+              <span style={{ display: 'inline-flex' }}>
+                {open ? <ChevronUp size={16} color="var(--td-muted)" /> : <ChevronDown size={16} color="var(--td-muted)" />}
+              </span>
+            </Tip>
+          )}
         </span>
       </button>
 
@@ -2157,13 +2278,24 @@ function MatchRow({ id, m, defaultOpen, isOwner }: { id: string; m: BracketMatch
         )}
       </AnimatePresence>
     </Card>
+    </div>
   );
 }
 
 // ── STATS GLOBALES DEL TORNEO ────────────────────────────────────────────────
-function StatsTab({ id }: { id: string }) {
+function StatsTab({ id, name }: { id: string; name: string }) {
   const { data, loading, error, refresh } = useTournamentGlobalStats({ tournamentId: id });
   const { data: regs } = useRegistrations(id);
+
+  // Primera visita a Estadísticas: la tabla es enorme (108 jugadores en LQC),
+  // así que se señalan los filtros que la hacen manejable.
+  const playerCount = data?.players.length ?? 0;
+  useEffect(() => {
+    if (!playerCount) return;
+    const shortName = name.split(' ')[0] || 'el torneo';
+    discoveryToast('stats-108', () =>
+      toast.message(`Usa buscar / mín. partidas — hay ${playerCount} jugadores en ${shortName}`));
+  }, [playerCount, name]);
 
   // Cruce roster → jugador de stats por Riot ID (nombre#tag normalizado, y el
   // nombre solo como respaldo). Las stats de Riot traen el Riot ID con el que

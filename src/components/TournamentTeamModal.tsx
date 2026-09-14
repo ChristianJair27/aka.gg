@@ -8,7 +8,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   X, Users, Swords, BarChart3, ArrowUpRight, Crown, Eye, Coins, Target, Flame,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useBracket, type BracketMatch, type Registration } from '@/hooks/queries/tournaments';
+import { discoveryToast } from '@/hooks/useTournamentDiscovery';
 import { useTournamentGlobalStats } from '@/hooks/useTournamentGlobalStats';
 import type { PlayerAggregate } from '@/types/tournament-global-stats';
 import { StatusChip, TeamBadge, ProgressBar } from '@/components/tournament/ui';
@@ -74,6 +76,13 @@ const kdaColor = (k: number) => (k >= 4 ? '#fde047' : k >= 2.5 ? 'var(--td-green
 export function TournamentTeamModal({ tournamentId, region, reg, standing, onClose }: TournamentTeamModalProps) {
   const { data: br } = useBracket(tournamentId);
   const { data: gs } = useTournamentGlobalStats({ tournamentId });
+
+  // Primera vez que se abre el análisis de un equipo (desde Equipos, desde la
+  // clasificación o por enlace): se dice qué contiene. Solo una vez por navegador.
+  useEffect(() => {
+    discoveryToast('team-modal', () =>
+      toast.success('Stats del equipo: WR, plantilla y rendimiento por jugador'));
+  }, []);
 
   const [selected, setSelected] = useState<string | null>(null);
 

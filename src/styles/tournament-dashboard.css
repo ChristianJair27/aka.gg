@@ -249,3 +249,79 @@
   background: rgba(16, 13, 18, 0.96);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
 }
+
+/* ── Descubrimiento: banner suave + muestras ──────────────────────────────── */
+/* Nunca es un overlay: es un panel más del flujo, descartable y sin foco robado. */
+.td-root .td-discover {
+  position: relative; display: flex; gap: 14px; align-items: flex-start;
+  padding: 16px 18px; margin-top: 16px;
+  border-color: rgba(232, 50, 60, 0.28);
+}
+.td-root .td-discover-ico { color: var(--td-red); background: rgba(232, 50, 60, 0.12); }
+.td-root .td-discover-title {
+  margin: 0 0 5px; font-size: 15.5px; font-weight: 800; color: var(--td-text);
+  font-family: var(--td-font-ui); letter-spacing: -.2px;
+}
+.td-root .td-discover-body { margin: 0 0 12px; font-size: 12.5px; line-height: 1.5; color: var(--td-text-2); max-width: 62ch; }
+.td-root .td-discover-x {
+  position: absolute; top: 12px; right: 12px;
+  display: inline-flex; width: 26px; height: 26px; border-radius: 50%;
+  align-items: center; justify-content: center; cursor: pointer;
+  border: 1px solid var(--td-border); background: rgba(255, 255, 255, 0.04); color: var(--td-text-2);
+  transition: background .15s, color .15s;
+}
+.td-root .td-discover-x:hover { background: rgba(255, 255, 255, 0.10); color: var(--td-text); }
+
+.td-root .td-sample-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.td-root .td-sample-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 32px; padding: 0 13px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  font-family: var(--td-font-ui); font-size: 12px; font-weight: 600;
+  color: var(--td-text-2); background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--td-border);
+  transition: border-color .15s, background .15s, color .15s, transform .15s;
+}
+.td-root .td-sample-chip:hover {
+  color: #fff; border-color: var(--td-red-glow); background: rgba(232, 50, 60, 0.10); transform: translateY(-1px);
+}
+.td-root .td-sample-chip svg { color: var(--td-red); flex-shrink: 0; }
+
+/* Botón flotante "Guía rápida" — sobre el nav inferior en móvil. */
+.td-root .td-guide-fab {
+  position: fixed; right: 20px; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 39;
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px;
+  border-radius: 999px; cursor: pointer; white-space: nowrap;
+  font-family: var(--td-font-ui); font-size: 12.5px; font-weight: 700; color: #fff;
+  background: rgba(14, 14, 18, 0.92); border: 1px solid var(--td-border-hov);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
+  transition: border-color .15s, transform .15s;
+}
+.td-root .td-guide-fab:hover { border-color: var(--td-red-glow); transform: translateY(-1px); }
+.td-root .td-guide-fab svg { color: var(--td-red); }
+@media (max-width: 1100px) {
+  /* El nav flotante vive abajo al centro: el FAB sube para no taparlo. */
+  .td-root .td-guide-fab { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); right: 14px; }
+}
+
+/* Resalte de la muestra: contorno breve, solo transform/box-shadow. */
+@keyframes td-pulse-hint {
+  0%   { box-shadow: 0 0 0 0 rgba(232, 50, 60, 0.50); }
+  70%  { box-shadow: 0 0 0 10px rgba(232, 50, 60, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(232, 50, 60, 0); }
+}
+.td-root .td-pulse-hint,
+.td-pulse-hint {
+  animation: td-pulse-hint 1.2s ease-out 1;
+  border-radius: 18px; outline: 1px solid var(--td-red-glow); outline-offset: 2px;
+}
+/* Accesibilidad: sin movimiento, el resalte es estático (sigue siendo visible). */
+@media (prefers-reduced-motion: reduce) {
+  .td-root .td-pulse-hint, .td-pulse-hint { animation: none; }
+  .td-root .td-card-in { animation: none; }
+  .td-root .td-dot-pulse { animation: none; }
+}
+
+/* Fila de clasificación clicable (abre el análisis del equipo). */
+.td-root .td-strow-click { cursor: pointer; width: 100%; text-align: left; background: none; border: none; font: inherit; color: inherit; }
+.td-root .td-strow-click:hover { background: rgba(255, 255, 255, 0.03); }

@@ -15,6 +15,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tip } from '@/components/ui/Tip';
 import { FilterPills, Button } from '@/components/tournament/ui';
 import { PlayerTeamCommand } from '@/components/tournament/PlayerTeamCommand';
+import { HAS_PLAYER_RADAR } from '@/hooks/useTournamentDiscovery';
 import type { TournamentGlobalStats, PlayerAggregate, GlobalSortKey } from '@/types/tournament-global-stats';
 
 // Etiqueta para jugadores cuyo Riot ID no casa con ningún roster inscrito.
@@ -134,7 +135,12 @@ const TABLE_COLS: { key: GlobalSortKey | 'player'; label: string; sortable: bool
   { key: 'pentaKills',      label: 'Pentas',    sortable: true },
 ];
 
-function SortableTable({ players }: { players: PlayerAggregate[] }) {
+function SortableTable({ players, marked, onMark }: {
+  players: PlayerAggregate[];
+  /** Fila resaltada ("nombre#tag"): ayuda a seguir a un jugador entre 100+ filas. */
+  marked: string | null;
+  onMark: (key: string | null) => void;
+}) {
   const [sortKey, setSortKey] = useState<GlobalSortKey>('avgKda');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
@@ -180,22 +186,32 @@ function SortableTable({ players }: { players: PlayerAggregate[] }) {
           </tr>
         </thead>
         <tbody>
-          {sorted.map((p, i) => (
+          {sorted.map((p, i) => {
+            const rowKey = `${p.summonerName}#${p.tagLine}`;
+            const isMarked = marked === rowKey;
+            return (
             <tr
-              key={p.summonerName + p.tagLine}
-              className="border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors"
+              key={rowKey}
+              data-td-player-row={i === 0 ? '' : undefined}
+              onClick={() => onMark(isMarked ? null : rowKey)}
+              className={cn(
+                'border-b border-white/[0.04] transition-colors cursor-pointer',
+                isMarked ? 'bg-red-500/[0.10]' : 'hover:bg-white/[0.03]',
+              )}
             >
               {/* Player + champ pool */}
-              <td className="px-3 py-2.5 min-w-[150px]">
-                <div className="flex items-center gap-2">
-                  <ChampIcon name={p.mostPlayedChamp} size="sm" />
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-white truncate max-w-[110px]">{p.summonerName}</p>
-                    <p className="text-[9px] text-white/25 truncate max-w-[110px]">
-                      {p.championPool.slice(0, 4).join(' · ')}
-                    </p>
+              <td className={cn('px-3 py-2.5 min-w-[150px]', isMarked && 'border-l-2 border-l-[#e8323c]')}>
+                <Tip label={HAS_PLAYER_RADAR ? 'Click para ver radar / comparar' : 'Click para resaltar / comparar'}>
+                  <div className="flex items-center gap-2">
+                    <ChampIcon name={p.mostPlayedChamp} size="sm" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-white truncate max-w-[110px]">{p.summonerName}</p>
+                      <p className="text-[9px] text-white/25 truncate max-w-[110px]">
+                        {p.championPool.slice(0, 4).join(' · ')}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                </Tip>
               </td>
               <td className="px-3 py-2.5 text-center text-xs text-white/50">{p.gamesPlayed}</td>
               {/* WR: porcentaje + barra de progreso (patrón "completion") */}
@@ -244,7 +260,8 @@ function SortableTable({ players }: { players: PlayerAggregate[] }) {
                 }
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
       <ScrollBar orientation="horizontal" />
@@ -348,6 +365,8 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
   const [q, setQ] = useState('');
   const [minGames, setMinGames] = useState<MinGames>('all');
   const [team, setTeam] = useState<string | null>(null);
+  // Jugador resaltado en la tabla (seguirlo entre 100+ filas al reordenar).
+  const [marked, setMarked] = useState<string | null>(null);
 
   const teamOf = (p: PlayerAggregate): string | null => {
     if (!teamBySummoner) return null;
@@ -555,7 +574,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
             </button>
           )}
         </div>
-        <SortableTable players={players} />
+        <SortableTable players={players} marked={marked} onMark={setMarked} />
       </div>}
     </div>
   );
