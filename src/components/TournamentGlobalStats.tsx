@@ -1,5 +1,5 @@
 // src/components/TournamentGlobalStats.tsx — Aggregated tournament-wide stats view
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -15,6 +15,10 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tip } from '@/components/ui/Tip';
 import { FilterPills, Button } from '@/components/tournament/ui';
 import { PlayerTeamCommand } from '@/components/tournament/PlayerTeamCommand';
+import { StatsCharts, type TeamStanding } from '@/components/tournament/StatsCharts';
+import { PlayerCompare } from '@/components/tournament/PlayerCompare';
+import { formatKda } from '@/components/tournament/PlayerRadarCard';
+import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { HAS_PLAYER_RADAR } from '@/hooks/useTournamentDiscovery';
 import type { TournamentGlobalStats, PlayerAggregate, GlobalSortKey } from '@/types/tournament-global-stats';
 
@@ -53,7 +57,9 @@ const PODIUM_CATS: { key: GlobalSortKey; label: string; fmt: (v: number) => stri
   { key: 'avgVisionPerMin', label: 'Visión',   fmt: v => v.toFixed(2),              icon: <Eye      className="h-3 w-3" /> },
 ];
 
-function Podium({ players, sortKey }: { players: PlayerAggregate[]; sortKey: GlobalSortKey }) {
+function Podium({ players, sortKey, onPick }: {
+  players: PlayerAggregate[]; sortKey: GlobalSortKey; onPick?: (p: PlayerAggregate) => void;
+}) {
   const cat = PODIUM_CATS.find(c => c.key === sortKey)!;
   const top3 = [...players].sort((a, b) => (b[sortKey] as number) - (a[sortKey] as number)).slice(0, 3);
   if (top3.length === 0) return null;
@@ -69,7 +75,11 @@ function Podium({ players, sortKey }: { players: PlayerAggregate[]; sortKey: Glo
       {displayOrder.map(p => {
         const rank = rankOf(p);
         const h    = platformH[rank] ?? 52;
-        const val  = cat.fmt(p[sortKey] as number);
+        // El KDA del podio se recorta al mostrarlo: hay valores reales de 54
+        // (pocas muertes) que se leen como error. El Tip da el dato exacto.
+        const kda  = formatKda(p);
+        const isKda = sortKey === 'avgKda';
+        const val  = isKda ? kda.text : cat.fmt(p[sortKey] as number);
 
         const medalBg  = rank === 1 ? 'bg-yellow-400'   : rank === 2 ? 'bg-gray-300'    : 'bg-amber-700';
         const ringCls  = rank === 1 ? 'ring-yellow-400/50' : rank === 2 ? 'ring-white/20' : 'ring-amber-700/30';
@@ -87,7 +97,12 @@ function Podium({ players, sortKey }: { players: PlayerAggregate[]; sortKey: Glo
             transition={{ delay: (3 - rank) * 0.08 }}
             className="flex flex-col items-center gap-2"
           >
-            <div className={cn('flex flex-col items-center gap-1.5 transition-transform', scale)}>
+            <Tip label={isKda ? kda.tip : `${p.summonerName} · ${cat.label} ${cat.fmt(p[sortKey] as number)}`}>
+            <div className={cn('flex flex-col items-center gap-1.5 transition-transform cursor-pointer', scale)}
+              role="button" tabIndex={0}
+              onClick={() => onPick?.(p)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick?.(p); } }}
+            >
               <span className={cn('w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-black', medalBg)}>
                 {rank}
               </span>
@@ -98,9 +113,11 @@ function Podium({ players, sortKey }: { players: PlayerAggregate[]; sortKey: Glo
                 <p className={cn('font-bold text-white truncate', rank === 1 ? 'text-sm' : 'text-xs')}>
                   {p.summonerName}
                 </p>
-                <p className={cn('font-black', rank === 1 ? 'text-lg' : 'text-sm', valColor)}>{val}</p>
+                <p className={cn('font-black', rank === 1 ? 'text-lg' : 'text-sm',
+                  isKda && kda.extreme ? 'text-[#c8aa6e]' : valColor)}>{val}</p>
               </div>
             </div>
+            </Tip>
             <div
               className={cn('w-20 rounded-t-lg border flex items-center justify-center', platBg)}
               style={{ height: h }}
@@ -120,26 +137,29 @@ function Podium({ players, sortKey }: { players: PlayerAggregate[]; sortKey: Glo
 
 type SortDir = 'desc' | 'asc';
 
-const TABLE_COLS: { key: GlobalSortKey | 'player'; label: string; sortable: boolean }[] = [
-  { key: 'player',          label: 'Jugador',   sortable: false },
-  { key: 'gamesPlayed',     label: 'PJ',        sortable: true },
-  { key: 'winrate',         label: 'WR%',       sortable: true },
-  { key: 'avgKda',          label: 'KDA',       sortable: true },
-  { key: 'totalKills',      label: 'K',         sortable: true },
-  { key: 'totalDeaths',     label: 'D',         sortable: true },
-  { key: 'totalAssists',    label: 'A',         sortable: true },
-  { key: 'avgGoldPerMin',   label: 'G/min',     sortable: true },
-  { key: 'avgDamagePerMin', label: 'Dmg/min',   sortable: true },
-  { key: 'avgCsPerMin',     label: 'CS/min',    sortable: true },
-  { key: 'avgVisionPerMin', label: 'Vis/min',   sortable: true },
-  { key: 'pentaKills',      label: 'Pentas',    sortable: true },
+// `tip`: nombre completo en español de cada columna abreviada.
+const TABLE_COLS: { key: GlobalSortKey | 'player'; label: string; sortable: boolean; tip?: string }[] = [
+  { key: 'player',          label: 'Jugador',   sortable: false, tip: 'Jugador y campeones que ha usado' },
+  { key: 'gamesPlayed',     label: 'PJ',        sortable: true,  tip: 'Partidas jugadas' },
+  { key: 'winrate',         label: 'WR%',       sortable: true,  tip: 'Porcentaje de victorias' },
+  { key: 'avgKda',          label: 'KDA',       sortable: true,  tip: 'KDA medio (kills + asistencias) / muertes' },
+  { key: 'totalKills',      label: 'K',         sortable: true,  tip: 'Kills totales' },
+  { key: 'totalDeaths',     label: 'D',         sortable: true,  tip: 'Muertes totales' },
+  { key: 'totalAssists',    label: 'A',         sortable: true,  tip: 'Asistencias totales' },
+  { key: 'avgGoldPerMin',   label: 'G/min',     sortable: true,  tip: 'Oro por minuto' },
+  { key: 'avgDamagePerMin', label: 'Dmg/min',   sortable: true,  tip: 'Daño a campeones por minuto' },
+  { key: 'avgCsPerMin',     label: 'CS/min',    sortable: true,  tip: 'Súbditos por minuto' },
+  { key: 'avgVisionPerMin', label: 'Vis/min',   sortable: true,  tip: 'Puntuación de visión por minuto' },
+  { key: 'pentaKills',      label: 'Pentas',    sortable: true,  tip: 'Pentakills conseguidas' },
 ];
 
-function SortableTable({ players, marked, onMark }: {
+function SortableTable({ players, marked, onMark, onPick }: {
   players: PlayerAggregate[];
   /** Fila resaltada ("nombre#tag"): ayuda a seguir a un jugador entre 100+ filas. */
   marked: string | null;
   onMark: (key: string | null) => void;
+  /** Click en la fila → radar del jugador. */
+  onPick?: (p: PlayerAggregate) => void;
 }) {
   const [sortKey, setSortKey] = useState<GlobalSortKey>('avgKda');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -173,6 +193,7 @@ function SortableTable({ players, marked, onMark }: {
                   sortKey === col.key ? 'text-white' : 'text-white/25',
                 )}
               >
+                <Tip label={col.tip ?? col.label}>
                 <span className={cn('flex items-center gap-0.5', col.key !== 'player' && 'justify-center')}>
                   {col.label}
                   {col.sortable && sortKey === col.key && (
@@ -181,6 +202,7 @@ function SortableTable({ players, marked, onMark }: {
                       : <ChevronUp   className="h-3 w-3" />
                   )}
                 </span>
+                </Tip>
               </th>
             ))}
           </tr>
@@ -193,7 +215,7 @@ function SortableTable({ players, marked, onMark }: {
             <tr
               key={rowKey}
               data-td-player-row={i === 0 ? '' : undefined}
-              onClick={() => onMark(isMarked ? null : rowKey)}
+              onClick={() => { onMark(isMarked ? null : rowKey); onPick?.(p); }}
               className={cn(
                 'border-b border-white/[0.04] transition-colors cursor-pointer',
                 isMarked ? 'bg-red-500/[0.10]' : 'hover:bg-white/[0.03]',
@@ -243,7 +265,7 @@ function SortableTable({ players, marked, onMark }: {
                   p.avgKda >= 4  ? 'text-yellow-300' :
                   p.avgKda >= 2.5 ? 'text-white'     : 'text-white/50',
                 )}>
-                  {p.avgKda.toFixed(2)}
+                  <Tip label={formatKda(p).tip}><span>{formatKda(p).text}</span></Tip>
                 </span>
               </td>
               <td className="px-3 py-2.5 text-center text-xs text-white/60">{p.totalKills}</td>
@@ -349,6 +371,21 @@ interface Props {
    *  playerKey(nombre). Lo construye StatsTab cruzando el roster inscrito; los
    *  jugadores sin cruce se agrupan como "Sin equipo" (nunca se descartan). */
   teamBySummoner?: Record<string, string>;
+  /** Clasificación del torneo (19 equipos en LQC) para el gráfico de WR por equipo. */
+  standings?: TeamStanding[];
+}
+
+/** ≤720px: el radar se abre en cajón; en escritorio, como panel en el flujo. */
+function useIsNarrow(): boolean {
+  const [narrow, setNarrow] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 720px)');
+    const on = () => setNarrow(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return narrow;
 }
 
 type MinGames = 'all' | '1' | '3' | '5';
@@ -356,8 +393,11 @@ const MIN_GAMES: { key: MinGames; label: string }[] = [
   { key: 'all', label: 'Todos' }, { key: '1', label: '≥1' }, { key: '3', label: '≥3' }, { key: '5', label: '≥5' },
 ];
 
-export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner }: Props) {
+export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner, standings }: Props) {
   const [podiumCat, setPodiumCat] = useState<GlobalSortKey>('avgKda');
+  // Jugador abierto en el radar (fila de la tabla o podio).
+  const [picked, setPicked] = useState<PlayerAggregate | null>(null);
+  const narrow = useIsNarrow();
 
   const { players: allPlayers, matchesCompleted } = data;
 
@@ -519,6 +559,32 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
         </div>
       )}
 
+      {/* Radar del jugador elegido: cajón en móvil, panel en escritorio */}
+      {picked && !narrow && (
+        <PlayerCompare
+          player={picked}
+          cohort={allPlayers}
+          teamOf={(p) => teamOf(p)}
+          onClose={() => setPicked(null)}
+        />
+      )}
+      {narrow && (
+        <Drawer open={!!picked} onOpenChange={(o) => { if (!o) setPicked(null); }}>
+          <DrawerContent className="td-root border-white/10 bg-[#0c0b10] max-h-[92vh] overflow-y-auto">
+            {picked && (
+              <div style={{ padding: '8px 14px 22px' }}>
+                <PlayerCompare
+                  player={picked}
+                  cohort={allPlayers}
+                  teamOf={(p) => teamOf(p)}
+                  onClose={() => setPicked(null)}
+                />
+              </div>
+            )}
+          </DrawerContent>
+        </Drawer>
+      )}
+
       {/* Podium */}
       {players.length > 0 && <div className="td-panel p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
@@ -549,7 +615,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
           >
-            <Podium players={players} sortKey={podiumCat} />
+            <Podium players={players} sortKey={podiumCat} onPick={setPicked} />
           </motion.div>
         </AnimatePresence>
       </div>}
@@ -574,8 +640,20 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
             </button>
           )}
         </div>
-        <SortableTable players={players} marked={marked} onMark={setMarked} />
+        <SortableTable players={players} marked={marked} onMark={setMarked} onPick={setPicked} />
       </div>}
+
+      {/* Más gráficos: agregados del torneo (campeones, WR, equipos, multikills) */}
+      {players.length > 0 && (
+        <div>
+          <div className="td-over" style={{ margin: '4px 2px 10px', letterSpacing: '2px' }}>MÁS GRÁFICOS</div>
+          <StatsCharts
+            players={players}
+            standings={standings}
+            minGames={minGames === 'all' ? 0 : Number(minGames)}
+          />
+        </div>
+      )}
     </div>
   );
 }

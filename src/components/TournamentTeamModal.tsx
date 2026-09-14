@@ -11,6 +11,7 @@ import {
 import { toast } from 'sonner';
 import { useBracket, type BracketMatch, type Registration } from '@/hooks/queries/tournaments';
 import { discoveryToast } from '@/hooks/useTournamentDiscovery';
+import { PlayerRadarCard } from '@/components/tournament/PlayerRadarCard';
 import { useTournamentGlobalStats } from '@/hooks/useTournamentGlobalStats';
 import type { PlayerAggregate } from '@/types/tournament-global-stats';
 import { StatusChip, TeamBadge, ProgressBar } from '@/components/tournament/ui';
@@ -454,11 +455,18 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
                   <div className="td-sub" style={{ padding: 22, textAlign: 'center', fontSize: 12.5, color: 'var(--td-muted)' }}>
                     {sel
                       ? gs
-                        ? 'Este jugador aún no tiene partidas en el torneo. Las stats aparecen al completarse su primera partida.'
+                        ? 'Sin stats de torneo'
                         : 'Cargando estadísticas del torneo…'
                       : 'Selecciona un jugador del roster'}
                   </div>
                 )}
+
+                {/* Radar del jugador contra el promedio del torneo */}
+                {sel && selAgg && gs?.players?.length ? (
+                  <div style={{ marginTop: 12 }}>
+                    <PlayerRadarCard player={selAgg} cohort={gs.players} compact />
+                  </div>
+                ) : null}
               </div>
             </div>
 

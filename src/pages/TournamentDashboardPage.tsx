@@ -226,7 +226,9 @@ export default function TournamentDashboardPage() {
                       <EquiposTab id={id} region={data.tournament.region} standings={data.standings} />
                     )}
                     {tab === 'partidas' && <PartidasTab id={id} swissRounds={data.tournament.swissRounds ?? null} />}
-                    {tab === 'stats' && <StatsTab id={id} name={data.tournament.name} />}
+                    {tab === 'stats' && (
+                      <StatsTab id={id} name={data.tournament.name} standings={data.standings} />
+                    )}
                     {tab === 'reglas' && <ReglasTab data={data} />}
                   </motion.div>
                 </AnimatePresence>
@@ -2283,7 +2285,9 @@ function MatchRow({ id, m, defaultOpen, isOwner }: { id: string; m: BracketMatch
 }
 
 // ── STATS GLOBALES DEL TORNEO ────────────────────────────────────────────────
-function StatsTab({ id, name }: { id: string; name: string }) {
+function StatsTab({ id, name, standings }: {
+  id: string; name: string; standings: TdBoardPayload['standings'];
+}) {
   const { data, loading, error, refresh } = useTournamentGlobalStats({ tournamentId: id });
   const { data: regs } = useRegistrations(id);
 
@@ -2319,7 +2323,12 @@ function StatsTab({ id, name }: { id: string; name: string }) {
 
   if (error && !data) return <ErrorCard message={error} onRetry={refresh} />;
   if (!data) return <Block h={320} r={16} />;
-  return <TournamentGlobalStats data={data} loading={loading} onRefresh={refresh} teamBySummoner={teamBySummoner} />;
+  return (
+    <TournamentGlobalStats
+      data={data} loading={loading} onRefresh={refresh}
+      teamBySummoner={teamBySummoner} standings={standings}
+    />
+  );
 }
 
 function ReglasTab({ data }: { data: TdBoardPayload }) {
