@@ -51,6 +51,7 @@ export function StatsTab({ id, name, standings }: {
     <TournamentGlobalStats
       data={data} loading={loading} onRefresh={refresh}
       teamBySummoner={teamBySummoner} standings={standings}
+      tournamentName={name} logoUrl={id === 'lqc-2026' ? '/lqc-logo.png' : undefined}
     />
   );
 }

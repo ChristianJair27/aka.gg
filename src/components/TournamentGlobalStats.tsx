@@ -20,6 +20,7 @@ import { PlayerCompare } from '@/components/tournament/PlayerCompare';
 import { formatKda } from '@/components/tournament/PlayerRadarCard';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { HAS_PLAYER_RADAR } from '@/hooks/useTournamentDiscovery';
+import { SharePodiumButton, type PodiumEntry } from '@/components/tournament/SharePodiumCard';
 import type { TournamentGlobalStats, PlayerAggregate, GlobalSortKey } from '@/types/tournament-global-stats';
 
 // Etiqueta para jugadores cuyo Riot ID no casa con ningún roster inscrito.
@@ -373,6 +374,10 @@ interface Props {
   teamBySummoner?: Record<string, string>;
   /** Clasificación del torneo (19 equipos en LQC) para el gráfico de WR por equipo. */
   standings?: TeamStanding[];
+  /** Nombre del torneo, para la tarjeta compartible del podio. */
+  tournamentName?: string;
+  /** Logo del torneo servido desde /public, para la tarjeta compartible. */
+  logoUrl?: string;
 }
 
 /** ≤720px: el radar se abre en cajón; en escritorio, como panel en el flujo. */
@@ -393,7 +398,7 @@ const MIN_GAMES: { key: MinGames; label: string }[] = [
   { key: 'all', label: 'Todos' }, { key: '1', label: '≥1' }, { key: '3', label: '≥3' }, { key: '5', label: '≥5' },
 ];
 
-export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner, standings }: Props) {
+export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner, standings, tournamentName, logoUrl }: Props) {
   const [podiumCat, setPodiumCat] = useState<GlobalSortKey>('avgKda');
   // Jugador abierto en el radar (fila de la tabla o podio).
   const [picked, setPicked] = useState<PlayerAggregate | null>(null);
@@ -591,6 +596,26 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
           <p className="text-xs text-white/40 uppercase tracking-widest font-bold">
             🏆 Top 3 — {PODIUM_CATS.find(c => c.key === podiumCat)?.label}
           </p>
+          <SharePodiumButton data={{
+            tournamentId: data.tournamentId,
+            tournamentName: tournamentName ?? data.tournamentId.toUpperCase(),
+            subtitle: 'Liga Queretana',
+            category: PODIUM_CATS.find(c => c.key === podiumCat)?.label ?? '',
+            logoUrl,
+            // Mismo orden y mismo formato que el podio en pantalla, incluido el
+            // recorte del KDA extremo (formatKda) — no se comparte un 54 crudo.
+            entries: (() => {
+              const cat = PODIUM_CATS.find(c => c.key === podiumCat)!;
+              return [...players]
+                .sort((a, b) => (b[podiumCat] as number) - (a[podiumCat] as number))
+                .slice(0, 3)
+                .map((p, i) => ({
+                  rank: (i + 1) as 1 | 2 | 3,
+                  player: p,
+                  value: podiumCat === 'avgKda' ? formatKda(p).text : cat.fmt(p[podiumCat] as number),
+                })) as PodiumEntry[];
+            })(),
+          }} />
           <div className="flex flex-wrap gap-1">
             {PODIUM_CATS.map(cat => (
               <button
