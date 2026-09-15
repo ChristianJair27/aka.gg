@@ -12,6 +12,12 @@ export interface ProfileIconEntry {
 /** Mapa "nombre#tag" (lowercase) → icono/nivel. */
 export type ProfileIconMap = Record<string, ProfileIconEntry>;
 
+// El backend recorta cada petición a 60 jugadores (stats.ts: players.slice(0, 60)).
+// Con las 108 personas de las stats del LQC, un solo POST dejaba a 48 sin icono
+// —no por fallo de resolución, sino por el tope—. Se trocea y se fusiona aquí:
+// una sola consulta de React Query, ⌈n/60⌉ peticiones en paralelo por debajo.
+const BATCH = 60;
+
 export function useProfileIcons(
   cacheKey: string,
   riotIds: string[],
@@ -24,10 +30,15 @@ export function useProfileIcons(
     staleTime: 30 * 60_000,
     retry: false,
     queryFn: async () => {
-      const { data } = await axiosInstance.post('/api/stats/profile-icons', {
-        players: ids.map((riotId) => ({ riotId, platform })),
-      });
-      return (data?.icons ?? {}) as ProfileIconMap;
+      const chunks: string[][] = [];
+      for (let i = 0; i < ids.length; i += BATCH) chunks.push(ids.slice(i, i + BATCH));
+      const results = await Promise.all(chunks.map(async (chunk) => {
+        const { data } = await axiosInstance.post('/api/stats/profile-icons', {
+          players: chunk.map((riotId) => ({ riotId, platform })),
+        });
+        return (data?.icons ?? {}) as ProfileIconMap;
+      }));
+      return Object.assign({}, ...results) as ProfileIconMap;
     },
   });
 }

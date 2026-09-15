@@ -463,7 +463,7 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
                 {/* Radar del jugador contra el promedio del torneo */}
                 {sel && selAgg && gs?.players?.length ? (
                   <div style={{ marginTop: 12 }}>
-                    <PlayerRadarCard player={selAgg} cohort={gs.players} compact />
+                    <PlayerRadarCard player={selAgg} cohort={gs.players} compact profileIconId={iconFor(iconMap, sel.riotId)} />
                   </div>
                 ) : null}
               </div>

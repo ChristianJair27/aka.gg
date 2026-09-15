@@ -72,25 +72,29 @@
   box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 14px 34px rgba(0,0,0,0.38);
 }
 
-/* ── Sidebar de navegación (desktop) — Prompt 8: más contraste ───────────── */
+/* ── Sidebar de navegación (desktop) — Prompt 8 + 9: contraste fuerte ─────── */
+/* Inactivo casi blanco (#e4e4e7) para que no se lea como deshabilitado; el
+   activo lleva lavado rojo más denso, carril de 5px y algo más de aire. */
 .td-root .td-nav-item {
   position: relative;
-  display: flex; align-items: center; gap: 11px; width: 100%;
-  padding: 10px 12px 10px 14px; border-radius: 11px; cursor: pointer; text-align: left;
-  font-size: 13px; font-weight: 600; letter-spacing: .2px;
-  color: #d4d4d8; background: transparent; border: none;
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 11px 13px 11px 16px; border-radius: 12px; cursor: pointer; text-align: left;
+  font-size: 13.5px; font-weight: 600; letter-spacing: .2px;
+  color: #e4e4e7; background: transparent; border: none;
   transition: background .15s, color .15s, box-shadow .15s;
   font-family: var(--td-font-ui);
 }
-.td-root .td-nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.td-root .td-nav-item:hover { background: rgba(255,255,255,0.07); color: #fff; }
 .td-root .td-nav-item[data-active='true'] {
-  background: rgba(232,50,60,0.14); color: #fff; font-weight: 700;
-  box-shadow: inset 0 0 0 1px rgba(232,50,60,0.35);
+  background: rgba(232,50,60,0.22); color: #fff; font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(232,50,60,0.45), 0 6px 18px -10px rgba(232,50,60,0.55);
 }
-/* Indicador: barrita roja a la izquierda (más gruesa / visible) */
+.td-root .td-nav-item[data-active='true'] svg { color: var(--td-red-hover) !important; }
+/* Indicador: carril rojo a la izquierda, 5px */
 .td-root .td-nav-ind {
   position: absolute; left: 0; top: 50%; transform: translateY(-50%) scaleY(0);
-  width: 4px; height: 22px; border-radius: 3px; background: var(--td-red);
+  width: 5px; height: 24px; border-radius: 3px; background: var(--td-red);
+  box-shadow: 0 0 10px rgba(232,50,60,0.6);
   transition: transform .18s ease;
 }
 .td-root .td-nav-item[data-active='true'] .td-nav-ind { transform: translateY(-50%) scaleY(1); }
@@ -113,14 +117,15 @@
 .td-root .td-bottomnav::-webkit-scrollbar { display: none; }
 .td-root .td-bottomnav-item {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  min-width: 58px; padding: 8px 10px; border-radius: 16px;
+  min-width: 58px; padding: 9px 11px; border-radius: 16px;
   border: none; background: transparent; cursor: pointer;
-  color: #a1a1aa; transition: background .15s, color .15s;
+  color: #d4d4d8; transition: background .15s, color .15s;
   font-family: var(--td-font-ui);
 }
 .td-root .td-bottomnav-item:hover { color: var(--td-text); }
 .td-root .td-bottomnav-item[data-active='true'] {
-  background: rgba(232,50,60,0.14); color: #fff;
+  background: rgba(232,50,60,0.22); color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(232,50,60,0.4);
 }
 .td-root .td-bottomnav-item[data-active='true'] svg { color: var(--td-red); }
 .td-root .td-bottomnav-label { font-size: 10px; font-weight: 700; letter-spacing: .3px; }

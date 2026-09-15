@@ -9,8 +9,8 @@ import { discoveryToast } from '@/hooks/useTournamentDiscovery';
 import { useRegistrations, type TdBoardPayload } from '@/hooks/queries/tournaments';
 import { Block, ErrorCard } from './shared';
 
-export function StatsTab({ id, name, standings }: {
-  id: string; name: string; standings: TdBoardPayload['standings'];
+export function StatsTab({ id, name, standings, region }: {
+  id: string; name: string; standings: TdBoardPayload['standings']; region?: string;
 }) {
   const { data, loading, error, refresh } = useTournamentGlobalStats({ tournamentId: id });
   const { data: regs } = useRegistrations(id);
@@ -52,6 +52,7 @@ export function StatsTab({ id, name, standings }: {
       data={data} loading={loading} onRefresh={refresh}
       teamBySummoner={teamBySummoner} standings={standings}
       tournamentName={name} logoUrl={id === 'lqc-2026' ? '/lqc-logo.png' : undefined}
+      region={region}
     />
   );
 }

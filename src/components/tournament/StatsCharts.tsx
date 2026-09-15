@@ -9,6 +9,7 @@ import {
 } from 'recharts';
 import { Swords, Trophy, Users, Flame } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { AvatarTick } from '@/components/TournamentGlobalStats';
 import { SectionHead } from '@/components/tournament/ui';
 import { Tip } from '@/components/ui/Tip';
 import { dd } from '@/lib/dataDragon';
@@ -20,6 +21,27 @@ const GOLD = '#c8aa6e';
 const LOSS = '#ff5a64';
 
 const AXIS = { fill: 'rgba(255,255,255,0.45)', fontSize: 10 };
+const GRID = { strokeDasharray: '2 6', stroke: 'rgba(255,255,255,0.05)' };
+/** Pista de fondo tras cada barra: se lee el 100% aunque el valor sea bajo. */
+const TRACK = { fill: 'rgba(255,255,255,0.035)', radius: 8 } as any;
+const CURSOR = { fill: 'rgba(255,255,255,0.04)' };
+
+/** Gradientes SVG reutilizados por todos los gráficos (nada de rellenos planos). */
+function Gradients() {
+  const g = (id: string, c: string, dir: 'h' | 'v') => (
+    <linearGradient key={id} id={id} x1="0" y1={dir === 'v' ? '1' : '0'} x2={dir === 'h' ? '1' : '0'} y2="0">
+      <stop offset="0%" stopColor={c} stopOpacity={0.5} />
+      <stop offset="100%" stopColor={c} stopOpacity={1} />
+    </linearGradient>
+  );
+  return (
+    <defs>
+      {g('td-g-red-h', RED, 'h')}{g('td-g-win-h', WIN, 'h')}{g('td-g-gold-h', GOLD, 'h')}{g('td-g-loss-h', LOSS, 'h')}
+      {g('td-g-red-v', RED, 'v')}{g('td-g-win-v', WIN, 'v')}{g('td-g-gold-v', GOLD, 'v')}
+      {g('td-g-dim-v', 'rgba(255,255,255,0.6)', 'v')}
+    </defs>
+  );
+}
 
 /** WR con tan pocas partidas no dice nada: piso del gráfico de winrate. */
 const WR_CHART_MIN_GAMES = 3;
@@ -48,11 +70,12 @@ function ChampionPicks({ players }: { players: PlayerAggregate[] }) {
         right={<Tip label="Cuántos jugadores distintos lo han usado en el torneo"><span className="td-over">JUGADORES</span></Tip>} />
       <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
         <BarChart data={data} layout="vertical" margin={{ left: 6, right: 28, top: 4, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
+          <Gradients />
+          <CartesianGrid {...GRID} horizontal={false} />
           <XAxis type="number" tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
           <YAxis type="category" dataKey="champion" tick={AXIS} axisLine={false} tickLine={false} width={78} />
-          <ChartTooltip content={<ChartTooltipContent />} />
-          <Bar dataKey="jugadores" radius={[0, 5, 5, 0]} fill={RED}>
+          <ChartTooltip cursor={CURSOR} content={<ChartTooltipContent indicator="line" />} />
+          <Bar dataKey="jugadores" radius={[0, 8, 8, 0]} fill="url(#td-g-red-h)" background={TRACK}>
             <LabelList dataKey="jugadores" position="right" fill="rgba(255,255,255,0.55)" fontSize={10} />
           </Bar>
         </BarChart>
@@ -70,7 +93,9 @@ function ChampionPicks({ players }: { players: PlayerAggregate[] }) {
 }
 
 // ── 2. Mejor WR% ─────────────────────────────────────────────────────────────
-function BestWinrate({ players, minGames }: { players: PlayerAggregate[]; minGames: number }) {
+function BestWinrate({ players, minGames, avatarUrl }: {
+  players: PlayerAggregate[]; minGames: number; avatarUrl?: (name: string) => string | null;
+}) {
   // Si el filtro de la barra no impone mínimo, el gráfico aplica el suyo: un
   // 100% de una sola partida taparía a quien gana 8 de 10.
   const floor = Math.max(minGames, WR_CHART_MIN_GAMES);
@@ -90,11 +115,15 @@ function BestWinrate({ players, minGames }: { players: PlayerAggregate[]; minGam
         right={<Tip label={`Solo jugadores con ${floor} o más partidas`}><span className="td-over">≥{floor} PJ</span></Tip>} />
       <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
         <BarChart data={data} layout="vertical" margin={{ left: 6, right: 34, top: 4, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
+          <Gradients />
+          <CartesianGrid {...GRID} horizontal={false} />
           <XAxis type="number" domain={[0, 100]} tick={AXIS} axisLine={false} tickLine={false} unit="%" />
-          <YAxis type="category" dataKey="jugador" tick={AXIS} axisLine={false} tickLine={false} width={86} />
-          <ChartTooltip content={<ChartTooltipContent />} />
-          <Bar dataKey="wr" radius={[0, 5, 5, 0]} fill={WIN}>
+          <YAxis type="category" dataKey="jugador" axisLine={false} tickLine={false} width={avatarUrl ? 108 : 86}
+            tick={(props: any) => <AvatarTick {...props} avatarUrl={avatarUrl} />} />
+          <ChartTooltip cursor={CURSOR}
+            content={<ChartTooltipContent indicator="line"
+              formatter={(v: any, _n: any, item: any) => [`${v}% · ${item?.payload?.pj} PJ`, 'WR']} />} />
+          <Bar dataKey="wr" radius={[0, 8, 8, 0]} fill="url(#td-g-win-h)" background={TRACK}>
             <LabelList dataKey="pj" position="right" fill="rgba(255,255,255,0.45)" fontSize={9.5}
               formatter={(v: number) => `${v} PJ`} />
           </Bar>
@@ -121,13 +150,16 @@ function TeamWinrate({ standings }: { standings: TeamStanding[] }) {
         right={<Tip label="Series ganadas sobre series jugadas"><span className="td-over">{data.length} EQUIPOS</span></Tip>} />
       <ChartContainer config={config} className="aspect-auto h-[300px] w-full">
         <BarChart data={data} layout="vertical" margin={{ left: 6, right: 40, top: 4, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
+          <Gradients />
+          <CartesianGrid {...GRID} horizontal={false} />
           <XAxis type="number" domain={[0, 100]} tick={AXIS} axisLine={false} tickLine={false} unit="%" />
           <YAxis type="category" dataKey="equipo" tick={{ ...AXIS, fontSize: 9.5 }} axisLine={false} tickLine={false} width={118} />
-          <ChartTooltip content={<ChartTooltipContent />} />
-          <Bar dataKey="wr" radius={[0, 5, 5, 0]}>
+          <ChartTooltip cursor={CURSOR}
+            content={<ChartTooltipContent indicator="line"
+              formatter={(v: any, _n: any, item: any) => [`${v}% · ${item?.payload?.record}`, 'WR']} />} />
+          <Bar dataKey="wr" radius={[0, 8, 8, 0]} background={TRACK}>
             {data.map((d, i) => (
-              <Cell key={i} fill={d.wr >= 60 ? WIN : d.wr >= 40 ? GOLD : LOSS} />
+              <Cell key={i} fill={d.wr >= 60 ? 'url(#td-g-win-h)' : d.wr >= 40 ? 'url(#td-g-gold-h)' : 'url(#td-g-loss-h)'} />
             ))}
             <LabelList dataKey="record" position="right" fill="rgba(255,255,255,0.45)" fontSize={9.5} />
           </Bar>
@@ -145,10 +177,10 @@ function Multikills({ players }: { players: PlayerAggregate[] }) {
       triple: a.triple + p.tripleKills, double: a.double + p.doubleKills,
     }), { penta: 0, quadra: 0, triple: 0, double: 0 });
     return [
-      { tipo: 'Dobles', total: t.double, color: 'rgba(255,255,255,0.35)' },
-      { tipo: 'Triples', total: t.triple, color: WIN },
-      { tipo: 'Cuádruples', total: t.quadra, color: GOLD },
-      { tipo: 'Pentas', total: t.penta, color: RED },
+      { tipo: 'Dobles', total: t.double, color: 'url(#td-g-dim-v)' },
+      { tipo: 'Triples', total: t.triple, color: 'url(#td-g-win-v)' },
+      { tipo: 'Cuádruples', total: t.quadra, color: 'url(#td-g-gold-v)' },
+      { tipo: 'Pentas', total: t.penta, color: 'url(#td-g-red-v)' },
     ];
   }, [players]);
 
@@ -162,11 +194,12 @@ function Multikills({ players }: { players: PlayerAggregate[] }) {
         right={<Tip label="Suma de todas las partidas registradas"><span className="td-over">{totalAll} TOTAL</span></Tip>} />
       <ChartContainer config={config} className="aspect-auto h-[220px] w-full">
         <BarChart data={data} margin={{ left: 0, right: 8, top: 14, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+          <Gradients />
+          <CartesianGrid {...GRID} vertical={false} />
           <XAxis dataKey="tipo" tick={AXIS} axisLine={false} tickLine={false} />
           <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} width={34} />
-          <ChartTooltip content={<ChartTooltipContent />} />
-          <Bar dataKey="total" radius={[5, 5, 0, 0]}>
+          <ChartTooltip cursor={CURSOR} content={<ChartTooltipContent indicator="line" />} />
+          <Bar dataKey="total" radius={[10, 10, 0, 0]} background={{ ...TRACK, radius: [10, 10, 0, 0] }}>
             {data.map((d, i) => <Cell key={i} fill={d.color} />)}
             <LabelList dataKey="total" position="top" fill="rgba(255,255,255,0.55)" fontSize={10} />
           </Bar>
@@ -177,16 +210,18 @@ function Multikills({ players }: { players: PlayerAggregate[] }) {
 }
 
 /** Sección completa. `players` ya viene filtrado por la barra de Estadísticas. */
-export function StatsCharts({ players, standings, minGames }: {
+export function StatsCharts({ players, standings, minGames, avatarUrl }: {
   players: PlayerAggregate[];
   standings?: TeamStanding[];
   /** Mínimo de partidas activo en la barra de filtros (0 = "Todos"). */
   minGames: number;
+  /** Avatar (icono de perfil o campeón) por nombre, para los ticks del eje. */
+  avatarUrl?: (name: string) => string | null;
 }) {
   return (
     <div className="td-charts-grid">
       <ChampionPicks players={players} />
-      <BestWinrate players={players} minGames={minGames} />
+      <BestWinrate players={players} minGames={minGames} avatarUrl={avatarUrl} />
       {standings?.length ? <TeamWinrate standings={standings} /> : null}
       <Multikills players={players} />
     </div>

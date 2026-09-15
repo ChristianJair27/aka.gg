@@ -11,12 +11,14 @@ import { PlayerTeamCommand } from '@/components/tournament/PlayerTeamCommand';
 import { PlayerRadarCard } from '@/components/tournament/PlayerRadarCard';
 import type { PlayerAggregate } from '@/types/tournament-global-stats';
 
-export function PlayerCompare({ player, cohort, teamOf, onClose }: {
+export function PlayerCompare({ player, cohort, teamOf, onClose, iconOf }: {
   player: PlayerAggregate;
   cohort: PlayerAggregate[];
   /** Equipo del jugador (si el cruce con el roster lo encontró). */
   teamOf?: (p: PlayerAggregate) => string | null;
   onClose?: () => void;
+  /** Icono de perfil por jugador (batch de useProfileIcons del padre). */
+  iconOf?: (p: PlayerAggregate) => number | null;
 }) {
   const [rival, setRival] = useState<PlayerAggregate | null>(null);
 
@@ -60,7 +62,7 @@ export function PlayerCompare({ player, cohort, teamOf, onClose }: {
         </p>
       )}
 
-      <PlayerRadarCard player={player} cohort={cohort} compare={rival} />
+      <PlayerRadarCard player={player} cohort={cohort} compare={rival} profileIconId={iconOf?.(player) ?? null} />
     </div>
   );
 }

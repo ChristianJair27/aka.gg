@@ -21,6 +21,8 @@ import { formatKda } from '@/components/tournament/PlayerRadarCard';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { HAS_PLAYER_RADAR } from '@/hooks/useTournamentDiscovery';
 import { SharePodiumButton, type PodiumEntry } from '@/components/tournament/SharePodiumCard';
+import { PlayerAvatar, riotIdOf } from '@/components/tournament/PlayerAvatar';
+import { useProfileIcons, iconFor } from '@/hooks/useProfileIcons';
 import type { TournamentGlobalStats, PlayerAggregate, GlobalSortKey } from '@/types/tournament-global-stats';
 
 // Etiqueta para jugadores cuyo Riot ID no casa con ningún roster inscrito.
@@ -58,8 +60,9 @@ const PODIUM_CATS: { key: GlobalSortKey; label: string; fmt: (v: number) => stri
   { key: 'avgVisionPerMin', label: 'Visión',   fmt: v => v.toFixed(2),              icon: <Eye      className="h-3 w-3" /> },
 ];
 
-function Podium({ players, sortKey, onPick }: {
+function Podium({ players, sortKey, onPick, iconOf }: {
   players: PlayerAggregate[]; sortKey: GlobalSortKey; onPick?: (p: PlayerAggregate) => void;
+  iconOf?: (p: PlayerAggregate) => number | null;
 }) {
   const cat = PODIUM_CATS.find(c => c.key === sortKey)!;
   const top3 = [...players].sort((a, b) => (b[sortKey] as number) - (a[sortKey] as number)).slice(0, 3);
@@ -108,7 +111,8 @@ function Podium({ players, sortKey, onPick }: {
                 {rank}
               </span>
               <div className={cn('rounded-xl overflow-hidden ring-2 shrink-0', ringCls, rank === 1 ? 'w-14 h-14' : 'w-10 h-10')}>
-                <ChampIcon name={p.mostPlayedChamp} size={rank === 1 ? 'lg' : 'md'} />
+                <PlayerAvatar riotId={riotIdOf(p)} profileIconId={iconOf?.(p)} mostPlayedChamp={p.mostPlayedChamp}
+                  size={rank === 1 ? 64 : 40} ring={false} />
               </div>
               <div className="text-center max-w-[90px]">
                 <p className={cn('font-bold text-white truncate', rank === 1 ? 'text-sm' : 'text-xs')}>
@@ -154,7 +158,8 @@ const TABLE_COLS: { key: GlobalSortKey | 'player'; label: string; sortable: bool
   { key: 'pentaKills',      label: 'Pentas',    sortable: true,  tip: 'Pentakills conseguidas' },
 ];
 
-function SortableTable({ players, marked, onMark, onPick }: {
+function SortableTable({ players, marked, onMark, onPick, iconOf }: {
+  iconOf?: (p: PlayerAggregate) => number | null;
   players: PlayerAggregate[];
   /** Fila resaltada ("nombre#tag"): ayuda a seguir a un jugador entre 100+ filas. */
   marked: string | null;
@@ -226,7 +231,7 @@ function SortableTable({ players, marked, onMark, onPick }: {
               <td className={cn('px-3 py-2.5 min-w-[150px]', isMarked && 'border-l-2 border-l-[#e8323c]')}>
                 <Tip label={HAS_PLAYER_RADAR ? 'Click para ver radar / comparar' : 'Click para resaltar / comparar'}>
                   <div className="flex items-center gap-2">
-                    <ChampIcon name={p.mostPlayedChamp} size="sm" />
+                    <PlayerAvatar riotId={riotIdOf(p)} profileIconId={iconOf?.(p)} mostPlayedChamp={p.mostPlayedChamp} size={32} />
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-white truncate max-w-[110px]">{p.summonerName}</p>
                       <p className="text-[9px] text-white/25 truncate max-w-[110px]">
@@ -296,6 +301,33 @@ function SortableTable({ players, marked, onMark, onPick }: {
 
 const CHART_STYLE = { background: 'transparent', fontSize: 10, fill: 'rgba(255,255,255,0.4)' };
 
+/** Tick del eje Y con avatar de 16px + nombre (SVG puro; sin librerías). */
+export function AvatarTick({ x, y, payload, avatarUrl }: {
+  x?: number; y?: number; payload?: { value: string }; avatarUrl?: (name: string) => string | null;
+}) {
+  const name = String(payload?.value ?? '');
+  const src = avatarUrl?.(name) ?? null;
+  const size = 16;
+  const tx = (x ?? 0) - 6;
+  const ty = y ?? 0;
+  return (
+    <g transform={`translate(${tx},${ty})`}>
+      {src && (
+        <>
+          <clipPath id={`td-tick-${name.replace(/[^a-z0-9]/gi, '')}`}>
+            <rect x={-size} y={-size / 2} width={size} height={size} rx={5} />
+          </clipPath>
+          <image href={src} x={-size} y={-size / 2} width={size} height={size}
+            clipPath={`url(#td-tick-${name.replace(/[^a-z0-9]/gi, '')})`} preserveAspectRatio="xMidYMid slice" />
+        </>
+      )}
+      <text x={src ? -size - 6 : 0} y={0} dy={3.5} textAnchor="end" fill="rgba(255,255,255,0.55)" fontSize={9.5}>
+        {name.length > 11 ? `${name.slice(0, 10)}…` : name}
+      </text>
+    </g>
+  );
+}
+
 type ChartMetric = 'avgDamagePerMin' | 'avgGoldPerMin' | 'avgKda';
 const CHART_LABELS: Record<ChartMetric, { label: string; color: string }> = {
   avgDamagePerMin: { label: 'Daño/min',     color: '#f97316' },
@@ -303,7 +335,7 @@ const CHART_LABELS: Record<ChartMetric, { label: string; color: string }> = {
   avgKda:          { label: 'KDA Promedio', color: '#22c55e' },
 };
 
-function TopPlayersChart({ players }: { players: PlayerAggregate[] }) {
+function TopPlayersChart({ players, avatarUrl }: { players: PlayerAggregate[]; avatarUrl?: (name: string) => string | null }) {
   const [metric, setMetric] = useState<ChartMetric>('avgDamagePerMin');
 
   const data = useMemo(() =>
@@ -341,18 +373,25 @@ function TopPlayersChart({ players }: { players: PlayerAggregate[] }) {
       <AnimatePresence mode="wait">
         <motion.div key={metric} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
           <ResponsiveContainer width="100%" height={230}>
-            <BarChart data={data} layout="vertical" margin={{ left: 70, right: 24 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
+            <BarChart data={data} layout="vertical" margin={{ left: 70, right: 28 }}>
+              <defs>
+                <linearGradient id="td-top8-grad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor={color} stopOpacity={0.55} />
+                  <stop offset="100%" stopColor={color} stopOpacity={1} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="2 6" stroke="rgba(255,255,255,0.05)" horizontal={false} />
               <XAxis type="number" tick={CHART_STYLE} axisLine={false} tickLine={false} tickFormatter={v => fmtNumber(v)} />
-              <YAxis type="category" dataKey="name" tick={{ ...CHART_STYLE, fontSize: 9 }} axisLine={false} tickLine={false} width={66} />
+              <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={avatarUrl ? 92 : 66}
+                tick={(props: any) => <AvatarTick {...props} avatarUrl={avatarUrl} />} />
               <RechartTooltip
                 contentStyle={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
                 labelStyle={{ color: 'white', fontSize: 11 }}
                 itemStyle={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}
                 formatter={(v: number) => [fmtNumber(v), label]}
               />
-              <Bar dataKey="value" name={label} radius={[0, 4, 4, 0]}>
-                {data.map((_, i) => <Cell key={i} fill={color} />)}
+              <Bar dataKey="value" name={label} radius={[0, 8, 8, 0]} background={{ fill: 'rgba(255,255,255,0.035)', radius: 8 } as any}>
+                {data.map((_, i) => <Cell key={i} fill="url(#td-top8-grad)" />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -378,6 +417,8 @@ interface Props {
   tournamentName?: string;
   /** Logo del torneo servido desde /public, para la tarjeta compartible. */
   logoUrl?: string;
+  /** Plataforma de Riot del torneo ('la1'…) para resolver iconos de perfil. */
+  region?: string;
 }
 
 /** ≤720px: el radar se abre en cajón; en escritorio, como panel en el flujo. */
@@ -398,13 +439,25 @@ const MIN_GAMES: { key: MinGames; label: string }[] = [
   { key: 'all', label: 'Todos' }, { key: '1', label: '≥1' }, { key: '3', label: '≥3' }, { key: '5', label: '≥5' },
 ];
 
-export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner, standings, tournamentName, logoUrl }: Props) {
+export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner, standings, tournamentName, logoUrl, region }: Props) {
   const [podiumCat, setPodiumCat] = useState<GlobalSortKey>('avgKda');
   // Jugador abierto en el radar (fila de la tabla o podio).
   const [picked, setPicked] = useState<PlayerAggregate | null>(null);
   const narrow = useIsNarrow();
 
   const { players: allPlayers, matchesCompleted } = data;
+
+  // Iconos de perfil de TODOS los jugadores en una sola llamada batch (108 en
+  // LQC). La persona se identifica por su icono de perfil; el campeón más
+  // jugado queda como respaldo dentro de PlayerAvatar.
+  const allRiotIds = useMemo(() => allPlayers.map(riotIdOf), [allPlayers]);
+  const { data: iconMap } = useProfileIcons(`stats-${data.tournamentId}`, allRiotIds, region || 'la1');
+  const iconOf = (p: PlayerAggregate) => iconFor(iconMap, riotIdOf(p));
+  const avatarUrlOf = (summonerName: string): string | null => {
+    const p = allPlayers.find((x) => x.summonerName === summonerName);
+    const id = p ? iconOf(p) : null;
+    return id ? dd.profileIcon(id) : p?.mostPlayedChamp ? dd.champion(p.mostPlayedChamp) : null;
+  };
 
   // ── Filtros (cliente): búsqueda, mín. partidas, equipo ──
   const [q, setQ] = useState('');
@@ -570,6 +623,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
           player={picked}
           cohort={allPlayers}
           teamOf={(p) => teamOf(p)}
+          iconOf={iconOf}
           onClose={() => setPicked(null)}
         />
       )}
@@ -582,6 +636,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
                   player={picked}
                   cohort={allPlayers}
                   teamOf={(p) => teamOf(p)}
+          iconOf={iconOf}
                   onClose={() => setPicked(null)}
                 />
               </div>
@@ -640,14 +695,14 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
           >
-            <Podium players={players} sortKey={podiumCat} onPick={setPicked} />
+            <Podium players={players} sortKey={podiumCat} onPick={setPicked} iconOf={iconOf} />
           </motion.div>
         </AnimatePresence>
       </div>}
 
       {/* Chart */}
       {players.length > 0 && <div className="td-panel p-5">
-        <TopPlayersChart players={players} />
+        <TopPlayersChart players={players} avatarUrl={avatarUrlOf} />
       </div>}
 
       {/* Sortable table */}
@@ -665,7 +720,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
             </button>
           )}
         </div>
-        <SortableTable players={players} marked={marked} onMark={setMarked} onPick={setPicked} />
+        <SortableTable players={players} marked={marked} onMark={setMarked} onPick={setPicked} iconOf={iconOf} />
       </div>}
 
       {/* Más gráficos: agregados del torneo (campeones, WR, equipos, multikills) */}
@@ -676,6 +731,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
             players={players}
             standings={standings}
             minGames={minGames === 'all' ? 0 : Number(minGames)}
+            avatarUrl={avatarUrlOf}
           />
         </div>
       )}

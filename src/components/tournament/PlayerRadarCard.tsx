@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { dd } from '@/lib/dataDragon';
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart';
 import { Tip } from '@/components/ui/Tip';
+import { PlayerAvatar, riotIdOf } from '@/components/tournament/PlayerAvatar';
 import type { PlayerAggregate } from '@/types/tournament-global-stats';
 
 const RED = '#e1242e';
@@ -128,9 +129,11 @@ export interface PlayerRadarCardProps {
   compare?: PlayerAggregate | null;
   /** Versión estrecha para el modal de equipo. */
   compact?: boolean;
+  /** Icono de perfil de LoL del jugador (la persona); el campeón queda de respaldo. */
+  profileIconId?: number | null;
 }
 
-export function PlayerRadarCard({ player, cohort, compare, compact }: PlayerRadarCardProps) {
+export function PlayerRadarCard({ player, cohort, compare, compact, profileIconId }: PlayerRadarCardProps) {
   const ref = useMemo(() => {
     const eligible = cohort.filter((p) => p.gamesPlayed >= RADAR_MIN_GAMES);
     return eligible.length >= 5 ? eligible : cohort;
@@ -173,12 +176,13 @@ export function PlayerRadarCard({ player, cohort, compare, compact }: PlayerRada
       {/* Identidad + pool de campeones */}
       <div className="td-radar-id">
         <div className="td-radar-id-head">
-          <img
-            src={dd.champion(player.mostPlayedChamp || 'Garen')}
-            alt={player.mostPlayedChamp}
-            loading="lazy"
+          {/* La persona: icono de perfil; el campeón más jugado va como respaldo. */}
+          <PlayerAvatar
+            riotId={riotIdOf(player)}
+            profileIconId={profileIconId}
+            mostPlayedChamp={player.mostPlayedChamp}
+            size={46}
             className="td-radar-champ"
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
           />
           <div style={{ minWidth: 0 }}>
             <div className="td-radar-name" title={`${player.summonerName}#${player.tagLine}`}>

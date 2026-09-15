@@ -140,7 +140,7 @@ export default function TournamentDashboardPage() {
                     )}
                     {tab === 'partidas' && <PartidasTab id={id} swissRounds={data.tournament.swissRounds ?? null} />}
                     {tab === 'stats' && (
-                      <StatsTab id={id} name={data.tournament.name} standings={data.standings} />
+                      <StatsTab id={id} name={data.tournament.name} standings={data.standings} region={data.tournament.region} />
                     )}
                     {tab === 'reglas' && <ReglasTab data={data} />}
                   </motion.div>

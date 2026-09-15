@@ -20,13 +20,21 @@ import { useTournamentGlobalStats } from '@/hooks/useTournamentGlobalStats';
 import { discoveryToast } from '@/hooks/useTournamentDiscovery';
 import { useCheckin, useRegistrations, type TdBoardPayload } from '@/hooks/queries/tournaments';
 import { dd } from '@/lib/dataDragon';
+import { PlayerAvatar, riotIdOf } from '@/components/tournament/PlayerAvatar';
+import { useProfileIcons, iconFor } from '@/hooks/useProfileIcons';
 import {
   BLUE, RED, Card, Block, EmptyState, ChampGrid, ChampPortrait, TeamCol,
   ScheduleTeams, champIcon, fmtTime, pad, useCountdown,
 } from './shared';
 
-export function StatsMainCard({ id, onFull }: { id: string; onFull: () => void }) {
+export function StatsMainCard({ id, onFull, region }: { id: string; onFull: () => void; region?: string }) {
   const { data, loading, error } = useTournamentGlobalStats({ tournamentId: id });
+  // Iconos de perfil de los jugadores que se muestran (líderes + top 5), un solo batch.
+  const shownIds = useMemo(
+    () => (data?.players ? data.players.map(riotIdOf) : []),
+    [data],
+  );
+  const { data: iconMap } = useProfileIcons(`resumen-${id}`, shownIds, region || 'la1');
 
   const top5 = useMemo(
     () => (data?.players ? [...data.players].sort((a, b) => b.avgKda - a.avgKda).slice(0, 5) : []),
@@ -70,11 +78,8 @@ export function StatsMainCard({ id, onFull }: { id: string; onFull: () => void }
           <div className="td-leaders">
             {leaders.map((l) => (
               <div key={l.label} className="td-leader">
-                <img
-                  src={dd.champion(l.p.mostPlayedChamp || 'Garen')} alt="" loading="lazy"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
-                  style={{ width: 40, height: 40, borderRadius: 10, objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 0 1.5px var(--td-border-hov)' }}
-                />
+                <PlayerAvatar riotId={riotIdOf(l.p)} profileIconId={iconFor(iconMap, riotIdOf(l.p))}
+                  mostPlayedChamp={l.p.mostPlayedChamp} size={40} />
                 <div style={{ minWidth: 0 }}>
                   <div className="td-over" style={{ display: 'flex', alignItems: 'center', gap: 5, color: RED }}>
                     {l.icon}{l.label}
@@ -98,11 +103,8 @@ export function StatsMainCard({ id, onFull }: { id: string; onFull: () => void }
               <div key={p.summonerName + p.tagLine} className="td-strow td-strow-stats td-row-hover" style={{ padding: '8px', borderRadius: 8 }}>
                 <span className="td-num" style={{ fontSize: 12.5, fontWeight: 700, color: i === 0 ? RED : 'var(--td-text-2)' }}>{i + 1}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                  <img
-                    src={dd.champion(p.mostPlayedChamp || 'Garen')} alt="" loading="lazy"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
-                    style={{ width: 24, height: 24, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
-                  />
+                  <PlayerAvatar riotId={riotIdOf(p)} profileIconId={iconFor(iconMap, riotIdOf(p))}
+                    mostPlayedChamp={p.mostPlayedChamp} size={24} ring={false} />
                   <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {p.summonerName}
                   </span>
@@ -150,7 +152,7 @@ export function ResumenGrid({ data, id, navigate, onStats, onRound }: {
     <div className="td-dash-grid">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
         {/* Las stats son el corazón del torneo: main card del resumen */}
-        <StatsMainCard id={id} onFull={onStats} />
+        <StatsMainCard id={id} onFull={onStats} region={data.tournament.region} />
         <StandingsCard data={data} id={id} region={data.tournament.region} />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
