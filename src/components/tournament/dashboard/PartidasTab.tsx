@@ -59,6 +59,9 @@ export function PartidasTab({ id, swissRounds }: { id: string; swissRounds: numb
     setParams((prev) => { const p = new URLSearchParams(prev); p.set('round', 'all'); return p; }, { replace: true });
   };
 
+  // Hook antes de early-returns (React #310 si va debajo de isLoading/isError).
+  const narrow = useMediaQuery('(max-width: 1100px)');
+
   if (isError) {
     return (
       <ErrorCard
@@ -97,8 +100,6 @@ export function PartidasTab({ id, swissRounds }: { id: string; swissRounds: numb
   // sondeo de 30 s, así que abrir varias multiplicaba las peticiones. Antes se
   // abrían solas cuando había ≤2 partidas sin empezar; con 30 series eso ya no
   // aplica, y el auto-abrir se limita a la que llega por `?match=`.
-  const narrow = useMediaQuery('(max-width: 1100px)');
-
   // RoundRail: "Todas" + una pill por ronda existente (las rondas futuras del
   // suizo aparecen solas cuando el backend las genera).
   const roundItems: RoundRailItem[] = [
