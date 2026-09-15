@@ -1,7 +1,8 @@
 // ATAK.GG — Tournament Dashboard shared UI primitives.
 // Reused across the whole detail view (zero duplicated inline styles).
 // Requires src/styles/tournament-dashboard.css and a .td-root ancestor.
-import { CSSProperties, ReactNode } from 'react';
+import { CSSProperties, ReactNode, useState } from 'react';
+import { resolveTeamLogo } from '@/lib/teamLogos';
 
 // ── Team color palette (assigned per team, deterministic) ────────────────────
 export const TEAM_PALETTE = ['#e8323c', '#e5e7eb', '#4ade80', '#3b82f6', '#a78bfa', '#22d3ee'];
@@ -85,17 +86,37 @@ export function StatusChip({ kind, children, dot = true }: { kind: ChipKind; chi
 }
 
 // ── TeamBadge ────────────────────────────────────────────────────────────────
-export function TeamBadge({ name, color, size = 28, mono }: { name?: string | null; color?: string; size?: number; mono?: string }) {
+export function TeamBadge({ name, color, size = 28, mono, logoUrl }: {
+  name?: string | null; color?: string; size?: number; mono?: string; logoUrl?: string | null;
+}) {
   const c = color || teamColor(name);
+  const resolved = logoUrl ?? resolveTeamLogo(name);
+  const [imgFailed, setImgFailed] = useState(false);
+  const showLogo = Boolean(resolved) && !imgFailed;
   return (
     <span style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      background: 'var(--td-sunken)', boxShadow: `inset 0 0 0 1px ${c}`,
+      background: showLogo ? '#0a0a0c' : 'var(--td-sunken)', boxShadow: `inset 0 0 0 1px ${c}`,
       color: c, fontFamily: 'var(--td-font-mono)', fontWeight: 700,
       fontSize: Math.max(9, Math.round(size * 0.36)),
+      overflow: 'hidden',
     }}>
-      {mono || monogram(name)}
+      {showLogo ? (
+        <img
+          src={resolved!}
+          alt=""
+          width={size}
+          height={size}
+          onError={() => setImgFailed(true)}
+          style={{
+            width: '100%', height: '100%', objectFit: 'contain',
+            borderRadius: '50%', padding: size > 32 ? 4 : 2,
+          }}
+        />
+      ) : (
+        mono || monogram(name)
+      )}
     </span>
   );
 }

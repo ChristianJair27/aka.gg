@@ -506,7 +506,7 @@ export function useReportResult(id: string) {
     },
     onSuccess: (data, { winner }) => {
       if (data.tournamentComplete) {
-        toast.success("🏆 ¡Torneo finalizado!", {
+        toast.success("¡Torneo finalizado!", {
           description: `Campeón: ${data.champion}`,
           duration: 8000,
         });

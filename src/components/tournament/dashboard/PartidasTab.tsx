@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Swords, X } from 'lucide-react';
+import { Search, Swords, X , Trophy} from 'lucide-react';
 import { Button, FilterPills, SectionHead } from '@/components/tournament/ui';
 import { RoundRail, type RoundRailItem } from '@/components/tournament/RoundRail';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
@@ -85,7 +85,7 @@ export function PartidasTab({ id, swissRounds }: { id: string; swissRounds: numb
   const rlabel = (r: number) => {
     if (playoffRounds.has(r)) {
       const d = maxPlayoff - r;
-      return d === 0 ? '🏆 Gran Final' : d === 1 ? 'Playoffs · Semifinales' : d === 2 ? 'Playoffs · Cuartos' : 'Playoffs · Octavos';
+      return d === 0 ? 'Gran Final' : d === 1 ? 'Playoffs · Semifinales' : d === 2 ? 'Playoffs · Cuartos' : 'Playoffs · Octavos';
     }
     if (data.bracketType === 'round_robin') return `Jornada ${r}`;
     if (data.bracketType === 'swiss') return `Ronda ${r}`;

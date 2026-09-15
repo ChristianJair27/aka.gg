@@ -596,7 +596,7 @@ const Dashboard = () => {
                 <Calendar size={13} />
                 {new Date(nextT.startDate).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}
               </span>
-              {nextT.prize ? <span style={{ color: C.gold }}>🏆 {nextT.prize}</span> : null}
+              {nextT.prize ? <span style={{ color: C.gold, display: "inline-flex", alignItems: "center", gap: 4 }}><Trophy size={12} aria-hidden />{nextT.prize}</span> : null}
             </div>
             <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span className="vs-over" style={{ color: nextT.phase === "active" ? C.win : C.gold }}>

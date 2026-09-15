@@ -72,24 +72,25 @@
   box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 14px 34px rgba(0,0,0,0.38);
 }
 
-/* ── Sidebar de navegación (desktop) ──────────────────────────────────────── */
+/* ── Sidebar de navegación (desktop) — Prompt 8: más contraste ───────────── */
 .td-root .td-nav-item {
   position: relative;
   display: flex; align-items: center; gap: 11px; width: 100%;
   padding: 10px 12px 10px 14px; border-radius: 11px; cursor: pointer; text-align: left;
-  font-size: 13px; font-weight: 500; letter-spacing: .2px;
-  color: var(--td-text-2); background: transparent; border: none;
-  transition: background .15s, color .15s;
+  font-size: 13px; font-weight: 600; letter-spacing: .2px;
+  color: #d4d4d8; background: transparent; border: none;
+  transition: background .15s, color .15s, box-shadow .15s;
   font-family: var(--td-font-ui);
 }
-.td-root .td-nav-item:hover { background: rgba(255,255,255,0.045); color: var(--td-text); }
+.td-root .td-nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
 .td-root .td-nav-item[data-active='true'] {
-  background: var(--td-subcard); color: #fff; font-weight: 700;
+  background: rgba(232,50,60,0.14); color: #fff; font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(232,50,60,0.35);
 }
-/* Indicador: barrita roja a la izquierda (el patrón "fila activa" limpio) */
+/* Indicador: barrita roja a la izquierda (más gruesa / visible) */
 .td-root .td-nav-ind {
   position: absolute; left: 0; top: 50%; transform: translateY(-50%) scaleY(0);
-  width: 3px; height: 18px; border-radius: 2px; background: var(--td-red);
+  width: 4px; height: 22px; border-radius: 3px; background: var(--td-red);
   transition: transform .18s ease;
 }
 .td-root .td-nav-item[data-active='true'] .td-nav-ind { transform: translateY(-50%) scaleY(1); }
@@ -114,7 +115,7 @@
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   min-width: 58px; padding: 8px 10px; border-radius: 16px;
   border: none; background: transparent; cursor: pointer;
-  color: var(--td-muted); transition: background .15s, color .15s;
+  color: #a1a1aa; transition: background .15s, color .15s;
   font-family: var(--td-font-ui);
 }
 .td-root .td-bottomnav-item:hover { color: var(--td-text); }
@@ -122,7 +123,7 @@
   background: rgba(232,50,60,0.14); color: #fff;
 }
 .td-root .td-bottomnav-item[data-active='true'] svg { color: var(--td-red); }
-.td-root .td-bottomnav-label { font-size: 9.5px; font-weight: 600; letter-spacing: .3px; }
+.td-root .td-bottomnav-label { font-size: 10px; font-weight: 700; letter-spacing: .3px; }
 
 /* ── Modal de equipo ──────────────────────────────────────────────────────── */
 /* Filo animado del borde superior: barrido crimson→oro en bucle lento.

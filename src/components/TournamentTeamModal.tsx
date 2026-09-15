@@ -6,8 +6,7 @@ import { CSSProperties, ReactNode, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  X, Users, Swords, BarChart3, ArrowUpRight, Crown, Eye, Coins, Target, Flame,
-} from 'lucide-react';
+  X, Users, Swords, BarChart3, ArrowUpRight, Crown, Eye, Coins, Target, Flame, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBracket, type BracketMatch, type Registration } from '@/hooks/queries/tournaments';
 import { discoveryToast } from '@/hooks/useTournamentDiscovery';
@@ -285,7 +284,7 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
                     <Eye size={13} color="#60a5fa" /> {teamAgg.vpm} visión/min
                   </span>
                   {teamAgg.multikills > 0 && (
-                    <span style={{ fontSize: 12.5, color: 'var(--td-text-2)' }}>⚡ {teamAgg.multikills} multikills</span>
+                    <span style={{ fontSize: 12.5, color: 'var(--td-text-2)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Zap size={12} aria-hidden />{teamAgg.multikills} multikills</span>
                   )}
                 </div>
                 {teamAgg.pool.length > 0 && (

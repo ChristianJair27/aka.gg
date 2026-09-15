@@ -69,7 +69,7 @@ export function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, sw
     if (!window.confirm('¿Cerrar el torneo? El líder de la clasificación queda como campeón.')) return;
     try {
       const { data } = await axiosInstance.post(`/api/tournaments/${id}/complete`);
-      toast.success(data.champion ? `🏆 Campeón: ${data.champion}` : 'Torneo finalizado');
+      toast.success(data.champion ? `Campeón: ${data.champion}` : 'Torneo finalizado');
       qc.invalidateQueries({ queryKey: qk.tournamentBoard(id) });
     } catch (e: any) {
       toast.error(e?.response?.data?.error ?? 'No se pudo finalizar');

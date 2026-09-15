@@ -99,12 +99,12 @@ export function ErrorCard({ message, onRetry }: { message: string; onRetry: () =
 // Migas: de vuelta al listado sin usar el botón atrás del navegador.
 
 export const NAV_ITEMS: Array<{ key: Tab; label: string; icon: ReactNode }> = [
-  { key: 'resumen', label: 'Resumen', icon: <LayoutDashboard size={16} /> },
-  { key: 'bracket', label: 'Bracket', icon: <Network size={16} /> },
-  { key: 'equipos', label: 'Equipos', icon: <Users size={16} /> },
-  { key: 'partidas', label: 'Partidas', icon: <Swords size={16} /> },
-  { key: 'stats', label: 'Estadísticas', icon: <BarChart3 size={16} /> },
-  { key: 'reglas', label: 'Reglas', icon: <ScrollText size={16} /> },
+  { key: 'resumen', label: 'Resumen', icon: <LayoutDashboard size={18} /> },
+  { key: 'bracket', label: 'Bracket', icon: <Network size={18} /> },
+  { key: 'equipos', label: 'Equipos', icon: <Users size={18} /> },
+  { key: 'partidas', label: 'Partidas', icon: <Swords size={18} /> },
+  { key: 'stats', label: 'Estadísticas', icon: <BarChart3 size={18} /> },
+  { key: 'reglas', label: 'Reglas', icon: <ScrollText size={18} /> },
 ];
 
 // Qué hay en cada sección: los iconos del nav inferior van con etiqueta mínima.

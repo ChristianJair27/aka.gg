@@ -594,7 +594,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
       {players.length > 0 && <div className="td-panel p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <p className="text-xs text-white/40 uppercase tracking-widest font-bold">
-            🏆 Top 3 — {PODIUM_CATS.find(c => c.key === podiumCat)?.label}
+            <span className="inline-flex items-center gap-1.5"><Trophy className="h-4 w-4" aria-hidden />Top 3 — {PODIUM_CATS.find(c => c.key === podiumCat)?.label}</span>
           </p>
           <SharePodiumButton data={{
             tournamentId: data.tournamentId,

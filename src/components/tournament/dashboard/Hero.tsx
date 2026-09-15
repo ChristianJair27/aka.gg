@@ -58,7 +58,7 @@ export function BroadcastBanner({ channel, navigate }: { channel: string; naviga
     >
       <span className="td-dot-pulse" style={{ width: 9, height: 9, borderRadius: '50%', background: RED, boxShadow: `0 0 12px ${RED}`, flexShrink: 0 }} />
       <span style={{ fontWeight: 800, fontSize: 14, letterSpacing: 0.4, color: RED, flexShrink: 0 }}>
-        📡 TRANSMISIÓN EN VIVO
+        <Radio size={14} aria-hidden style={{ marginRight: 6 }} />TRANSMISIÓN EN VIVO
       </span>
       <span style={{ fontSize: 13.5, color: 'var(--td-text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {feed.label || 'Partida del torneo en curso'}{feed.hasVideo ? ' · con video' : ''}

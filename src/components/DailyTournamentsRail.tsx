@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { axiosInstance } from '@/lib/axios';
-import { CalendarClock, Mountain, Snowflake, Swords, Users, ChevronRight } from 'lucide-react';
+import { CalendarClock, Mountain, Snowflake, Swords, Users, ChevronRight, Trophy} from 'lucide-react';
 
 type DailySchedule = {
   id: number; name: string; description: string;
@@ -113,7 +113,7 @@ export function DailyTournamentsRail() {
               <p className="text-xs text-gray-500 mt-0.5">
                 {s.days ? s.days.map(d => DAY_LABELS[d]).join(' · ') : 'Todos los días'} · {hhmm}
               </p>
-              {s.prize && <p className="text-xs text-gray-400 mt-1 truncate">🏆 {s.prize}</p>}
+              {s.prize && <p className="text-xs text-gray-400 mt-1 truncate inline-flex items-center gap-1"><Trophy size={12} aria-hidden />{s.prize}</p>}
 
               <div className="mt-4 flex items-center justify-between">
                 {s.nextStartAt && !live ? (

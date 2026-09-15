@@ -1,3 +1,4 @@
+import { Swords } from 'lucide-react';
 // Red de seguridad global: un crash de render ya no deja la pantalla en negro.
 // Muestra una tarjeta con el error y botones de recuperar/recargar.
 import { Component, type ReactNode } from 'react';
@@ -29,7 +30,7 @@ export class AppErrorBoundary extends Component<Props, State> {
           border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(16,16,20,0.75)',
           backdropFilter: 'blur(18px)', textAlign: 'center', color: '#fff',
         }}>
-          <div style={{ fontSize: 40, marginBottom: 8 }}>⚔️</div>
+          <div style={{ fontSize: 40, marginBottom: 8, display: "flex", justifyContent: "center" }}><Swords size={40} aria-hidden /></div>
           <h1 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 800 }}>Algo salió mal</h1>
           <p style={{ margin: '0 0 18px', fontSize: 13.5, color: 'rgba(255,255,255,0.6)', lineHeight: 1.55 }}>
             La página tuvo un error inesperado. Tus datos están a salvo — recarga para continuar.
