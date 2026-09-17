@@ -199,14 +199,27 @@ export function FilterPills<T extends string>({ items, value, onChange }: {
 
 // ── Section header helper ────────────────────────────────────────────────────
 // Cabecera con separador: marca dónde empieza cada bloque dentro del panel.
-export function SectionHead({ icon, title, right }: { icon?: ReactNode; title: string; right?: ReactNode }) {
+// `size="lg"`: cabecera protagonista (la tarjeta principal del Resumen). El
+// icono va en un chip de 36px y el texto sube a 14px: grande, pero nunca más
+// que el icono, y sigue cabiendo con el botón de la derecha en móvil (wrap).
+export function SectionHead({ icon, title, right, size = 'md' }: {
+  icon?: ReactNode; title: string; right?: ReactNode; size?: 'md' | 'lg';
+}) {
+  const lg = size === 'lg';
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14,
-      paddingBottom: 12, borderBottom: '1px solid var(--td-border-soft)',
+      display: 'flex', alignItems: 'center', gap: lg ? 12 : 9, marginBottom: lg ? 18 : 14,
+      paddingBottom: lg ? 14 : 12, borderBottom: '1px solid var(--td-border-soft)',
+      flexWrap: 'wrap', rowGap: 10,
     }}>
-      {icon}
-      <span className="td-over" style={{ fontSize: 10, letterSpacing: '2px', color: 'var(--td-text-2)' }}>{title}</span>
+      {icon && (lg
+        ? <span className="td-ico" style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(232,50,60,0.12)' }}>{icon}</span>
+        : icon)}
+      <span className="td-over" style={lg
+        ? { fontSize: 14, letterSpacing: '2.4px', color: 'var(--td-text)', fontWeight: 700 }
+        : { fontSize: 10, letterSpacing: '2px', color: 'var(--td-text-2)' }}>
+        {title}
+      </span>
       {right && <span style={{ marginLeft: 'auto' }}>{right}</span>}
     </div>
   );

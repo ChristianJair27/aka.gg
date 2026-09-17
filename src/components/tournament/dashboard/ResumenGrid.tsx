@@ -22,6 +22,7 @@ import { useCheckin, useRegistrations, type TdBoardPayload } from '@/hooks/queri
 import { dd } from '@/lib/dataDragon';
 import { PlayerAvatar, riotIdOf } from '@/components/tournament/PlayerAvatar';
 import { MiniBar, Ring, TierEmblem } from '@/components/tournament/MicroViz';
+import { formatKda } from '@/components/tournament/PlayerRadarCard';
 import { useProfileIcons, iconFor } from '@/hooks/useProfileIcons';
 import {
   BLUE, RED, Card, Block, EmptyState, ChampGrid, ChampPortrait, TeamCol,
@@ -52,7 +53,7 @@ export function StatsMainCard({ id, onFull, region }: { id: string; onFull: () =
     const by = (k: 'avgKda' | 'totalKills' | 'avgDamagePerMin') =>
       [...data.players].sort((a, b) => (b[k] as number) - (a[k] as number))[0];
     return [
-      { label: 'MEJOR KDA', icon: <Crown size={13} />, p: by('avgKda'), fmt: (p: any) => p.avgKda.toFixed(2) },
+      { label: 'MEJOR KDA', icon: <Crown size={13} />, p: by('avgKda'), fmt: (p: any) => formatKda(p).text },
       { label: 'MÁS KILLS', icon: <Skull size={13} />, p: by('totalKills'), fmt: (p: any) => String(p.totalKills) },
       { label: 'MÁS DAÑO/MIN', icon: <Flame size={13} />, p: by('avgDamagePerMin'), fmt: (p: any) => String(Math.round(p.avgDamagePerMin)) },
     ];
@@ -61,7 +62,8 @@ export function StatsMainCard({ id, onFull, region }: { id: string; onFull: () =
   return (
     <Card>
       <SectionHead
-        icon={<BarChart3 size={14} color={RED} />}
+        size="lg"
+        icon={<BarChart3 size={19} color={RED} />}
         title="ESTADÍSTICAS DEL TORNEO"
         right={
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
