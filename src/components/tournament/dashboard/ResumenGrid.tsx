@@ -21,7 +21,7 @@ import { discoveryToast } from '@/hooks/useTournamentDiscovery';
 import { useCheckin, useRegistrations, type TdBoardPayload } from '@/hooks/queries/tournaments';
 import { dd } from '@/lib/dataDragon';
 import { PlayerAvatar, riotIdOf } from '@/components/tournament/PlayerAvatar';
-import { tierColor, tierLabel, tierShort, rankEmblem } from '@/lib/ranks';
+import { MiniBar, Ring, TierEmblem } from '@/components/tournament/MicroViz';
 import { useProfileIcons, iconFor } from '@/hooks/useProfileIcons';
 import {
   BLUE, RED, Card, Block, EmptyState, ChampGrid, ChampPortrait, TeamCol,
@@ -118,10 +118,13 @@ export function StatsMainCard({ id, onFull, region }: { id: string; onFull: () =
             </div>
             {top5.map((p, i) => (
               <div key={p.summonerName + p.tagLine} className="td-strow td-strow-stats td-row-hover" style={{ padding: '8px', borderRadius: 8 }}>
-                <span className="td-num" style={{
-                  fontSize: 12.5, fontWeight: 800,
-                  color: i === 0 ? '#c8aa6e' : i === 1 ? '#e5e7eb' : i === 2 ? '#d9a066' : 'var(--td-text-2)',
-                }}>{p.rank ?? i + 1}</span>
+                {hasRank ? (
+                  <Ring value={p.score ?? 0} size={30} stroke={3} label={String(p.rank)}
+                    color={i === 0 ? '#c8aa6e' : i === 1 ? '#e5e7eb' : i === 2 ? '#d9a066' : '#e1242e'}
+                    tip={`Puesto ${p.rank} · ${p.score} pts de 100`} />
+                ) : (
+                  <span className="td-num" style={{ fontSize: 12.5, fontWeight: 800, color: i === 0 ? '#c8aa6e' : 'var(--td-text-2)' }}>{i + 1}</span>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                   <PlayerAvatar riotId={riotIdOf(p)} profileIconId={iconFor(iconMap, riotIdOf(p))}
                     mostPlayedChamp={p.mostPlayedChamp} size={24} ring={false} />
@@ -129,23 +132,18 @@ export function StatsMainCard({ id, onFull, region }: { id: string; onFull: () =
                     {p.summonerName}
                   </span>
                 </div>
-                <span className="td-num" style={{ fontSize: 12.5, fontWeight: 700, color: hasRank ? '#fff' : 'var(--td-text-2)' }}>
-                  {hasRank ? p.score : p.gamesPlayed}
+                {hasRank
+                  ? <MiniBar value={p.score ?? 0} max={100} label={`${p.score}`} color="#e1242e" width={40} tip={`${p.score} puntos de 100`} />
+                  : <span className="td-num" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--td-text-2)' }}>{p.gamesPlayed}</span>}
+                <span className="td-st-wr">
+                  <MiniBar value={p.winrate} max={100} label={`${p.winrate}%`} width={40}
+                    color={p.winrate >= 60 ? '#2fbf8a' : p.winrate >= 50 ? '#e5e7eb' : '#ff5a64'} tip={`${p.wins}V · ${p.losses}D`} />
                 </span>
-                <span className="td-num td-st-wr" style={{ fontSize: 12, color: p.winrate >= 50 ? 'var(--td-green)' : 'var(--td-neg)' }}>{p.winrate}%</span>
-                <span className="td-num" style={{ fontSize: 12.5, fontWeight: 700, color: p.avgKda >= 4 ? '#fde047' : '#fff' }}>
-                  {p.avgKda > 20 ? '20+' : p.avgKda.toFixed(2)}
-                </span>
+                <MiniBar value={Math.min(10, p.avgKda)} max={10} label={p.avgKda > 20 ? '20+' : p.avgKda.toFixed(2)} width={40}
+                  color={p.avgKda >= 4 ? '#fde047' : '#e5e7eb'} tip={`KDA ${p.avgKda.toFixed(2)} (${p.totalKills}/${p.totalDeaths}/${p.totalAssists})`} />
                 {hasRank ? (
-                  <span className="td-st-dmg" style={{ textAlign: 'right' }}>
-                    {p.soloTier ? (
-                      <Tip label={`${tierLabel(p.soloTier, p.soloDivision)}${p.soloLp != null ? ` · ${p.soloLp} LP` : ''}`}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, color: tierColor(p.soloTier) }}>
-                          <img src={rankEmblem(p.soloTier)} alt="" loading="lazy" style={{ width: 16, height: 16, objectFit: 'contain' }} />
-                          {tierShort(p.soloTier, p.soloDivision)}
-                        </span>
-                      </Tip>
-                    ) : <span style={{ fontSize: 11, color: 'var(--td-muted)' }}>—</span>}
+                  <span className="td-st-dmg" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <TierEmblem tier={p.soloTier} division={p.soloDivision} lp={p.soloLp} size={26} />
                   </span>
                 ) : (
                   <span className="td-num td-st-dmg" style={{ fontSize: 12, color: 'var(--td-text-2)', textAlign: 'right' }}>{Math.round(p.avgDamagePerMin)}</span>

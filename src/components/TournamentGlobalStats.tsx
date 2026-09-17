@@ -22,7 +22,9 @@ import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { HAS_PLAYER_RADAR } from '@/hooks/useTournamentDiscovery';
 import { SharePodiumButton, type PodiumEntry } from '@/components/tournament/SharePodiumCard';
 import { PlayerAvatar, riotIdOf } from '@/components/tournament/PlayerAvatar';
-import { tierColor, tierLabel, tierShort, tierValue, rankEmblem } from '@/lib/ranks';
+import { tierValue } from '@/lib/ranks';
+import { MiniBar, Ring, Dots, KdaSplit, TierEmblem, PentaBadge } from '@/components/tournament/MicroViz';
+import { StatsCoachmarks } from '@/components/tournament/StatsCoachmarks';
 import { useProfileIcons, iconFor } from '@/hooks/useProfileIcons';
 import type { TournamentGlobalStats, PlayerAggregate, GlobalSortKey } from '@/types/tournament-global-stats';
 
@@ -151,9 +153,7 @@ const TABLE_COLS: { key: GlobalSortKey | 'player' | 'rank' | 'tier'; label: stri
   { key: 'gamesPlayed',     label: 'PJ',        sortable: true,  tip: 'Partidas jugadas' },
   { key: 'winrate',         label: 'WR%',       sortable: true,  tip: 'Porcentaje de victorias' },
   { key: 'avgKda',          label: 'KDA',       sortable: true,  tip: 'KDA medio (kills + asistencias) / muertes' },
-  { key: 'totalKills',      label: 'K',         sortable: true,  tip: 'Kills totales' },
-  { key: 'totalDeaths',     label: 'D',         sortable: true,  tip: 'Muertes totales' },
-  { key: 'totalAssists',    label: 'A',         sortable: true,  tip: 'Asistencias totales' },
+  { key: 'totalKills',      label: 'K / D / A', sortable: true,  tip: 'Kills, muertes y asistencias totales (barra proporcional). Ordena por kills.' },
   { key: 'avgGoldPerMin',   label: 'G/min',     sortable: true,  tip: 'Oro por minuto' },
   { key: 'avgDamagePerMin', label: 'Dmg/min',   sortable: true,  tip: 'Daño a campeones por minuto' },
   { key: 'avgCsPerMin',     label: 'CS/min',    sortable: true,  tip: 'Súbditos por minuto' },
@@ -174,6 +174,15 @@ function SortableTable({ players, marked, onMark, onPick, iconOf }: {
   // Por defecto, posición en el torneo (#1 arriba). Los sin rank (<3 PJ) al final.
   const [sortKey, setSortKey] = useState<TableSortKey>('rank');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  // Techos de la lista visible: las barras se leen relativas a quien más tiene.
+  const maxOf = useMemo(() => ({
+    gold: Math.max(1, ...players.map(p => p.avgGoldPerMin)),
+    dmg: Math.max(1, ...players.map(p => p.avgDamagePerMin)),
+    cs: Math.max(1, ...players.map(p => p.avgCsPerMin)),
+    vis: Math.max(1, ...players.map(p => p.avgVisionPerMin)),
+    games: Math.max(1, ...players.map(p => p.gamesPlayed)),
+  }), [players]);
 
   const sorted = useMemo(() => {
     const mult = sortDir === 'desc' ? -1 : 1;
@@ -245,10 +254,9 @@ function SortableTable({ players, marked, onMark, onPick, iconOf }: {
               {/* Posición en el torneo */}
               <td className={cn('px-3 py-2.5 text-center', isMarked && 'border-l-2 border-l-[#e8323c]')}>
                 {p.rank ? (
-                  <span className={cn('inline-flex items-center justify-center min-w-[26px] h-6 rounded-md text-xs font-black tabular-nums',
-                    p.rank === 1 ? 'bg-[#c8aa6e]/20 text-[#c8aa6e]' : p.rank === 2 ? 'bg-white/15 text-white' : p.rank === 3 ? 'bg-[#b06a3b]/25 text-[#d9a066]' : 'text-white/55')}>
-                    {p.rank}
-                  </span>
+                  <Ring value={p.score ?? 0} size={34} stroke={3} label={String(p.rank)}
+                    color={p.rank === 1 ? '#c8aa6e' : p.rank === 2 ? '#e5e7eb' : p.rank === 3 ? '#d9a066' : '#e1242e'}
+                    tip={`Puesto ${p.rank} · ${p.score} pts de 100`} />
                 ) : (
                   <Tip label="Sin posición: menos de 3 partidas"><span className="text-xs text-white/20">—</span></Tip>
                 )}
@@ -269,61 +277,36 @@ function SortableTable({ players, marked, onMark, onPick, iconOf }: {
               </td>
               {/* Rango solo/dúo */}
               <td className="px-3 py-2.5 text-center">
-                {p.soloTier ? (
-                  <Tip label={`${tierLabel(p.soloTier, p.soloDivision)}${p.soloLp != null ? ` · ${p.soloLp} LP` : ''}`}>
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold" style={{ color: tierColor(p.soloTier) }}>
-                      <img src={rankEmblem(p.soloTier)} alt="" className="w-4 h-4 object-contain" loading="lazy" />
-                      {tierShort(p.soloTier, p.soloDivision)}
-                    </span>
-                  </Tip>
-                ) : <span className="text-xs text-white/20">—</span>}
+                <TierEmblem tier={p.soloTier} division={p.soloDivision} lp={p.soloLp} size={30} />
               </td>
-              <td className="px-3 py-2.5 text-center text-xs text-white/50">{p.gamesPlayed}</td>
+              <td className="px-3 py-2.5 text-center">
+                <Dots count={p.gamesPlayed} max={Math.min(10, maxOf.games)} color="#e5e7eb" tip={`${p.gamesPlayed} partidas jugadas`} />
+              </td>
               {/* WR: porcentaje + barra de progreso (patrón "completion") */}
               <td className="px-3 py-2.5 text-center">
-                <div className="inline-flex flex-col items-center gap-1 min-w-[52px]">
-                  <span className={cn(
-                    'text-xs font-bold leading-none',
-                    p.winrate >= 60 ? 'text-green-400' :
-                    p.winrate >= 50 ? 'text-white/70'  : 'text-red-400/70',
-                  )}>
-                    {p.winrate}%
-                  </span>
-                  <div className="h-1 w-12 rounded-full bg-white/[0.08] overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${Math.min(100, p.winrate)}%`,
-                        background: p.winrate >= 60
-                          ? '#4ade80'
-                          : p.winrate >= 50 ? 'rgba(255,255,255,0.55)' : '#f87171',
-                      }}
-                    />
-                  </div>
-                </div>
+                <MiniBar value={p.winrate} max={100} label={`${p.winrate}%`}
+                  color={p.winrate >= 60 ? '#2fbf8a' : p.winrate >= 50 ? '#e5e7eb' : '#ff5a64'}
+                  tip={`${p.wins} victorias · ${p.losses} derrotas`} />
               </td>
               <td className="px-3 py-2.5 text-center">
-                <span className={cn(
-                  'text-xs font-bold',
-                  p.avgKda >= 4  ? 'text-yellow-300' :
-                  p.avgKda >= 2.5 ? 'text-white'     : 'text-white/50',
-                )}>
-                  <Tip label={formatKda(p).tip}><span>{formatKda(p).text}</span></Tip>
-                </span>
+                <MiniBar value={Math.min(10, p.avgKda)} max={10} label={formatKda(p).text}
+                  color={p.avgKda >= 4 ? '#fde047' : p.avgKda >= 2.5 ? '#e5e7eb' : 'rgba(255,255,255,0.5)'}
+                  tip={formatKda(p).tip} />
               </td>
-              <td className="px-3 py-2.5 text-center text-xs text-white/60">{p.totalKills}</td>
-              <td className="px-3 py-2.5 text-center text-xs text-red-400/60">{p.totalDeaths}</td>
-              <td className="px-3 py-2.5 text-center text-xs text-white/60">{p.totalAssists}</td>
-              <td className="px-3 py-2.5 text-center text-xs text-yellow-300/70">{p.avgGoldPerMin.toFixed(1)}</td>
-              <td className="px-3 py-2.5 text-center text-xs text-orange-300/70">{fmtNumber(Math.round(p.avgDamagePerMin))}</td>
-              <td className="px-3 py-2.5 text-center text-xs text-white/60">{p.avgCsPerMin.toFixed(1)}</td>
-              <td className="px-3 py-2.5 text-center text-xs text-cyan-300/60">{p.avgVisionPerMin.toFixed(2)}</td>
+              <td className="px-3 py-2.5 text-center"><KdaSplit k={p.totalKills} d={p.totalDeaths} a={p.totalAssists} /></td>
               <td className="px-3 py-2.5 text-center">
-                {p.pentaKills > 0
-                  ? <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-red-500 text-white">{p.pentaKills}</span>
-                  : <span className="text-xs text-white/20">—</span>
-                }
+                <MiniBar value={p.avgGoldPerMin} max={maxOf.gold} color="#eab308" label={fmtNumber(Math.round(p.avgGoldPerMin))} tip={`${p.avgGoldPerMin.toFixed(1)} oro por minuto`} />
               </td>
+              <td className="px-3 py-2.5 text-center">
+                <MiniBar value={p.avgDamagePerMin} max={maxOf.dmg} color="#f97316" label={fmtNumber(Math.round(p.avgDamagePerMin))} tip={`${p.avgDamagePerMin.toFixed(1)} daño a campeones por minuto`} />
+              </td>
+              <td className="px-3 py-2.5 text-center">
+                <MiniBar value={p.avgCsPerMin} max={maxOf.cs} color="#e5e7eb" label={p.avgCsPerMin.toFixed(1)} tip={`${p.avgCsPerMin.toFixed(1)} súbditos por minuto`} />
+              </td>
+              <td className="px-3 py-2.5 text-center">
+                <MiniBar value={p.avgVisionPerMin} max={maxOf.vis} color="#22d3ee" label={p.avgVisionPerMin.toFixed(2)} tip={`${p.avgVisionPerMin.toFixed(2)} puntos de visión por minuto`} />
+              </td>
+              <td className="px-3 py-2.5 text-center"><PentaBadge count={p.pentaKills} /></td>
             </tr>
             );
           })}
@@ -603,9 +586,10 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
       </div>
 
       {/* Barra de filtros: la misma lista filtrada alimenta podio, gráfica y tabla */}
+      <StatsCoachmarks playerCount={allPlayers.length} />
       <div className="td-panel td-filterbar">
         <div className="td-filterbar-row">
-          <div className="td-search-wrap">
+          <div className="td-search-wrap" data-td-search>
             <Search size={14} />
             <input
               value={q}

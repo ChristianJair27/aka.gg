@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tip } from '@/components/ui/Tip';
 import { usePlayerTournaments } from '@/hooks/queries/tournaments';
 import { regionLabel } from '@/lib/regions';
-import { tierColor, tierLabel, tierShort, rankEmblem } from '@/lib/ranks';
+import { Ring, TierEmblem } from '@/components/tournament/MicroViz';
 
 const RED = '#e1242e';
 const GOLD = '#c8aa6e';
@@ -57,11 +57,11 @@ export function PlayerTournamentsCard({ riotId, style }: { riotId?: string; styl
               <Tip label={t.rank
                 ? `Puesto ${t.rank} de ${t.rankedPlayers} · ${t.score} pts (promedio de los 8 ejes del radar, 3+ partidas)`
                 : 'Sin posición todavía: necesita 3 partidas'}>
-                <div style={{ textAlign: 'center', minWidth: 58 }}>
-                  <div style={{ fontSize: 26, fontWeight: 900, lineHeight: 1, color: t.rank ? podium : 'rgba(255,255,255,0.3)', fontVariantNumeric: 'tabular-nums' }}>
-                    {t.rank ? `#${t.rank}` : '—'}
-                  </div>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 3 }}>
+                <div style={{ textAlign: 'center', minWidth: 62, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                  {t.rank
+                    ? <Ring value={t.score ?? 0} size={46} stroke={4} color={podium} label={`#${t.rank}`} />
+                    : <span style={{ fontSize: 22, fontWeight: 900, color: 'rgba(255,255,255,0.3)' }}>—</span>}
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
                     {t.rank ? `de ${t.rankedPlayers}` : `${t.gamesPlayed} PJ`}
                   </div>
                 </div>
@@ -91,14 +91,7 @@ export function PlayerTournamentsCard({ riotId, style }: { riotId?: string; styl
 
               {/* Rango solo/dúo + flecha */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                {t.soloTier && (
-                  <Tip label={`Solo/Dúo: ${tierLabel(t.soloTier, t.soloDivision)}`}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: tierColor(t.soloTier) }}>
-                      <img src={rankEmblem(t.soloTier)} alt="" loading="lazy" style={{ width: 20, height: 20, objectFit: 'contain' }} />
-                      {tierShort(t.soloTier, t.soloDivision)}
-                    </span>
-                  </Tip>
-                )}
+                {t.soloTier && <TierEmblem tier={t.soloTier} division={t.soloDivision} size={34} />}
                 <ArrowUpRight size={16} color="rgba(255,255,255,0.35)" className="group-hover:text-white transition-colors" />
               </div>
             </Link>
