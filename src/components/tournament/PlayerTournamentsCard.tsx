@@ -91,7 +91,7 @@ export function PlayerTournamentsCard({ riotId, style }: { riotId?: string; styl
 
               {/* Rango solo/dúo + flecha */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                {t.soloTier && <TierEmblem tier={t.soloTier} division={t.soloDivision} size={34} />}
+                {t.soloTier && <TierEmblem tier={t.soloTier} division={t.soloDivision} size={60} />}
                 <ArrowUpRight size={16} color="rgba(255,255,255,0.35)" className="group-hover:text-white transition-colors" />
               </div>
             </Link>

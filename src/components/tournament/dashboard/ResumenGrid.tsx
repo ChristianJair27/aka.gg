@@ -143,7 +143,7 @@ export function StatsMainCard({ id, onFull, region }: { id: string; onFull: () =
                   color={p.avgKda >= 4 ? '#fde047' : '#e5e7eb'} tip={`KDA ${p.avgKda.toFixed(2)} (${p.totalKills}/${p.totalDeaths}/${p.totalAssists})`} />
                 {hasRank ? (
                   <span className="td-st-dmg" style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <TierEmblem tier={p.soloTier} division={p.soloDivision} lp={p.soloLp} size={26} />
+                    <TierEmblem tier={p.soloTier} division={p.soloDivision} lp={p.soloLp} size={40} />
                   </span>
                 ) : (
                   <span className="td-num td-st-dmg" style={{ fontSize: 12, color: 'var(--td-text-2)', textAlign: 'right' }}>{Math.round(p.avgDamagePerMin)}</span>

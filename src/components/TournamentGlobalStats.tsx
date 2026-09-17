@@ -277,7 +277,7 @@ function SortableTable({ players, marked, onMark, onPick, iconOf }: {
               </td>
               {/* Rango solo/dúo */}
               <td className="px-3 py-2.5 text-center">
-                <TierEmblem tier={p.soloTier} division={p.soloDivision} lp={p.soloLp} size={30} />
+                <TierEmblem tier={p.soloTier} division={p.soloDivision} lp={p.soloLp} size={54} />
               </td>
               <td className="px-3 py-2.5 text-center">
                 <Dots count={p.gamesPlayed} max={Math.min(10, maxOf.games)} color="#e5e7eb" tip={`${p.gamesPlayed} partidas jugadas`} />

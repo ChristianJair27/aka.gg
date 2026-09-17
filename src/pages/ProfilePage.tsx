@@ -21,6 +21,7 @@ import { useDominantColor, tintRgba } from '@/lib/dominantColor';
 import AiTags from '@/components/ai/AiTags';
 import { ProfileComments } from '@/components/ProfileComments';
 import { PlayerTournamentsCard } from '@/components/tournament/PlayerTournamentsCard';
+import { TierEmblem } from '@/components/tournament/MicroViz';
 import {
   dd,
   rankEmblem,
@@ -942,10 +943,7 @@ export default function ProfilePage() {
             <div className="atak-kpi">
               <div className="k">Solo / Dúo</div>
               <div className="v" style={{ fontSize: kpiTier && kpiTier.length > 10 ? 22 : 28, display: 'flex', alignItems: 'center', gap: 10 }}>
-                {soloRank?.tier && (
-                  <img src={rankEmblem(soloRank.tier)} alt="" loading="lazy"
-                    style={{ width: 44, height: 44, objectFit: 'contain', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.6))' }} />
-                )}
+                {soloRank?.tier && <TierEmblem tier={soloRank.tier} division={soloRank.rank} size={72} showLabel={false} />}
                 <span>{summaryLoading && !soloRank ? '—' : (kpiTier || 'Unranked')}</span>
               </div>
               <div className="s">

@@ -85,29 +85,53 @@ export function KdaSplit({ k, d, a, width = 68 }: { k: number; d: number; a: num
   );
 }
 
-/** Emblema del rango con la división debajo. El logo manda; el texto acompaña. */
-export function TierEmblem({ tier, division, lp, size = 30, showLabel = true }: {
+/**
+ * Emblema del rango con la división debajo. El logo manda; el texto acompaña.
+ *
+ * El PNG de CommunityDragon es un lienzo 16:9 (1280×720) donde el escudo ocupa
+ * solo el 20-25 % del ancho, centrado: pintado a 30 px "cabía" pero se veía
+ * como una flechita. Aquí la imagen se dibuja ~3.6 veces más grande que la
+ * caja y centrada, así el escudo llena la caja. Medido sobre los assets reales
+ * (oro 20 %, esmeralda 23 %, retador 25 %, hierro 15 %).
+ */
+const EMBLEM_ZOOM = 3.6;
+export function TierEmblem({ tier, division, lp, size = 48, showLabel = true }: {
   tier?: string | null; division?: string | null; lp?: number | null; size?: number; showLabel?: boolean;
 }) {
   if (!tier) {
     return (
       <Tip label="Sin rango solo/dúo">
-        <span className="inline-flex items-center justify-center rounded-full"
-          style={{ width: size, height: size, background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.25)', fontSize: 10 }}>
-          —
+        <span className="inline-flex flex-col items-center gap-[2px]">
+          <span className="inline-flex items-center justify-center rounded-full"
+            style={{ width: size, height: size, background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.25)', fontSize: Math.max(9, size * 0.2) }}>
+            —
+          </span>
+          {showLabel && <span className="text-[9px] leading-none text-white/25">Sin rango</span>}
         </span>
       </Tip>
     );
   }
-  const noDiv = ['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(tier.toUpperCase());
+  const T = tier.toUpperCase();
+  const noDiv = ['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(T);
+  const imgW = size * EMBLEM_ZOOM;
+  const imgH = imgW * (720 / 1280);
+  const label = noDiv
+    ? (lp != null ? `${lp} LP` : tierLabel(tier))
+    : (division ?? '');
   return (
     <Tip label={`${tierLabel(tier, division)}${lp != null ? ` · ${lp} LP` : ''}`}>
-      <span className="inline-flex flex-col items-center gap-[2px]">
-        <img src={rankEmblem(tier)} alt={tierLabel(tier, division)} loading="lazy"
-          style={{ width: size, height: size, objectFit: 'contain', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.6))' }} />
+      <span className="inline-flex flex-col items-center gap-[3px]">
+        <span className="relative block" style={{ width: size, height: size }} aria-hidden>
+          <img src={rankEmblem(tier)} alt="" loading="lazy" draggable={false}
+            style={{
+              position: 'absolute', width: imgW, height: imgH, maxWidth: 'none',
+              left: (size - imgW) / 2, top: (size - imgH) / 2,
+              pointerEvents: 'none', filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.65))',
+            }} />
+        </span>
         {showLabel && (
-          <span className="text-[9px] font-black leading-none tracking-wide" style={{ color: tierColor(tier) }}>
-            {noDiv ? tierLabel(tier).slice(0, 4).toUpperCase() : division ?? ''}
+          <span className="font-black leading-none tracking-wide" style={{ color: tierColor(tier), fontSize: Math.max(9, Math.round(size * 0.2)) }}>
+            {label}
           </span>
         )}
       </span>
