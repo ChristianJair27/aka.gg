@@ -521,3 +521,28 @@ export function useReportResult(id: string) {
     onSettled: () => invalidateTournament(qc, id),
   });
 }
+
+// ── Torneos de un jugador (perfil de invocador) ──────────────────────────────
+export interface PlayerTournamentEntry {
+  tournamentId: string; name: string; region: string; phase: string;
+  team: string;
+  /** Posición en el torneo (null con <3 partidas) y puntuación 0-100. */
+  rank: number | null; score: number | null; rankedPlayers: number;
+  gamesPlayed: number; winrate: number | null; avgKda: number | null;
+  soloTier: string | null; soloDivision: string | null;
+}
+
+/** Torneos en los que está inscrito un Riot ID, con su posición y rango. */
+export function usePlayerTournaments(riotId?: string) {
+  return useQuery({
+    queryKey: qk.playerTournaments(riotId ?? "_"),
+    enabled: Boolean(riotId && riotId.includes("#")),
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<{ tournaments: PlayerTournamentEntry[] }>(
+        `/api/tournaments/player/${encodeURIComponent(riotId!)}`,
+      );
+      return data.tournaments ?? [];
+    },
+  });
+}

@@ -11,6 +11,7 @@ export const qk = {
   tournamentDashboard: () => ["tournament-dashboard"] as const,
   tournamentBoard: (id: string) => ["tournament", id, "board"] as const,
   bracket: (id: string) => ["tournament", id, "bracket"] as const,
+  playerTournaments: (riotId: string) => ["player-tournaments", riotId.toLowerCase()] as const,
 
   overview: () => ["overview"] as const,
 

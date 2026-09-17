@@ -21,6 +21,7 @@ import { discoveryToast } from '@/hooks/useTournamentDiscovery';
 import { useCheckin, useRegistrations, type TdBoardPayload } from '@/hooks/queries/tournaments';
 import { dd } from '@/lib/dataDragon';
 import { PlayerAvatar, riotIdOf } from '@/components/tournament/PlayerAvatar';
+import { tierColor, tierLabel, tierShort, rankEmblem } from '@/lib/ranks';
 import { useProfileIcons, iconFor } from '@/hooks/useProfileIcons';
 import {
   BLUE, RED, Card, Block, EmptyState, ChampGrid, ChampPortrait, TeamCol,
@@ -36,10 +37,16 @@ export function StatsMainCard({ id, onFull, region }: { id: string; onFull: () =
   );
   const { data: iconMap } = useProfileIcons(`resumen-${id}`, shownIds, region || 'la1');
 
-  const top5 = useMemo(
-    () => (data?.players ? [...data.players].sort((a, b) => b.avgKda - a.avgKda).slice(0, 5) : []),
-    [data],
-  );
+  // Ranking del torneo: posición por puntuación 0-100 del backend (promedio
+  // de los 8 ejes del radar, robusto al KDA extremo). Si el backend aún no
+  // manda rank (deploy pendiente), se cae al orden por KDA de antes.
+  const top5 = useMemo(() => {
+    if (!data?.players) return [];
+    const ranked = data.players.filter((p) => p.rank != null);
+    if (ranked.length) return [...ranked].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)).slice(0, 5);
+    return [...data.players].sort((a, b) => b.avgKda - a.avgKda).slice(0, 5);
+  }, [data]);
+  const hasRank = top5.some((p) => p.rank != null);
   const leaders = useMemo(() => {
     if (!data?.players?.length) return [];
     const by = (k: 'avgKda' | 'totalKills' | 'avgDamagePerMin') =>
@@ -93,15 +100,28 @@ export function StatsMainCard({ id, onFull, region }: { id: string; onFull: () =
             ))}
           </div>
 
-          {/* Top 5 por KDA */}
+          {/* Ranking del torneo (Top 5) */}
           <div style={{ marginTop: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 8px 8px' }}>
+              <span className="td-over" style={{ color: RED, letterSpacing: '2px' }}>
+                {hasRank ? 'RANKING DEL TORNEO' : 'TOP 5 POR KDA'}
+              </span>
+              {hasRank && (
+                <Tip label="Puntuación 0-100: promedio de los 8 ejes del radar (KDA, WR, daño, oro, CS, visión, participación, supervivencia), recortados al p95. Solo jugadores con 3+ partidas.">
+                  <span className="td-over" style={{ cursor: 'help' }}>¿CÓMO?</span>
+                </Tip>
+              )}
+            </div>
             <div className="td-strow td-strow-stats td-over" style={{ padding: '0 8px 8px' }}>
-              <span>#</span><span>Jugador</span><span>PJ</span>
-              <span className="td-st-wr">WR</span><span>KDA</span><span className="td-st-dmg" style={{ textAlign: 'right' }}>Daño/min</span>
+              <span>#</span><span>Jugador</span><span>{hasRank ? 'PTS' : 'PJ'}</span>
+              <span className="td-st-wr">WR</span><span>KDA</span><span className="td-st-dmg" style={{ textAlign: 'right' }}>{hasRank ? 'Rango' : 'Daño/min'}</span>
             </div>
             {top5.map((p, i) => (
               <div key={p.summonerName + p.tagLine} className="td-strow td-strow-stats td-row-hover" style={{ padding: '8px', borderRadius: 8 }}>
-                <span className="td-num" style={{ fontSize: 12.5, fontWeight: 700, color: i === 0 ? RED : 'var(--td-text-2)' }}>{i + 1}</span>
+                <span className="td-num" style={{
+                  fontSize: 12.5, fontWeight: 800,
+                  color: i === 0 ? '#c8aa6e' : i === 1 ? '#e5e7eb' : i === 2 ? '#d9a066' : 'var(--td-text-2)',
+                }}>{p.rank ?? i + 1}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                   <PlayerAvatar riotId={riotIdOf(p)} profileIconId={iconFor(iconMap, riotIdOf(p))}
                     mostPlayedChamp={p.mostPlayedChamp} size={24} ring={false} />
@@ -109,10 +129,27 @@ export function StatsMainCard({ id, onFull, region }: { id: string; onFull: () =
                     {p.summonerName}
                   </span>
                 </div>
-                <span className="td-num" style={{ fontSize: 12, color: 'var(--td-text-2)' }}>{p.gamesPlayed}</span>
+                <span className="td-num" style={{ fontSize: 12.5, fontWeight: 700, color: hasRank ? '#fff' : 'var(--td-text-2)' }}>
+                  {hasRank ? p.score : p.gamesPlayed}
+                </span>
                 <span className="td-num td-st-wr" style={{ fontSize: 12, color: p.winrate >= 50 ? 'var(--td-green)' : 'var(--td-neg)' }}>{p.winrate}%</span>
-                <span className="td-num" style={{ fontSize: 12.5, fontWeight: 700, color: p.avgKda >= 4 ? '#fde047' : '#fff' }}>{p.avgKda.toFixed(2)}</span>
-                <span className="td-num td-st-dmg" style={{ fontSize: 12, color: 'var(--td-text-2)', textAlign: 'right' }}>{Math.round(p.avgDamagePerMin)}</span>
+                <span className="td-num" style={{ fontSize: 12.5, fontWeight: 700, color: p.avgKda >= 4 ? '#fde047' : '#fff' }}>
+                  {p.avgKda > 20 ? '20+' : p.avgKda.toFixed(2)}
+                </span>
+                {hasRank ? (
+                  <span className="td-st-dmg" style={{ textAlign: 'right' }}>
+                    {p.soloTier ? (
+                      <Tip label={`${tierLabel(p.soloTier, p.soloDivision)}${p.soloLp != null ? ` · ${p.soloLp} LP` : ''}`}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, color: tierColor(p.soloTier) }}>
+                          <img src={rankEmblem(p.soloTier)} alt="" loading="lazy" style={{ width: 16, height: 16, objectFit: 'contain' }} />
+                          {tierShort(p.soloTier, p.soloDivision)}
+                        </span>
+                      </Tip>
+                    ) : <span style={{ fontSize: 11, color: 'var(--td-muted)' }}>—</span>}
+                  </span>
+                ) : (
+                  <span className="td-num td-st-dmg" style={{ fontSize: 12, color: 'var(--td-text-2)', textAlign: 'right' }}>{Math.round(p.avgDamagePerMin)}</span>
+                )}
               </div>
             ))}
           </div>

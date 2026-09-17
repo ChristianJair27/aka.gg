@@ -22,6 +22,7 @@ import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { HAS_PLAYER_RADAR } from '@/hooks/useTournamentDiscovery';
 import { SharePodiumButton, type PodiumEntry } from '@/components/tournament/SharePodiumCard';
 import { PlayerAvatar, riotIdOf } from '@/components/tournament/PlayerAvatar';
+import { tierColor, tierLabel, tierShort, tierValue, rankEmblem } from '@/lib/ranks';
 import { useProfileIcons, iconFor } from '@/hooks/useProfileIcons';
 import type { TournamentGlobalStats, PlayerAggregate, GlobalSortKey } from '@/types/tournament-global-stats';
 
@@ -143,8 +144,10 @@ function Podium({ players, sortKey, onPick, iconOf }: {
 type SortDir = 'desc' | 'asc';
 
 // `tip`: nombre completo en español de cada columna abreviada.
-const TABLE_COLS: { key: GlobalSortKey | 'player'; label: string; sortable: boolean; tip?: string }[] = [
+const TABLE_COLS: { key: GlobalSortKey | 'player' | 'rank' | 'tier'; label: string; sortable: boolean; tip?: string }[] = [
+  { key: 'rank',            label: '#',         sortable: true,  tip: 'Posición en el torneo por puntuación 0-100 (promedio de los 8 ejes del radar). Solo con 3+ partidas.' },
   { key: 'player',          label: 'Jugador',   sortable: false, tip: 'Jugador y campeones que ha usado' },
+  { key: 'tier',            label: 'Rango',     sortable: true,  tip: 'Rango solo/dúo actual en LoL' },
   { key: 'gamesPlayed',     label: 'PJ',        sortable: true,  tip: 'Partidas jugadas' },
   { key: 'winrate',         label: 'WR%',       sortable: true,  tip: 'Porcentaje de victorias' },
   { key: 'avgKda',          label: 'KDA',       sortable: true,  tip: 'KDA medio (kills + asistencias) / muertes' },
@@ -167,17 +170,29 @@ function SortableTable({ players, marked, onMark, onPick, iconOf }: {
   /** Click en la fila → radar del jugador. */
   onPick?: (p: PlayerAggregate) => void;
 }) {
-  const [sortKey, setSortKey] = useState<GlobalSortKey>('avgKda');
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  type TableSortKey = GlobalSortKey | 'rank' | 'tier';
+  // Por defecto, posición en el torneo (#1 arriba). Los sin rank (<3 PJ) al final.
+  const [sortKey, setSortKey] = useState<TableSortKey>('rank');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   const sorted = useMemo(() => {
     const mult = sortDir === 'desc' ? -1 : 1;
-    return [...players].sort((a, b) => mult * ((a[sortKey] as number) - (b[sortKey] as number)));
+    const val = (p: PlayerAggregate): number =>
+      sortKey === 'rank' ? (p.rank ?? Number.POSITIVE_INFINITY)
+      : sortKey === 'tier' ? -tierValue(p.soloTier, p.soloDivision, p.soloLp)
+      : (p[sortKey] as number);
+    return [...players].sort((a, b) => {
+      const av = val(a), bv = val(b);
+      if (av === bv) return 0;
+      if (!Number.isFinite(av)) return 1;
+      if (!Number.isFinite(bv)) return -1;
+      return mult * (av - bv);
+    });
   }, [players, sortKey, sortDir]);
 
-  const onSort = (key: GlobalSortKey) => {
+  const onSort = (key: TableSortKey) => {
     if (key === sortKey) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
-    else { setSortKey(key); setSortDir('desc'); }
+    else { setSortKey(key); setSortDir(key === 'rank' || key === 'tier' ? 'asc' : 'desc'); }
   };
 
   // 108+ filas en LQC: alto acotado (ScrollArea) + thead pegajoso vía CSS
@@ -191,7 +206,7 @@ function SortableTable({ players, marked, onMark, onPick, iconOf }: {
             {TABLE_COLS.map(col => (
               <th
                 key={col.key}
-                onClick={col.sortable ? () => onSort(col.key as GlobalSortKey) : undefined}
+                onClick={col.sortable ? () => onSort(col.key as TableSortKey) : undefined}
                 className={cn(
                   'px-3 py-2.5 text-[10px] uppercase tracking-wider whitespace-nowrap select-none',
                   col.key === 'player' ? 'text-left' : 'text-center',
@@ -227,8 +242,19 @@ function SortableTable({ players, marked, onMark, onPick, iconOf }: {
                 isMarked ? 'bg-red-500/[0.10]' : 'hover:bg-white/[0.03]',
               )}
             >
+              {/* Posición en el torneo */}
+              <td className={cn('px-3 py-2.5 text-center', isMarked && 'border-l-2 border-l-[#e8323c]')}>
+                {p.rank ? (
+                  <span className={cn('inline-flex items-center justify-center min-w-[26px] h-6 rounded-md text-xs font-black tabular-nums',
+                    p.rank === 1 ? 'bg-[#c8aa6e]/20 text-[#c8aa6e]' : p.rank === 2 ? 'bg-white/15 text-white' : p.rank === 3 ? 'bg-[#b06a3b]/25 text-[#d9a066]' : 'text-white/55')}>
+                    {p.rank}
+                  </span>
+                ) : (
+                  <Tip label="Sin posición: menos de 3 partidas"><span className="text-xs text-white/20">—</span></Tip>
+                )}
+              </td>
               {/* Player + champ pool */}
-              <td className={cn('px-3 py-2.5 min-w-[150px]', isMarked && 'border-l-2 border-l-[#e8323c]')}>
+              <td className="px-3 py-2.5 min-w-[150px]">
                 <Tip label={HAS_PLAYER_RADAR ? 'Click para ver radar / comparar' : 'Click para resaltar / comparar'}>
                   <div className="flex items-center gap-2">
                     <PlayerAvatar riotId={riotIdOf(p)} profileIconId={iconOf?.(p)} mostPlayedChamp={p.mostPlayedChamp} size={32} />
@@ -240,6 +266,17 @@ function SortableTable({ players, marked, onMark, onPick, iconOf }: {
                     </div>
                   </div>
                 </Tip>
+              </td>
+              {/* Rango solo/dúo */}
+              <td className="px-3 py-2.5 text-center">
+                {p.soloTier ? (
+                  <Tip label={`${tierLabel(p.soloTier, p.soloDivision)}${p.soloLp != null ? ` · ${p.soloLp} LP` : ''}`}>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold" style={{ color: tierColor(p.soloTier) }}>
+                      <img src={rankEmblem(p.soloTier)} alt="" className="w-4 h-4 object-contain" loading="lazy" />
+                      {tierShort(p.soloTier, p.soloDivision)}
+                    </span>
+                  </Tip>
+                ) : <span className="text-xs text-white/20">—</span>}
               </td>
               <td className="px-3 py-2.5 text-center text-xs text-white/50">{p.gamesPlayed}</td>
               {/* WR: porcentaje + barra de progreso (patrón "completion") */}

@@ -20,6 +20,7 @@ import { axiosInstance } from '@/lib/axios';
 import { useDominantColor, tintRgba } from '@/lib/dominantColor';
 import AiTags from '@/components/ai/AiTags';
 import { ProfileComments } from '@/components/ProfileComments';
+import { PlayerTournamentsCard } from '@/components/tournament/PlayerTournamentsCard';
 import {
   dd,
   rankEmblem,
@@ -949,6 +950,12 @@ export default function ProfilePage() {
               </div>
             </div>
           </motion.div>
+
+          {/* Torneos de ATAK en los que está inscrito: región, posición y rango */}
+          <PlayerTournamentsCard
+            riotId={gameName && tagLine ? `${gameName}#${tagLine}` : undefined}
+            style={{ marginBottom: 24 }}
+          />
 
           {/* Mastery chips compactos bajo KPIs */}
           {(masteryTop.length > 0 || (summaryLoading && !summary)) && (
