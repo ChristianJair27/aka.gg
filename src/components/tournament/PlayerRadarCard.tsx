@@ -30,6 +30,8 @@ import { dd } from '@/lib/dataDragon';
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart';
 import { Tip } from '@/components/ui/Tip';
 import { PlayerAvatar, riotIdOf } from '@/components/tournament/PlayerAvatar';
+import { TeamBadge } from '@/components/tournament/ui';
+import { PlayerTournamentHistory } from '@/components/tournament/PlayerTournamentHistory';
 import type { PlayerAggregate } from '@/types/tournament-global-stats';
 
 const RED = '#e1242e';
@@ -131,9 +133,13 @@ export interface PlayerRadarCardProps {
   compact?: boolean;
   /** Icono de perfil de LoL del jugador (la persona); el campeón queda de respaldo. */
   profileIconId?: number | null;
+  /** Equipo inscrito. Lo pidió un jugador: sin él, el nombre queda suelto. */
+  team?: string | null;
+  /** Con el id del torneo se pinta el historial de partidas del jugador en él. */
+  tournamentId?: string;
 }
 
-export function PlayerRadarCard({ player, cohort, compare, compact, profileIconId }: PlayerRadarCardProps) {
+export function PlayerRadarCard({ player, cohort, compare, compact, profileIconId, team, tournamentId }: PlayerRadarCardProps) {
   const ref = useMemo(() => {
     const eligible = cohort.filter((p) => p.gamesPlayed >= RADAR_MIN_GAMES);
     return eligible.length >= 5 ? eligible : cohort;
@@ -189,7 +195,14 @@ export function PlayerRadarCard({ player, cohort, compare, compact, profileIconI
               {player.summonerName}
               <span className="td-radar-tag">#{player.tagLine}</span>
             </div>
-            <div className="td-radar-sub">{player.mostPlayedChamp || '—'}</div>
+            {team ? (
+              <div className="td-radar-team">
+                <TeamBadge name={team} size={17} />
+                <span title={team}>{team}</span>
+              </div>
+            ) : (
+              <div className="td-radar-sub">{player.mostPlayedChamp || '—'}</div>
+            )}
           </div>
         </div>
 
@@ -235,7 +248,7 @@ export function PlayerRadarCard({ player, cohort, compare, compact, profileIconI
         )}
       </div>
 
-      {/* Radar */}
+      {/* Radar + historial en el torneo */}
       <div className="td-radar-chart">
         <ChartContainer config={config} className="aspect-square w-full max-h-[340px]">
           <RadarChart data={data} outerRadius="72%">
@@ -277,6 +290,9 @@ export function PlayerRadarCard({ player, cohort, compare, compact, profileIconI
             />
           </RadarChart>
         </ChartContainer>
+        {tournamentId && (
+          <PlayerTournamentHistory tournamentId={tournamentId} riotId={riotIdOf(player)} compact={compact} />
+        )}
         <p className="td-radar-foot">
           0–100 comparado con los {ref.length} jugadores de ≥{RADAR_MIN_GAMES} partidas. Los extremos se recortan
           al percentil 95 para que la escala se lea; los valores reales están en el tooltip.

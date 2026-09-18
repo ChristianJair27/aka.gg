@@ -546,3 +546,29 @@ export function usePlayerTournaments(riotId?: string) {
     },
   });
 }
+
+// ── Historial de un jugador dentro de un torneo ──────────────────────────────
+export interface PlayerTournamentGame {
+  matchId: string; round: number | null; roundLabel: string | null; opponent: string | null;
+  gameId: number; riotMatchId: string | null; at: number | null; duration: number;
+  side: 'blue' | 'red'; champion: string; win: boolean;
+  kills: number; deaths: number; assists: number; kda: number;
+  cs: number; csPerMin: number; damage: number; damagePerMin: number; gold: number; vision: number;
+  teamPosition: string | null; killParticipation: number | null;
+  multiKills: { penta: number; quadra: number; triple: number; double: number };
+}
+
+/** Partidas de un jugador en ESTE torneo + el equipo con el que está inscrito. */
+export function usePlayerTournamentGames(tournamentId?: string, riotId?: string) {
+  return useQuery({
+    queryKey: qk.playerGames(tournamentId ?? "_", riotId ?? "_"),
+    enabled: Boolean(tournamentId && riotId && riotId.includes("#")),
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<{ team: string | null; games: PlayerTournamentGame[] }>(
+        `/api/tournaments/${tournamentId}/player/${encodeURIComponent(riotId!)}/games`,
+      );
+      return data;
+    },
+  });
+}

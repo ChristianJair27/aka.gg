@@ -489,3 +489,50 @@
 .td-root .td-coach-title { display: block; font-size: 13px; font-weight: 800; color: #fff; }
 .td-root .td-coach-body { display: block; font-size: 11.5px; line-height: 1.45; color: var(--td-text-2); margin-top: 2px; }
 @media (max-width: 860px) { .td-root .td-coach-steps { grid-template-columns: 1fr; } }
+
+/* ── Historial del jugador dentro del torneo ──────────────────────────────── */
+.td-root .td-radar-team {
+  display: flex; align-items: center; gap: 7px; margin-top: 4px; min-width: 0;
+  font-size: 12px; font-weight: 700; color: var(--td-text-2);
+}
+.td-root .td-radar-team span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.td-root .td-hist { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--td-border-soft); }
+.td-root .td-hist-head { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; }
+.td-root .td-hist-record { margin-left: auto; font-size: 12px; font-weight: 800; }
+
+/* Resumen por campeón: lo primero que mira quien viene a scoutear */
+.td-root .td-hist-champs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.td-root .td-hist-champ {
+  display: flex; align-items: center; gap: 7px; min-width: 0;
+  padding: 5px 10px 5px 5px; border-radius: 999px;
+  background: rgba(255,255,255,0.035); border: 1px solid var(--td-border);
+}
+.td-root .td-hist-champ img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.td-root .td-hist-champ-name { font-size: 11.5px; font-weight: 700; color: var(--td-text); line-height: 1.1; }
+.td-root .td-hist-champ-sub { font-size: 10px; font-weight: 600; margin-top: 1px; }
+
+/* Una fila por partida */
+.td-root .td-hist-rows { display: flex; flex-direction: column; gap: 6px; }
+.td-root .td-hist-row {
+  display: grid; grid-template-columns: 14px 32px minmax(0,1fr) auto auto auto; gap: 10px; align-items: center;
+  padding: 7px 10px; border-radius: 10px;
+  background: rgba(255,255,255,0.025); border: 1px solid var(--td-border-soft);
+  border-left: 3px solid var(--td-neg);
+}
+.td-root .td-hist-row[data-win='true'] { border-left-color: var(--td-green); background: rgba(47,191,138,0.05); }
+.td-root .td-hist-res { font-size: 12px; font-weight: 900; text-align: center; }
+.td-root .td-hist-champ-ico { width: 32px; height: 32px; border-radius: 9px; object-fit: cover; }
+.td-root .td-hist-vs { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.td-root .td-hist-round { font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--td-amber); flex-shrink: 0; }
+.td-root .td-hist-opp { font-size: 12px; font-weight: 600; color: var(--td-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .td-hist-meta { display: flex; gap: 8px; font-size: 10px; color: var(--td-muted); margin-top: 2px; flex-wrap: wrap; }
+.td-root .td-hist-kda { font-size: 12px; font-weight: 700; white-space: nowrap; cursor: default; }
+.td-root .td-hist-kda i { color: var(--td-disabled); font-style: normal; margin: 0 2px; }
+.td-root .td-hist-dmg { font-size: 12px; font-weight: 700; color: #f97316; white-space: nowrap; cursor: default; }
+.td-root .td-hist-dmg small { font-size: 8.5px; font-weight: 600; color: var(--td-muted); margin-left: 3px; }
+.td-root .td-hist-penta { font-size: 13px; }
+@media (max-width: 560px) {
+  .td-root .td-hist-row { grid-template-columns: 14px 28px minmax(0,1fr) auto; }
+  .td-root .td-hist-dmg { display: none; }
+}

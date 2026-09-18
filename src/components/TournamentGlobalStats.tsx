@@ -645,6 +645,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
           cohort={allPlayers}
           teamOf={(p) => teamOf(p)}
           iconOf={iconOf}
+          tournamentId={data.tournamentId}
           onClose={() => setPicked(null)}
         />
       )}
@@ -657,7 +658,8 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
                   player={picked}
                   cohort={allPlayers}
                   teamOf={(p) => teamOf(p)}
-          iconOf={iconOf}
+                  iconOf={iconOf}
+                  tournamentId={data.tournamentId}
                   onClose={() => setPicked(null)}
                 />
               </div>
