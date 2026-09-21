@@ -536,3 +536,38 @@
   .td-root .td-hist-row { grid-template-columns: 14px 28px minmax(0,1fr) auto; }
   .td-root .td-hist-dmg { display: none; }
 }
+
+/* ── PRUEBA: líderes con splash y racha en círculos ───────────────────────── */
+.td-root .td-leader--art { position: relative; overflow: hidden; padding: 0; min-height: 92px; }
+.td-root .td-leader-art {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  object-position: 62% 22%; opacity: .5;
+}
+.td-root .td-leader-veil {
+  position: absolute; inset: 0;
+  background: linear-gradient(100deg, rgba(10,10,12,0.95) 30%, rgba(10,10,12,0.72) 62%, rgba(10,10,12,0.35) 100%);
+}
+.td-root .td-leader-body {
+  position: relative; display: flex; align-items: center; gap: 11px; padding: 12px; min-width: 0;
+}
+.td-root .td-streak-dots { display: inline-flex; align-items: center; gap: 3px; }
+.td-root .td-streak-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--td-neg); }
+.td-root .td-streak-dot[data-w='true'] { background: var(--td-green); }
+.td-root .td-streak-more { font-size: 9.5px; font-weight: 700; color: var(--td-muted); margin-left: 2px; }
+
+/* ── Bracket suizo: líneas de pareo entre rondas ──────────────────────────── */
+/* Detrás de las tarjetas y sin capturar el ratón: son referencia, no control. */
+.td-root .td-swiss-links {
+  position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; overflow: visible;
+}
+.td-root .td-swiss-links path { transition: stroke-opacity .18s ease, stroke-width .18s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .td-root .td-swiss-links path { transition: none; }
+}
+/* Leyenda de las líneas */
+.td-root .td-swiss-legend {
+  display: inline-flex; align-items: center; gap: 14px; margin-left: auto;
+  font-size: 10.5px; color: var(--td-muted); white-space: nowrap;
+}
+.td-root .td-swiss-legend i { display: inline-flex; align-items: center; gap: 5px; font-style: normal; }
+.td-root .td-swiss-legend b { display: inline-block; width: 14px; height: 2px; border-radius: 2px; }

@@ -2,7 +2,7 @@
 // No hay árbol de eliminación, así que el "bracket" son columnas por ronda con
 // cards grandes: marcador protagonista, chips BO, avance del pareo por récord
 // y stats de la serie expandibles a lo ancho. Animado con stagger por columna.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, Copy, Crown, Radio, Swords, Trophy, X } from 'lucide-react';
 import { TeamBadge } from '@/components/tournament/ui';
@@ -33,9 +33,11 @@ function CopyCode({ code }: { code: string }) {
 }
 
 function SwissMatchCard({
-  m, open, onToggle, canViewCodes, delay,
+  m, open, onToggle, canViewCodes, delay, onHover,
 }: {
   m: BracketMatch; open: boolean; onToggle: () => void; canViewCodes: boolean; delay: number;
+  /** Resalta las líneas de esta serie al pasar el ratón. */
+  onHover?: (id: string | null) => void;
 }) {
   const isBye = m.team1 === 'BYE' || m.team2 === 'BYE';
   const hasStats = m.matchStatus !== 'pending' && !isBye;
@@ -82,7 +84,10 @@ function SwissMatchCard({
       transition={{ duration: 0.4, delay, ease: [0.22, 1, 0.36, 1] }}
       whileHover={hasStats ? { y: -3 } : undefined}
       onClick={hasStats ? onToggle : undefined}
-      className={`td-panel overflow-hidden ${hasStats ? 'cursor-pointer' : ''} ${
+      onMouseEnter={() => onHover?.(m.id)}
+      onMouseLeave={() => onHover?.(null)}
+      data-swiss-match={m.id}
+      className={`relative z-[1] td-panel overflow-hidden ${hasStats ? 'cursor-pointer' : ''} ${
         open ? '!border-red-500/45' : ''
       } ${m.matchStatus === 'active' ? '!border-red-500/40 shadow-[0_0_24px_rgba(225,36,46,0.15)]' : ''} ${
         isBye ? 'opacity-55' : ''
@@ -136,6 +141,15 @@ export function SwissBracket({
   champion?: string | null;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  // Líneas de pareo entre rondas: qué equipo de la ronda N juega en qué serie
+  // de la N+1. En un suizo el pareo es por récord, no por árbol, así que sin
+  // estas líneas no hay forma de ver de dónde sale cada enfrentamiento.
+  const [hovered, setHovered] = useState<string | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [links, setLinks] = useState<Array<{
+    id: string; d: string; won: boolean; from: string; to: string; team: string;
+  }>>([]);
+  const [canvas, setCanvas] = useState({ w: 0, h: 0 });
   const rounds = Array.from(new Set(bracket.map((m) => m.round))).sort((a, b) => a - b);
   const openMatch = bracket.find((m) => m.id === openId) ?? null;
 
@@ -162,6 +176,65 @@ export function SwissBracket({
     });
   }, [focusRound]);
 
+  // Mide las tarjetas en el DOM y arma una curva por equipo que avanza de una
+  // ronda a la siguiente. Se recalcula al abrir una serie (cambia de alto), al
+  // redimensionar y al cambiar el bracket.
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+
+    const measure = () => {
+      const base = wrap.getBoundingClientRect();
+      const boxOf = (id: string) => {
+        const el = wrap.querySelector<HTMLElement>(`[data-swiss-match="${CSS.escape(id)}"]`);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x: r.left - base.left, y: r.top - base.top, w: r.width, h: r.height };
+      };
+
+      const out: Array<{ id: string; d: string; won: boolean; from: string; to: string; team: string }> = [];
+      const rs = Array.from(new Set(bracket.map((m) => m.round))).sort((a, b) => a - b);
+
+      for (let i = 0; i < rs.length - 1; i++) {
+        const prev = bracket.filter((m) => m.round === rs[i]);
+        const next = bracket.filter((m) => m.round === rs[i + 1]);
+        // Solo se dibuja desde una ronda ya cerrada: antes de eso el pareo
+        // siguiente todavía no significa nada.
+        if (!prev.every((m) => m.matchStatus === 'complete')) continue;
+
+        for (const nm of next) {
+          const nb = boxOf(nm.id);
+          if (!nb) continue;
+          for (const team of [nm.team1, nm.team2]) {
+            if (!team || team === 'BYE') continue;
+            const src = prev.find((m) => m.team1 === team || m.team2 === team);
+            if (!src) continue;
+            const pb = boxOf(src.id);
+            if (!pb) continue;
+
+            const x1 = pb.x + pb.w, y1 = pb.y + pb.h / 2;
+            const x2 = nb.x, y2 = nb.y + nb.h / 2;
+            const mx = x1 + (x2 - x1) / 2;
+            out.push({
+              id: `${src.id}->${nm.id}:${team}`,
+              d: `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`,
+              won: src.winner === team,
+              from: src.id, to: nm.id, team,
+            });
+          }
+        }
+      }
+      setLinks(out);
+      setCanvas({ w: wrap.scrollWidth, h: wrap.scrollHeight });
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(wrap);
+    window.addEventListener('resize', measure);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+  }, [bracket, openId]);
+
   const roundLabel = (r: number) => (bracketType === 'round_robin' ? `Jornada ${r}` : `Ronda ${r}`);
   const roundState = (r: number) => {
     const ms = bracket.filter((m) => m.round === r);
@@ -180,10 +253,34 @@ export function SwissBracket({
         <span className="text-xs text-gray-500 hidden sm:inline">
           — pareos por récord cada ronda, clic en una serie para ver sus stats
         </span>
+        {links.length > 0 && (
+          <span className="td-swiss-legend hidden md:inline-flex">
+            <i><b style={{ background: '#2fbf8a' }} /> ganó y avanza</i>
+            <i><b style={{ background: '#ff5a64' }} /> perdió y avanza</i>
+            <i className="opacity-60">pasa el ratón por una serie</i>
+          </span>
+        )}
       </div>
 
       <div className="overflow-x-auto pb-2" data-td-bracket>
-        <div className="flex items-start gap-8 min-w-max">
+        <div ref={wrapRef} className="relative flex items-start gap-8 min-w-max">
+          {/* Capa de líneas: detrás de las tarjetas y sin capturar el ratón. */}
+          {links.length > 0 && (
+            <svg className="td-swiss-links" width={canvas.w} height={canvas.h} aria-hidden>
+              {links.map((l) => {
+                const on = hovered === l.from || hovered === l.to;
+                return (
+                  <path
+                    key={l.id} d={l.d} fill="none"
+                    stroke={l.won ? '#2fbf8a' : '#ff5a64'}
+                    strokeWidth={on ? 2.2 : 1.2}
+                    strokeOpacity={hovered ? (on ? 0.95 : 0.06) : 0.24}
+                    strokeLinecap="round"
+                  />
+                );
+              })}
+            </svg>
+          )}
           {rounds.map((r, ri) => {
             const st = roundState(r);
             const ms = bracket.filter((m) => m.round === r);
@@ -219,6 +316,7 @@ export function SwissBracket({
                       onToggle={() => setOpenId(openId === m.id ? null : m.id)}
                       canViewCodes={canViewCodes}
                       delay={ri * 0.12 + mi * 0.07}
+                      onHover={setHovered}
                     />
                   ))}
                 </div>
