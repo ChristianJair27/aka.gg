@@ -68,6 +68,8 @@ export const AppRouter = () => (
       {/* Overlay de caster para OBS (transparente, branding LQC). */}
       <Route path="/broadcast/:channel/overlay" element={<BroadcastOverlayPage />} />
       <Route path="/tournaments"              element={<TournamentsPage />} />
+      {/* Enlace corto para campañas: misma página, modal de creación abierto. */}
+      <Route path="/crear-torneo"             element={<TournamentsPage />} />
       <Route path="/tournaments/:id"          element={<TournamentDashboardPage />} />
       <Route path="/tournaments/:id/live"    element={<TournamentLivePage />} />
       <Route path="/social"                   element={<Social />} />

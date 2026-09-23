@@ -2,8 +2,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
+import {
+  AtakModal, AtakModalBody, AtakModalContent, AtakModalFooter, AtakModalHeader,
+} from '@/components/ui/atak-modal';
+import { Callout, Field, fieldCls } from '@/components/ui/form-bits';
 import { axiosInstance } from '@/lib/axios';
 import { toast } from '@/components/ui/sonner';
 import { useOverview } from '@/hooks/queries/players';
@@ -29,10 +31,6 @@ interface TournamentRegisterModalProps {
 
 const emptySlot = (): PlayerSlot => ({ name: '', riotId: '', inviteEmail: '', mode: 'riot' });
 const emptyRoster = (n: number): PlayerSlot[] => Array.from({ length: n }, emptySlot);
-
-const fieldCls =
-  'w-full bg-white/[0.05] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-white ' +
-  'placeholder:text-gray-600 outline-none transition-colors focus:border-red-500/50 focus:bg-white/[0.07]';
 
 const looksLikeRiotId = (v: string) => /^.+#.{2,}$/.test(v.trim());
 
@@ -154,67 +152,57 @@ export const TournamentRegisterModal = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!loading) onOpenChange(o); }}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-[#0a0a0c]/95 backdrop-blur-xl text-white border border-white/[0.08] shadow-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold flex items-center gap-2.5">
-            <span className="p-1.5 rounded-xl bg-red-500/10 border border-red-500/20">
-              <Users className="h-5 w-5 text-red-400" />
-            </span>
-            Inscribir equipo
-          </DialogTitle>
-          <DialogDescription className="text-gray-400">
-            {tournamentName} · tu Riot ID se toma de tu perfil vinculado. Invita compañeros por correo ATAK.GG.
-          </DialogDescription>
-        </DialogHeader>
+    <AtakModal open={open} onOpenChange={(o) => { if (!loading) onOpenChange(o); }}>
+      <AtakModalContent size="lg" closeDisabled={loading}>
+        <AtakModalHeader
+          icon={<Users className="h-5 w-5" />}
+          eyebrow="Inscripción"
+          title="Inscribir equipo"
+          description={<>{tournamentName} · tu Riot ID sale de tu perfil vinculado. A los compañeros los invitas por correo ATAK.GG.</>}
+        />
 
-        {!isAuthenticated && (
-          <div className="p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 text-yellow-200 text-sm">
-            <Link to="/login" className="underline font-semibold">Inicia sesión</Link> para inscribir tu equipo.
-          </div>
-        )}
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <AtakModalBody className="space-y-5">
 
-        {isAuthenticated && !linkedRiotId && (
-          <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-200 text-sm flex items-start gap-3">
-            <Link2 className="h-5 w-5 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold">Cuenta de LoL no vinculada</p>
-              <p className="text-red-300/80 mt-1">
-                Ve a tu <Link to="/dashboard" className="underline">Dashboard</Link> y conecta tu Riot ID antes de inscribirte.
-              </p>
+            {!isAuthenticated && (
+              <Callout tone="warn" icon={<Link2 />} title="Sin sesión">
+                <Link to="/login" className="font-semibold underline">Inicia sesión</Link> para inscribir tu equipo.
+              </Callout>
+            )}
+
+            {isAuthenticated && !linkedRiotId && (
+              <Callout tone="warn" icon={<Link2 />} title="Cuenta de LoL no vinculada">
+                Ve a tu <Link to="/dashboard" className="underline">Dashboard</Link> y conecta tu Riot ID
+                antes de inscribirte.
+              </Callout>
+            )}
+
+            {linkedRiotId && (
+              <div className="flex items-center gap-3 rounded-2xl border border-green-500/25 bg-green-500/10 p-3">
+                <Shield className="h-5 w-5 flex-shrink-0 text-green-400" />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-green-400/80">Tu cuenta (capitán)</p>
+                  <p className="truncate font-mono text-sm text-green-200">{linkedRiotId}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="Nombre del equipo" required>
+                <input value={teamName} onChange={e => setTeamName(e.target.value)} required
+                  placeholder="Ej: Dragones QRO" className={fieldCls} />
+              </Field>
+              <Field label="Contacto" hint="Discord o correo">
+                <input value={contact} onChange={e => setContact(e.target.value)}
+                  placeholder="discord: player#1234" className={fieldCls} />
+              </Field>
             </div>
-          </div>
-        )}
 
-        {linkedRiotId && (
-          <div className="p-3 rounded-xl border border-green-500/25 bg-green-500/10 flex items-center gap-3">
-            <Shield className="h-5 w-5 text-green-400 flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs text-green-400/80 uppercase tracking-wider font-semibold">Tu cuenta (capitán)</p>
-              <p className="font-mono text-sm text-green-200 truncate">{linkedRiotId}</p>
-            </div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-gray-400">Nombre del equipo *</Label>
-              <input value={teamName} onChange={e => setTeamName(e.target.value)} required
-                placeholder="Ej: Dragones QRO" className={fieldCls} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-gray-400">Contacto (Discord o correo)</Label>
-              <input value={contact} onChange={e => setContact(e.target.value)}
-                placeholder="discord: player#1234" className={fieldCls} />
-            </div>
-          </div>
-
-          <div className="space-y-3">
+            <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-gray-400">
+              <span className="text-[13px] font-medium text-gray-400">
                 Roster ({players.length}/{maxPlayers}) · {minPlayers === 1 ? 'formato 1v1' : `mínimo ${minPlayers}`}
-              </Label>
+              </span>
               <Button type="button" size="sm" variant="outline"
                 onClick={addPlayer} disabled={players.length >= maxPlayers}
                 className="h-8 text-xs border-white/10 bg-white/[0.04] hover:bg-white/[0.08]">
@@ -280,19 +268,23 @@ export const TournamentRegisterModal = ({
             </div>
           </div>
 
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}
-              className="border-white/10 bg-white/[0.04] hover:bg-white/[0.08]">
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={loading || !isAuthenticated || !linkedRiotId}
-              className="gradient-red border-0 hover:opacity-90 min-w-36">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
-              {loading ? 'Enviando...' : 'Inscribirse'}
-            </Button>
-          </div>
+          </AtakModalBody>
+
+          <AtakModalFooter>
+            <div className="flex items-center justify-between gap-3">
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={loading}
+                className="text-gray-400 hover:text-white">
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={loading || !isAuthenticated || !linkedRiotId}
+                className="gradient-red min-w-36 border-0 hover:opacity-90">
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                {loading ? 'Enviando…' : 'Inscribirse'}
+              </Button>
+            </div>
+          </AtakModalFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </AtakModalContent>
+    </AtakModal>
   );
 };

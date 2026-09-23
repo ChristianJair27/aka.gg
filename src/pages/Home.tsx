@@ -1,10 +1,13 @@
 // src/pages/Home.tsx — ATAK.GG Premium Red/Black Landing Page
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { ScrollVideoBg } from '@/components/ScrollVideoBg';
 import { SummonerPrompt } from '@/components/SummonerPrompt';
-import { ArrowRight, LayoutDashboard, User } from 'lucide-react';
+import { HomeCreateTournament } from '@/components/home/HomeCreateTournament';
+import { TournamentCreateModal } from '@/components/TournamentCreateModal';
+import type { QuickTournamentDraft } from '@/components/home/quickTournamentDraft';
+import { ArrowRight, LayoutDashboard, Search, Trophy, User } from 'lucide-react';
 import { useAuth } from '@/features/auth/useAuth';
 import { useOverview } from '@/hooks/queries/players';
 
@@ -54,6 +57,11 @@ const ParagraphReveal = ({ text, highlightWords, scrollProgress, range }: { text
 export default function Home() {
   const navigate = useNavigate();
   const searchSectionRef = useRef<HTMLDivElement>(null);
+
+  // "Más opciones" del panel de la portada abre el asistente completo con lo
+  // que la persona ya escribió, en vez de mandarla a empezar de cero.
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardSeed, setWizardSeed] = useState<QuickTournamentDraft | null>(null);
 
   // Sesión iniciada → acceso directo al dashboard y al perfil vinculado
   const { user, isAuthenticated } = useAuth();
@@ -143,15 +151,19 @@ export default function Home() {
         {/* Bottom Fade Gradient to Background */}
         <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-black to-transparent z-[1] pointer-events-none" />
 
-        {/* Content — sube más lento que el scroll (momentum) */}
+        {/* Content — sube más lento que el scroll (momentum).
+            Dos columnas en escritorio: el discurso a la izquierda y el
+            formulario de crear torneo a la derecha, visible desde el primer
+            segundo. En móvil se apilan y el formulario queda justo debajo. */}
         <motion.div
-          className="relative z-10 max-w-4xl w-full text-center flex flex-col items-center space-y-8 mt-12"
+          className="relative z-10 w-full max-w-6xl mt-12 grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)] lg:gap-12"
           style={reduceMotion ? undefined : { y: heroContentY, opacity: heroContentFade }}
         >
+        <div className="flex flex-col items-center text-center space-y-7 lg:items-start lg:text-left">
           
           {/* Marca: logo + eyebrow. Una sola línea fina en vez del bloque de
               avatares — el hero respira y la barra queda como único foco. */}
-          <motion.div {...fadeUp(0.1)} className="flex flex-col items-center gap-3">
+          <motion.div {...fadeUp(0.1)} className="flex flex-col items-center gap-3 lg:items-start">
             <img
               src="/atak-logo-mark.png"
               alt="ATAK.GG"
@@ -167,7 +179,7 @@ export default function Home() {
           {/* Heading — Friz Quadrata, peso normal y acento en itálica */}
           <motion.h1
             {...fadeUp(0.25)}
-            className="font-serif font-normal text-4xl sm:text-6xl md:text-7xl tracking-[-0.02em] leading-[1.05]"
+            className="font-serif font-normal text-4xl sm:text-5xl xl:text-6xl tracking-[-0.02em] leading-[1.05]"
             style={{ textWrap: 'balance' }}
           >
             Domina la Grieta —<br className="hidden sm:block" />
@@ -179,13 +191,14 @@ export default function Home() {
             {...fadeUp(0.4)}
             className="text-base sm:text-lg text-white/45 max-w-xl font-light leading-relaxed"
           >
-            Stats profundas, partidas en vivo y coach IA. Escribe tu Riot ID y empieza.
+            Organiza tu torneo en minutos y sigue cada partida en vivo. También puedes buscar a cualquier invocador.
           </motion.p>
 
           {/* Prompt de búsqueda — pieza compartida con /stats */}
           <motion.div {...fadeUp(0.55)} ref={searchSectionRef} className="w-full">
             <SummonerPrompt quickLookups={QUICK_LOOKUPS} />
           </motion.div>
+
 
           {/* Sesión iniciada: acceso directo a tu dashboard y perfil */}
           {isAuthenticated && user && (
@@ -227,6 +240,14 @@ export default function Home() {
               </span>
             </motion.div>
           )}
+        </div>
+
+          {/* Columna derecha: crear torneo SIN abrir nada. */}
+          <motion.div {...fadeUp(0.5)} className="w-full">
+            <HomeCreateTournament
+              onExpand={(draft) => { setWizardSeed(draft); setWizardOpen(true); }}
+            />
+          </motion.div>
         </motion.div>
 
         {/* Indicador de scroll: hilo de filo que cae */}
@@ -479,27 +500,36 @@ export default function Home() {
             Busca tus estadísticas en la web o descarga el Companion App de ATAK para recibir consejos en tiempo real mientras juegas.
           </p>
 
+          {/* El primario es crear torneo, igual que en el héroe: la portada
+              entera empuja la misma acción en vez de repartir la atención. */}
           <div className="flex flex-col sm:flex-row items-center gap-4 justify-center w-full">
-            <motion.button 
+            <motion.button
+              onClick={() => navigate('/crear-torneo')}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-8 py-3.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-[0_0_24px_rgba(239,68,68,0.3)] transition-all"
+            >
+              <Trophy className="h-4 w-4" /> Crear torneo
+            </motion.button>
+
+            <motion.button
               onClick={scrollToSearch}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full sm:w-auto px-8 py-3.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-[0_0_24px_rgba(239,68,68,0.3)] transition-all"
+              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-8 py-3.5 liquid-glass text-white font-bold rounded-xl border border-white/[0.1] hover:bg-white/[0.05] transition-all"
             >
-              Buscar Invocador
-            </motion.button>
-            
-            <motion.button 
-              onClick={() => navigate('/stats')}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full sm:w-auto px-8 py-3.5 liquid-glass text-white font-bold rounded-xl border border-white/[0.1] hover:bg-white/[0.05] transition-all"
-            >
-              Ver Estadísticas
+              <Search className="h-4 w-4" /> Buscar invocador
             </motion.button>
           </div>
         </div>
       </section>
+
+      <TournamentCreateModal
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        onCreated={() => { /* el panel de la portada ya muestra su propio éxito */ }}
+        initial={wizardSeed ?? undefined}
+      />
 
       {/* El footer global premium (App.tsx) cierra la página — sin duplicados. */}
     </div>

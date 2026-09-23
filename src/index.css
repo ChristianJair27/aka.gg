@@ -313,3 +313,125 @@ body::after {
   opacity: 0.018;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 }
+
+/* ── Carcasa de modal ATAK (src/components/ui/atak-modal.tsx) ───────────────── */
+/* Radix Dialog ya resuelve portal, foco atrapado, bloqueo de scroll, Escape y
+   aria-modal. Aquí vive solo la piel: cristal, rieles de marca y el layout de
+   cabecera fija / cuerpo con scroll / pie fijo, para que TODOS los modales de
+   la app se vean igual. */
+
+.atak-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(239, 68, 68, 0.10), transparent 58%),
+    rgba(4, 4, 6, 0.82);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+}
+
+.atak-modal {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  /* z-50 a propósito, igual que el Dialog de shadcn: los desplegables de
+     Select/Popover se portalan al body con z-50 y se abren DESPUÉS, así que
+     pintan encima. Subir el modal a 90 los dejaría escondidos detrás. */
+  translate: -50% -50%;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  width: calc(100vw - 32px);
+  max-height: min(92vh, 900px);
+  overflow: hidden;
+  border-radius: 20px;
+  color: #fff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.012) 24%, rgba(255, 255, 255, 0) 70%),
+    rgba(10, 10, 12, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(22px) saturate(130%);
+  -webkit-backdrop-filter: blur(22px) saturate(130%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 32px 90px rgba(0, 0, 0, 0.75);
+}
+
+/* Rieles de marca arriba y abajo: la firma visual del modal sin robar espacio. */
+.atak-modal-frame {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+  background:
+    linear-gradient(90deg, transparent, var(--atak-accent, #e1242e), transparent) top / 100% 2px no-repeat,
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.10), transparent) bottom / 100% 1px no-repeat;
+  opacity: 0.85;
+}
+
+.atak-modal-x {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 6;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: #8b8b95;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+.atak-modal-x:hover {
+  color: #fff;
+  border-color: var(--atak-accent, #e1242e);
+  background: color-mix(in srgb, var(--atak-accent, #e1242e) 14%, transparent);
+  transform: rotate(90deg);
+}
+.atak-modal-x:focus-visible { outline: 2px solid var(--atak-accent, #e1242e); outline-offset: 2px; }
+.atak-modal-x:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+.atak-modal-head {
+  flex: 0 0 auto;
+  padding: 22px 56px 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+}
+
+.atak-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 24px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+.atak-modal-body::-webkit-scrollbar { width: 9px; }
+.atak-modal-body::-webkit-scrollbar-track { background: transparent; }
+.atak-modal-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.atak-modal-body::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.22); background-clip: content-box; }
+
+.atak-modal-foot {
+  flex: 0 0 auto;
+  padding: 14px 24px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.35), transparent);
+}
+
+@media (max-width: 560px) {
+  .atak-modal { border-radius: 16px; max-height: 94vh; }
+  .atak-modal-head { padding: 18px 50px 14px 16px; }
+  .atak-modal-body { padding: 16px; }
+  .atak-modal-foot { padding: 12px 16px 16px; }
+}

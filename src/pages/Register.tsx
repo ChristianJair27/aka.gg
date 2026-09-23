@@ -1,7 +1,7 @@
 // src/pages/Register.tsx — ATAK.GG sign-up. Split "vision": arte de LoL a la
 // izquierda con título editorial, formulario glass a la derecha (espejo del Login).
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -53,6 +53,7 @@ const Register = () => {
   const [success, setSuccess] = useState(false);
   const [splash] = useState(() => SPLASH_POOL[Math.floor(Math.random() * SPLASH_POOL.length)]);
 
+  const location = useLocation();
   const { register, handleSubmit, formState: { errors } } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   });
@@ -63,7 +64,10 @@ const Register = () => {
     try {
       await registerUser(data);
       setSuccess(true);
-      setTimeout(() => navigate("/login"), 1800);
+      // Arrastramos el `from` hasta /login, que ya sabe honrarlo. Sin esto,
+      // quien llega desde el formulario de la portada se registra y aterriza
+      // en el dashboard, con su borrador de torneo olvidado.
+      setTimeout(() => navigate("/login", { state: location.state }), 1800);
     } catch (err: any) {
       setError(err?.response?.data?.msg || err?.response?.data?.message || "Error al crear la cuenta");
     } finally {

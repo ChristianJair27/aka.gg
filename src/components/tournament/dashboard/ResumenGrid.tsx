@@ -86,17 +86,27 @@ export function StatsMainCard({ id, onFull, region }: { id: string; onFull: () =
           {/* Líderes */}
           <div className="td-leaders">
             {leaders.map((l) => (
-              <div key={l.label} className="td-leader">
-                <PlayerAvatar riotId={riotIdOf(l.p)} profileIconId={iconFor(iconMap, riotIdOf(l.p))}
-                  mostPlayedChamp={l.p.mostPlayedChamp} size={40} />
-                <div style={{ minWidth: 0 }}>
-                  <div className="td-over" style={{ display: 'flex', alignItems: 'center', gap: 5, color: RED }}>
-                    {l.icon}{l.label}
+              <div key={l.label} className="td-leader td-leader--art">
+                {/* Splash del campeón más jugado como fondo, con velo para que
+                    el texto siga siendo legible. Si falla la carga, queda el
+                    panel de siempre: nunca un hueco. */}
+                {l.p.mostPlayedChamp && (
+                  <img className="td-leader-art" src={dd.championSplash(l.p.mostPlayedChamp)} alt="" loading="lazy"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                )}
+                <span className="td-leader-veil" aria-hidden />
+                <div className="td-leader-body">
+                  <PlayerAvatar riotId={riotIdOf(l.p)} profileIconId={iconFor(iconMap, riotIdOf(l.p))}
+                    mostPlayedChamp={l.p.mostPlayedChamp} size={44} />
+                  <div style={{ minWidth: 0 }}>
+                    <div className="td-over" style={{ display: 'flex', alignItems: 'center', gap: 5, color: RED }}>
+                      {l.icon}{l.label}
+                    </div>
+                    <div style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {l.p.summonerName}
+                    </div>
+                    <div className="td-num" style={{ fontSize: 19, fontWeight: 800, color: '#fff', lineHeight: 1.1 }}>{l.fmt(l.p)}</div>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {l.p.summonerName}
-                  </div>
-                  <div className="td-num" style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{l.fmt(l.p)}</div>
                 </div>
               </div>
             ))}
@@ -349,11 +359,18 @@ export function StandingsCard({ data, id, region }: { data: TdBoardPayload; id: 
               </div>
               <span className="td-st-streak">
                 {s.streak ? (
-                  <StatusChip kind={s.streak.type === 'W' ? 'pos' : 'warn'} dot={false}>
-                    {s.streak.count}{s.streak.type}
-                  </StatusChip>
+                  // El backend da "N seguidas", no la secuencia de las últimas 5:
+                  // se pintan N círculos (tope 5) del color de la racha.
+                  <Tip label={`${s.streak.count} ${s.streak.type === 'W' ? 'victoria' : 'derrota'}${s.streak.count > 1 ? 's' : ''} seguidas`}>
+                    <span className="td-streak-dots">
+                      {Array.from({ length: Math.min(s.streak.count, 5) }).map((_, i) => (
+                        <span key={i} className="td-streak-dot" data-w={s.streak!.type === 'W' ? 'true' : 'false'} />
+                      ))}
+                      {s.streak.count > 5 && <span className="td-streak-more td-num">+{s.streak.count - 5}</span>}
+                    </span>
+                  </Tip>
                 ) : (
-                  <StatusChip kind="dim" dot={false}>—</StatusChip>
+                  <span style={{ fontSize: 11, color: 'var(--td-disabled)' }}>—</span>
                 )}
               </span>
               <span className="td-num" style={{ fontSize: 13, fontWeight: 700, color: '#fff', textAlign: 'right' }}>{s.points}</span>

@@ -1,7 +1,11 @@
 // src/components/Navbar.tsx — ATAK.GG red/black brand nav
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Clock, Menu, X, ChevronDown, LayoutDashboard, LogOut, Search, Swords, User, Zap } from 'lucide-react';
+import {
+  ChartNoAxesColumn, ChevronDown, Clock, Flame, LayoutDashboard, LogOut, Menu,
+  Plus, Search, Swords, Trophy, User, Users, X, Zap,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/features/auth/useAuth';
 // Nombres guardados por el `atob` viejo llegan con acentos rotos: se reparan al mostrar.
@@ -261,11 +265,14 @@ function NavSearch({ className = '', onDone }: { className?: string; onDone?: ()
   );
 }
 
-const NAV_LINKS = [
-  { label: 'Stats',       href: '/stats'      },
-  { label: 'Meta',        href: '/meta'       },
-  { label: 'Tournaments', href: '/tournaments' },
-  { label: 'Social',      href: '/social'      },
+// Cada entrada lleva su icono SVG (lucide). Nada de emojis: se ven distintos
+// en cada sistema operativo, no heredan el color de marca y no escalan con la
+// tipografía. Las etiquetas van en español como el resto de la app.
+const NAV_LINKS: Array<{ label: string; href: string; Icon: LucideIcon }> = [
+  { label: 'Stats',   href: '/stats',       Icon: ChartNoAxesColumn },
+  { label: 'Meta',    href: '/meta',        Icon: Flame            },
+  { label: 'Torneos', href: '/tournaments', Icon: Trophy           },
+  { label: 'Social',  href: '/social',      Icon: Users            },
 ];
 
 // Logo oficial HD (public/atak-logo-mark.png; fondo removido por
@@ -364,21 +371,27 @@ export const Navbar = () => {
             </div>
           </Link>
 
-          {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-8">
-            {NAV_LINKS.map(link => {
-              const active = location.pathname === link.href ||
-                             (link.href !== '/' && location.pathname.startsWith(link.href));
+          {/* Desktop nav — icono + palabra. El icono da reconocimiento rápido
+              y la palabra evita adivinanzas; ninguno de los dos solo. */}
+          <nav className="hidden md:flex items-center gap-1.5 lg:gap-2.5">
+            {NAV_LINKS.map(({ label, href, Icon }) => {
+              const active = location.pathname === href ||
+                             (href !== '/' && location.pathname.startsWith(href));
               return (
-                <Link key={link.href} to={link.href}
-                  className={`text-sm font-medium transition-all duration-200 relative group ${
-                    active ? 'text-red-400' : 'text-gray-400 hover:text-white'
+                <Link key={href} to={href} aria-current={active ? 'page' : undefined}
+                  className={`relative group flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
+                    active
+                      ? 'text-red-300 bg-red-500/[0.10] border border-red-500/25'
+                      : 'text-gray-400 border border-transparent hover:text-white hover:bg-white/[0.05]'
                   }`}>
-                  {link.label}
+                  <Icon className={`h-4 w-4 transition-transform duration-200 group-hover:scale-110 ${
+                    active ? 'text-red-400' : 'text-gray-500 group-hover:text-red-400'
+                  }`} />
+                  {label}
                   {/* Subrayado blade: sesgado como el corte de marca, rojo → oro */}
                   <span
-                    className={`absolute -bottom-1 left-0 h-[2px] bg-gradient-to-r from-red-500 via-red-400 to-[#c8aa6e] transition-all duration-300 ${
-                      active ? 'w-full' : 'w-0 group-hover:w-full'
+                    className={`absolute -bottom-0.5 left-3 right-3 h-[2px] bg-gradient-to-r from-red-500 via-red-400 to-[#c8aa6e] transition-opacity duration-300 ${
+                      active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                     }`}
                     style={{ transform: 'skewX(-14deg)' }}
                   />
@@ -390,6 +403,18 @@ export const Navbar = () => {
           {/* Desktop auth + búsqueda rápida */}
           <div className="hidden md:flex items-center gap-3">
             <NavSearch className="hidden lg:block w-44 xl:w-52" />
+            {/* Acción destacada de la barra: la misma que manda en la portada. */}
+            <Link
+              to="/crear-torneo"
+              className="group hidden lg:inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold text-white transition-transform duration-200 hover:scale-[1.04]"
+              style={{
+                background: 'linear-gradient(135deg,#ef4444,#b91c1c)',
+                boxShadow: '0 8px 22px -10px rgba(225,36,46,0.95)',
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Crear torneo
+            </Link>
             {isAuthenticated && user ? (
               <div className="relative" ref={menuRef}>
                 <button
@@ -469,13 +494,28 @@ export const Navbar = () => {
         >
           {/* Búsqueda primero: es a lo que más se viene */}
           <NavSearch className="mb-3" onDone={() => setMobileOpen(false)} />
+          {/* Crear torneo primero: es la acción que empuja toda la app. */}
+          <Link
+            to="/crear-torneo"
+            className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white"
+            style={{ background: 'linear-gradient(135deg,#ef4444,#b91c1c)' }}
+          >
+            <Plus className="h-4 w-4" /> Crear torneo
+          </Link>
           <div className="flex flex-col space-y-1">
-            {NAV_LINKS.map(link => (
-              <Link key={link.href} to={link.href}
-                className="text-gray-300 hover:text-white font-medium text-sm py-2.5 px-3 rounded-xl hover:bg-red-600/10 transition-colors">
-                {link.label}
-              </Link>
-            ))}
+            {NAV_LINKS.map(({ label, href, Icon }) => {
+              const active = location.pathname === href ||
+                             (href !== '/' && location.pathname.startsWith(href));
+              return (
+                <Link key={href} to={href} aria-current={active ? 'page' : undefined}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                    active ? 'bg-red-600/15 text-red-300' : 'text-gray-300 hover:bg-red-600/10 hover:text-white'
+                  }`}>
+                  <Icon className={`h-4 w-4 ${active ? 'text-red-400' : 'text-gray-500'}`} />
+                  {label}
+                </Link>
+              );
+            })}
           </div>
           <div className="mt-4 pt-4 border-t border-white/[0.06] flex flex-col gap-2">
             {isAuthenticated && user ? (
@@ -489,9 +529,9 @@ export const Navbar = () => {
               </>
             ) : (
               <>
-                <Link to="/login" className="block w-full py-2.5 text-center text-sm text-gray-400 border border-white/[0.08] rounded-full">Sign In</Link>
+                <Link to="/login" className="block w-full py-2.5 text-center text-sm text-gray-400 border border-white/[0.08] rounded-full">Iniciar sesión</Link>
                 <Link to="/register" className="block w-full py-2.5 text-center text-sm font-bold text-white rounded-full"
-                  style={{ background: 'linear-gradient(135deg,#ef4444,#b91c1c)' }}>Register</Link>
+                  style={{ background: 'linear-gradient(135deg,#ef4444,#b91c1c)' }}>Crear cuenta</Link>
               </>
             )}
           </div>

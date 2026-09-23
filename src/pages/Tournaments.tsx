@@ -1,7 +1,7 @@
 // src/pages/Tournaments.tsx — glass/space · GSAP · MySQL-backed
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from '@/components/ui/sonner';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -322,6 +322,29 @@ export default function TournamentsPage() {
 
   const isAuth = !!localStorage.getItem('access_token');
 
+  // /crear-torneo es la misma página con el modal ya abierto. Existe para tener
+  // un enlace corto que se pueda poner en la bio de Instagram o en un story,
+  // en vez de pedirle a la gente que entre y busque el botón.
+  const location = useLocation();
+  const deepLinkCreate = location.pathname === '/crear-torneo';
+  useEffect(() => {
+    if (!deepLinkCreate) return;
+    if (isAuth) { setCreateOpen(true); return; }
+    // Visita fría desde una campaña: mandarla a /login en silencio parece un
+    // error. Se explica por qué antes de moverla de sitio.
+    toast.info('Crea tu cuenta para organizar un torneo', {
+      description: 'Es gratis y te toma menos de un minuto.',
+    });
+    navigate('/login', { state: { from: location }, replace: true });
+  }, [deepLinkCreate, isAuth, navigate, location]);
+
+  // Al cerrar el modal desde el enlace corto, dejamos la URL en la lista real:
+  // quedarse en /crear-torneo con el modal cerrado sería una página en blanco.
+  const closeCreate = (open: boolean) => {
+    setCreateOpen(open);
+    if (!open && deepLinkCreate) navigate('/tournaments', { replace: true });
+  };
+
   return (
     <div className="min-h-screen text-white"
       onMouseMove={e => setMousePos({ x: e.clientX, y: e.clientY })}>
@@ -469,7 +492,7 @@ export default function TournamentsPage() {
       )}
       <TournamentCreateModal
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={closeCreate}
         onCreated={refetchTournaments}
       />
     </div>

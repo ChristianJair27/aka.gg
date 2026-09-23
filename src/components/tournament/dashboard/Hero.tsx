@@ -2,6 +2,7 @@
 // Sin cambios de comportamiento.
 
 import { useEffect, useMemo, useState } from 'react';
+import { ShareTournamentButton } from '@/components/tournament/ShareTournamentCard';
 import { useQuery } from '@tanstack/react-query';
 import { axiosInstance } from '@/lib/axios';
 import { Trophy, Users, Zap, Play, ArrowRight, Radio, Clock, Calendar, BarChart3 } from 'lucide-react';
@@ -216,6 +217,23 @@ export function Hero({ data, onBracket, onRegister }: {
           <Button variant="secondary" icon={<ArrowRight size={15} />} full onClick={onBracket}>
             VER BRACKET
           </Button>
+          {/* Póster 1080x1350 para Instagram. Cada cartel compartido con la
+              marca es adquisición: es la vía de crecimiento, no los anuncios. */}
+          <ShareTournamentButton
+            data={{
+              id: t.id,
+              name: t.name,
+              format: [t.format, (t.seriesTo ?? 1) > 1 ? `Bo${(t.seriesTo! * 2) - 1}` : null]
+                .filter(Boolean).join(' \u00b7 '),
+              startDate: t.startDate,
+              prize: t.prizePool,
+              teamsRegistered: t.teamsRegistered,
+              teamsMax: t.teamsMax,
+              status: t.status,
+              region: t.region,
+              logoUrl: t.logoUrl,
+            }}
+          />
         </div>
       </div>
     </Card>

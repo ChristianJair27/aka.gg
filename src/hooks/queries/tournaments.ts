@@ -572,3 +572,60 @@ export function usePlayerTournamentGames(tournamentId?: string, riotId?: string)
     },
   });
 }
+
+/** Campos que acepta POST /api/tournaments. Refleja el handler del backend. */
+export interface CreateTournamentInput {
+  name: string;
+  startDate: string;
+  prize?: string;
+  description?: string;
+  maxParticipants: number;
+  isPrivate: boolean;
+  gameMap: 'SR' | 'ARAM' | 'ARENA';
+  teamSize: number;
+  /** Solo Grieta: BLIND_PICK · DRAFT_MODE · TOURNAMENT_DRAFT · ALL_RANDOM. */
+  pickType?: string;
+  bracketType?: string;
+  seriesTo?: number;
+  finalSeriesTo?: number;
+  swissRounds?: number;
+  /** Solo Arena: ventana del ladder en horas. */
+  durationHours?: number;
+  /** Fecha límite de check-in (ISO). */
+  checkinDeadline?: string;
+  /** `false` crea el torneo sin pedir códigos oficiales a Riot. */
+  createRiot?: boolean;
+}
+
+export interface CreateTournamentResult {
+  success: boolean;
+  tournament: Tournament & { riotTournamentId?: number; riotCodes?: string[] };
+  riotSkippedReason?: string;
+}
+
+/**
+ * Crea un torneo. No es optimista a propósito: el id y los códigos de Riot los
+ * decide el servidor, así que no hay nada creíble que pintar antes de la
+ * respuesta. Al terminar invalida la lista para que el torneo nuevo aparezca.
+ */
+export function useCreateTournament() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateTournamentInput) => {
+      const { data } = await axiosInstance.post<CreateTournamentResult>('/api/tournaments', input);
+      return data;
+    },
+    onError: (err: any) => {
+      toast.error('No se pudo crear el torneo', {
+        description: err?.response?.data?.error || err?.message || 'Error desconocido',
+      });
+    },
+    onSuccess: (data) => {
+      toast.success('Torneo creado', { description: data.tournament?.name });
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: qk.tournaments() });
+      qc.invalidateQueries({ queryKey: qk.tournamentDashboard() });
+    },
+  });
+}
