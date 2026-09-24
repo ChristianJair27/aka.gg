@@ -131,6 +131,7 @@ export default function MatchDetailPage() {
               matchId={matchId}
               roster={roster as any}
               queueId={(stats as any)?.queueId}
+              highlightPuuid={state?.puuid}
             />
           </div>
         )}

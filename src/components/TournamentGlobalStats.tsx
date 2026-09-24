@@ -2,10 +2,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip as RechartTooltip, ResponsiveContainer, Cell,
-} from 'recharts';
-import {
   Trophy, Sword, Coins, Eye, Star,
   ChevronUp, ChevronDown, Zap, Activity, Users, RefreshCw, Skull, Search, X,
 } from 'lucide-react';
@@ -15,7 +11,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tip } from '@/components/ui/Tip';
 import { FilterPills, Button } from '@/components/tournament/ui';
 import { PlayerTeamCommand } from '@/components/tournament/PlayerTeamCommand';
-import { StatsCharts, type TeamStanding } from '@/components/tournament/StatsCharts';
+import { StatsCharts, RankBar, RowIcon, type TeamStanding } from '@/components/tournament/StatsCharts';
 import { PlayerCompare } from '@/components/tournament/PlayerCompare';
 import { formatKda } from '@/components/tournament/PlayerRadarCard';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
@@ -319,35 +315,6 @@ function SortableTable({ players, marked, onMark, onPick, iconOf }: {
 
 // ─── Charts ───────────────────────────────────────────────────────────────────
 
-const CHART_STYLE = { background: 'transparent', fontSize: 10, fill: 'rgba(255,255,255,0.4)' };
-
-/** Tick del eje Y con avatar de 16px + nombre (SVG puro; sin librerías). */
-export function AvatarTick({ x, y, payload, avatarUrl }: {
-  x?: number; y?: number; payload?: { value: string }; avatarUrl?: (name: string) => string | null;
-}) {
-  const name = String(payload?.value ?? '');
-  const src = avatarUrl?.(name) ?? null;
-  const size = 16;
-  const tx = (x ?? 0) - 6;
-  const ty = y ?? 0;
-  return (
-    <g transform={`translate(${tx},${ty})`}>
-      {src && (
-        <>
-          <clipPath id={`td-tick-${name.replace(/[^a-z0-9]/gi, '')}`}>
-            <rect x={-size} y={-size / 2} width={size} height={size} rx={5} />
-          </clipPath>
-          <image href={src} x={-size} y={-size / 2} width={size} height={size}
-            clipPath={`url(#td-tick-${name.replace(/[^a-z0-9]/gi, '')})`} preserveAspectRatio="xMidYMid slice" />
-        </>
-      )}
-      <text x={src ? -size - 6 : 0} y={0} dy={3.5} textAnchor="end" fill="rgba(255,255,255,0.55)" fontSize={9.5}>
-        {name.length > 11 ? `${name.slice(0, 10)}…` : name}
-      </text>
-    </g>
-  );
-}
-
 type ChartMetric = 'avgDamagePerMin' | 'avgGoldPerMin' | 'avgKda';
 const CHART_LABELS: Record<ChartMetric, { label: string; color: string }> = {
   avgDamagePerMin: { label: 'Daño/min',     color: '#f97316' },
@@ -369,7 +336,8 @@ function TopPlayersChart({ players, avatarUrl }: { players: PlayerAggregate[]; a
     [players, metric]
   );
 
-  const { label, color } = CHART_LABELS[metric];
+  const { color } = CHART_LABELS[metric];
+  const max = data[0]?.value ?? 0;
 
   return (
     <div>
@@ -390,33 +358,19 @@ function TopPlayersChart({ players, avatarUrl }: { players: PlayerAggregate[]; a
           ))}
         </div>
       </div>
-      <AnimatePresence mode="wait">
-        <motion.div key={metric} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <ResponsiveContainer width="100%" height={230}>
-            <BarChart data={data} layout="vertical" margin={{ left: 70, right: 28 }}>
-              <defs>
-                <linearGradient id="td-top8-grad" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor={color} stopOpacity={0.55} />
-                  <stop offset="100%" stopColor={color} stopOpacity={1} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="2 6" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-              <XAxis type="number" tick={CHART_STYLE} axisLine={false} tickLine={false} tickFormatter={v => fmtNumber(v)} />
-              <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={avatarUrl ? 92 : 66}
-                tick={(props: any) => <AvatarTick {...props} avatarUrl={avatarUrl} />} />
-              <RechartTooltip
-                contentStyle={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
-                labelStyle={{ color: 'white', fontSize: 11 }}
-                itemStyle={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}
-                formatter={(v: number) => [fmtNumber(v), label]}
-              />
-              <Bar dataKey="value" name={label} radius={[0, 8, 8, 0]} background={{ fill: 'rgba(255,255,255,0.035)', radius: 8 } as any}>
-                {data.map((_, i) => <Cell key={i} fill="url(#td-top8-grad)" />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </motion.div>
-      </AnimatePresence>
+      {/* Lista en vez de BarChart de Recharts: las barras no llegaban a
+          pintarse y el eje ocultaba nombres. Mismo formato que "Más gráficos". */}
+      <ol className="td-rank-list">
+        {data.map((d, i) => (
+          <li key={d.name} className="td-rank-row">
+            <span className="td-rank-pos td-num">{i + 1}</span>
+            <RowIcon src={avatarUrl?.(d.name)} label={d.name} round />
+            <span className="td-rank-name">{d.name}</span>
+            <RankBar pct={max ? (d.value / max) * 100 : 0} color={color} />
+            <span className="td-rank-val td-num">{fmtNumber(d.value)}</span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
