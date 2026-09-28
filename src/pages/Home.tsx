@@ -34,18 +34,29 @@ const Word = ({ children, progress, range, isHighlighted }: { children: string; 
   );
 };
 
-const ParagraphReveal = ({ text, highlightWords, scrollProgress, range }: { text: string; highlightWords: string[]; scrollProgress: any; range: [number, number] }) => {
+// Cada párrafo mide SU propia posición en pantalla. Antes todos colgaban del
+// avance de la sección completa, y el segundo párrafo necesitaba llegar al 90%:
+// eso solo ocurría cuando el texto ya había salido por arriba, así que las
+// últimas palabras ("Menos ruido, más ELO") nunca se veían encendidas.
+// Ahora el párrafo termina de iluminarse cuando su borde inferior llega al 55%
+// de la pantalla, con el texto todavía bien visible, en cualquier alto de
+// ventana (incluidos monitores ultrawide, donde la sección cabe entera).
+const ParagraphReveal = ({ text, highlightWords }: { text: string; highlightWords: string[] }) => {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const reduce = useReducedMotion();
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start 0.9', 'end 0.55'] });
   const words = text.split(" ");
   return (
-    <p className="text-xl md:text-3xl lg:text-4xl font-medium tracking-tight leading-relaxed">
+    <p ref={ref} className="text-xl md:text-3xl lg:text-4xl font-medium tracking-tight leading-relaxed">
       {words.map((word, i) => {
-        const start = range[0] + (i / words.length) * (range[1] - range[0]);
-        const end = start + (1 / words.length) * (range[1] - range[0]);
+        const start = i / words.length;
+        const end = Math.min(1, start + 1.5 / words.length);
         const cleanWord = word.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"");
         const isHighlighted = highlightWords.some(h => cleanWord.toLowerCase() === h.toLowerCase());
-        
-        return (
-          <Word key={i} progress={scrollProgress} range={[start, end]} isHighlighted={isHighlighted}>
+        return reduce ? (
+          <span key={i} className={`inline-block mr-2 md:mr-3 ${isHighlighted ? 'text-red-500 font-black' : 'text-gray-100 font-medium'}`}>{word}</span>
+        ) : (
+          <Word key={i} progress={scrollYProgress} range={[start, end]} isHighlighted={isHighlighted}>
             {word}
           </Word>
         );
@@ -138,7 +149,11 @@ export default function Home() {
             muted
             playsInline
             preload="auto"
-            className="absolute inset-0 w-full h-full object-cover"
+            // El video es una figura sobre negro a 1280×720. Con object-cover en
+            // un ultrawide se ampliaba casi 3x: borroso y con la cabeza cortada.
+            // En pantallas 16:9 o más anchas se ajusta a la ALTURA (contain) y
+            // su fondo negro se funde con la página; en móvil sigue cubriendo.
+            className="absolute inset-0 w-full h-full object-cover [@media(min-aspect-ratio:16/9)]:object-contain"
             style={{ display: 'block', opacity: reduceMotion ? 0.55 : 1 }}
           >
             <source src="/video/Hero.mp4" type="video/mp4" />
@@ -156,7 +171,7 @@ export default function Home() {
             formulario de crear torneo a la derecha, visible desde el primer
             segundo. En móvil se apilan y el formulario queda justo debajo. */}
         <motion.div
-          className="relative z-10 w-full max-w-6xl mt-12 grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)] lg:gap-12"
+          className="relative z-10 w-full max-w-6xl 2xl:max-w-[1440px] min-[2200px]:max-w-[1680px] mt-12 grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,520px)] lg:gap-12 2xl:gap-20"
           style={reduceMotion ? undefined : { y: heroContentY, opacity: heroContentFade }}
         >
         <div className="flex flex-col items-center text-center space-y-7 lg:items-start lg:text-left">
@@ -179,7 +194,7 @@ export default function Home() {
           {/* Heading — Friz Quadrata, peso normal y acento en itálica */}
           <motion.h1
             {...fadeUp(0.25)}
-            className="font-serif font-normal text-4xl sm:text-5xl xl:text-6xl tracking-[-0.02em] leading-[1.05]"
+            className="font-serif font-normal text-4xl sm:text-5xl xl:text-6xl 2xl:text-7xl min-[2200px]:text-8xl tracking-[-0.02em] leading-[1.05]"
             style={{ textWrap: 'balance' }}
           >
             Domina la Grieta —<br className="hidden sm:block" />
@@ -195,7 +210,7 @@ export default function Home() {
           </motion.p>
 
           {/* Prompt de búsqueda — pieza compartida con /stats */}
-          <motion.div {...fadeUp(0.55)} ref={searchSectionRef} className="w-full">
+          <motion.div {...fadeUp(0.55)} ref={searchSectionRef} className="w-full lg:[&>div]:ml-0">
             <SummonerPrompt quickLookups={QUICK_LOOKUPS} />
           </motion.div>
 
@@ -384,15 +399,11 @@ export default function Home() {
             <ParagraphReveal 
               text="Creamos un espacio donde la competitividad se une con la claridad, donde los jugadores encuentran dirección, los equipos encuentran torneos y cada partida competitiva se convierte en una oportunidad de ascenso."
               highlightWords={["competitividad", "claridad", "dirección", "torneos", "oportunidad", "ascenso"]}
-              scrollProgress={scrollYProgress}
-              range={[0.1, 0.5]}
             />
             
             <ParagraphReveal 
               text="Una plataforma interactiva en la web y compañera in-game donde los datos de Riot, la comunidad y los consejos de inteligencia artificial fluyen sin fricciones. Menos ruido, más ELO."
               highlightWords={["plataforma", "in-game", "riot", "inteligencia", "artificial", "fricciones", "elo"]}
-              scrollProgress={scrollYProgress}
-              range={[0.5, 0.9]}
             />
           </div>
         </div>

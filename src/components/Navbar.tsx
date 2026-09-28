@@ -347,7 +347,7 @@ export const Navbar = () => {
     >
       {/* Pastilla flotante (estilo React Bits): cápsula con blur separada del
           borde, más presente al scrollear. El hairline pasa a ser el borde. */}
-      <div className={`pointer-events-auto max-w-6xl mx-auto rounded-full border transition-all duration-500 ${
+      <div className={`pointer-events-auto max-w-6xl 2xl:max-w-[1440px] min-[2200px]:max-w-[1680px] mx-auto rounded-full border transition-all duration-500 ${
         scrolled || !isHome
           ? 'bg-black/85 border-white/[0.10] shadow-[0_12px_40px_rgba(0,0,0,0.55)]'
           : 'bg-black/45 border-white/[0.07] shadow-[0_8px_32px_rgba(0,0,0,0.35)]'
@@ -406,7 +406,7 @@ export const Navbar = () => {
             {/* Acción destacada de la barra: la misma que manda en la portada. */}
             <Link
               to="/crear-torneo"
-              className="group hidden lg:inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold text-white transition-transform duration-200 hover:scale-[1.04]"
+              className="group hidden lg:inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-bold text-white transition-transform duration-200 hover:scale-[1.04]"
               style={{
                 background: 'linear-gradient(135deg,#ef4444,#b91c1c)',
                 boxShadow: '0 8px 22px -10px rgba(225,36,46,0.95)',
@@ -463,16 +463,15 @@ export const Navbar = () => {
               </div>
             ) : (
               <>
-                <Link to="/login">
-                  <button className="px-4 py-1.5 text-sm text-gray-400 hover:text-white font-medium transition-colors">
-                    Sign In
-                  </button>
+                {/* Un solo botón rojo en la barra: "Crear torneo". Cuenta y
+                    sesión van sobrias para no competir con la acción principal. */}
+                <Link to="/login"
+                  className="whitespace-nowrap px-3 py-1.5 text-sm font-medium text-gray-400 transition-colors hover:text-white">
+                  Entrar
                 </Link>
-                <Link to="/register">
-                  <button className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold text-white rounded-full shadow-lg shadow-red-600/25 transition-all duration-300 hover:shadow-red-600/45 hover:scale-105"
-                    style={{ background: 'linear-gradient(135deg,#ef4444,#b91c1c)' }}>
-                    <Zap className="h-3.5 w-3.5" />Register
-                  </button>
+                <Link to="/register"
+                  className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-white/[0.14] bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30 hover:bg-white/[0.08]">
+                  <Zap className="h-3.5 w-3.5 text-red-400" />Crear cuenta
                 </Link>
               </>
             )}

@@ -300,7 +300,9 @@ function Panel({ children }: { children: React.ReactNode }) {
         className="relative rounded-[26px] border border-white/[0.10] p-5 text-left sm:p-6"
         style={{
           background:
-            'linear-gradient(180deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.015) 38%, rgba(0,0,0,0.35) 100%)',
+            // Casi opaco a propósito: con más transparencia el humo rojo del video se
+            // veía a través y los campos costaba leerlos.
+            'linear-gradient(180deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.015) 38%, rgba(0,0,0,0) 100%), rgba(11,11,14,0.86)',
           backdropFilter: 'blur(22px) saturate(140%)',
           WebkitBackdropFilter: 'blur(22px) saturate(140%)',
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.10), 0 30px 80px -44px rgba(0,0,0,0.95)',

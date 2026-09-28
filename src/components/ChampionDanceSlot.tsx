@@ -43,10 +43,55 @@ class GLBBoundary extends React.Component<
   }
 }
 
+// ─── Piezas que el juego oculta ────────────────────────────────────────────────
+// Los GLB del CDN traen TODAS las piezas del campeón, también las alternativas
+// que el cliente de LoL esconde: accesorios de emotes y de la recall, garras y
+// dientes de repuesto, mascotas… Por eso a algunos campeones les salía un poro
+// encima. El juego sabe qué esconder por `initialSubmeshToHide` en los datos de
+// cada skin, y esos nombres coinciden con los materiales del GLB. Hacemos lo
+// mismo. El archivo pesa hasta ~85 KB comprimido: nada frente al modelo.
+const hideCache = new Map<string, Promise<Set<string>>>();
+function submeshesToHide(champSlug: string): Promise<Set<string>> {
+  const key = champSlug.toLowerCase();
+  if (!hideCache.has(key)) {
+    hideCache.set(key, fetch(`https://raw.communitydragon.org/latest/game/data/characters/${key}/skins/skin0.bin.json`)
+      .then((r) => (r.ok ? r.text() : ''))
+      .then((raw) => {
+        const m = raw.match(/"initialSubmeshToHide"\s*:\s*"([^"]*)"/);
+        return new Set((m?.[1] ?? '').split(/[\s,]+/).filter(Boolean).map((x) => x.toLowerCase()));
+      })
+      .catch(() => new Set<string>()));
+  }
+  return hideCache.get(key)!;
+}
+
 // ─── The dancing model (only mounted once the GLB is confirmed present) ────────
-function DanceModel({ url, onFail }: { url: string; onFail: () => void }) {
+function DanceModel({ url, champSlug, onFail }: { url: string; champSlug: string; onFail: () => void }) {
   const group = useRef<THREE.Group>(null!);
   const gltf = useGLTF(url) as any;
+  // Invisible hasta aplicar la lista: si no, se ve un instante la pieza extra.
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (!gltf?.scene) return;
+    let alive = true;
+    // Si CommunityDragon no responde, mostramos el modelo tal cual a los 2.5 s.
+    const fallback = setTimeout(() => alive && setReady(true), 2500);
+    submeshesToHide(champSlug).then((hide) => {
+      if (!alive) return;
+      if (hide.size) {
+        gltf.scene.traverse((o: THREE.Object3D) => {
+          const mesh = o as THREE.Mesh;
+          if (!mesh.isMesh) return;
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          if (mats.some((m) => hide.has(String(m?.name ?? '').toLowerCase()))) mesh.visible = false;
+        });
+      }
+      clearTimeout(fallback);
+      setReady(true);
+    });
+    return () => { alive = false; clearTimeout(fallback); };
+  }, [gltf, champSlug]);
   const { actions, names } = useAnimations(gltf?.animations || [], group);
 
   useEffect(() => {
@@ -76,7 +121,7 @@ function DanceModel({ url, onFail }: { url: string; onFail: () => void }) {
   }, []);
 
   if (!gltf?.scene) { onFail(); return null; }
-  return <group ref={group}><primitive object={gltf.scene} /></group>;
+  return <group ref={group} visible={ready}><primitive object={gltf.scene} /></group>;
 }
 
 // ─── 2D fallback: splash art with a slow drift, or a centered icon ────────────
@@ -224,7 +269,7 @@ export default function ChampionDanceSlot({ champSlug, champId, champName, accen
               <Suspense fallback={null}>
                 <Bounds fit clip observe margin={1.12}>
                   <Center>
-                    <DanceModel url={src} onFail={() => setPhase('fallback')} />
+                    <DanceModel url={src} champSlug={champSlug!} onFail={() => setPhase('fallback')} />
                   </Center>
                 </Bounds>
               </Suspense>
