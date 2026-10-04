@@ -4,19 +4,19 @@
 // Live Client Data API oficial de Riot → backend /api/live-feed) y muestra un
 // tablero estilo transmisión: marcador por equipo, K/D/A, CS, items, niveles,
 // timers de respawn, feed de eventos y — si el companion manda streamUrl —
-// el video HLS embebido. Todo sin instalar nada para el espectador.
+// el video embebido. Todo sin instalar nada para el espectador.
+// Tema (src/lib/broadcastTheme.ts): "atak" (Arena) o "lqc" (azul de la liga),
+// según el canal o ?theme=. ?demo=1 muestra una partida simulada.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { axiosInstance } from '@/lib/axios';
 import { useChampions } from '@/hooks/use-ddragon';
-import { ScrollVideoBg } from '@/components/ScrollVideoBg';
+import { lol, type DragonKey } from '@/lib/lolAssets';
+import { broadcastThemeFor, broadcastVars, ensureBroadcastFont } from '@/lib/broadcastTheme';
+import { demoFeed } from '@/lib/broadcastDemo';
 import { Radio, Link2, Check } from 'lucide-react';
-
-const RED = '#e1242e';
-const BLUE = '#3b82f6';
-const GOLD = '#c8aa6e';
-const FONT_COND = "'Saira Condensed', 'Saira', sans-serif";
+import '@/styles/pages/broadcast-board.css';
 
 interface FeedPlayer {
   riotId: string; championName: string; team: 'ORDER' | 'CHAOS';
@@ -29,6 +29,7 @@ interface Feed {
   ok: boolean; seq: number; ageMs: number;
   gameTime: number; gameMode: string; mapName: string;
   matchLabel: string; streamUrl: string; tournamentId: string;
+  team1?: string; team2?: string; logo1?: string; logo2?: string; accent?: string;
   players: FeedPlayer[]; events: FeedEvent[];
 }
 
@@ -85,72 +86,59 @@ function parseStreamEmbed(raw: string, hostname: string): StreamEmbed | null {
   return { kind: 'link', href: url };
 }
 
-const EVENT_META: Record<string, { icon: string; label: string }> = {
-  ChampionKill: { icon: '⚔️', label: 'Asesinato' },
-  FirstBlood: { icon: '🩸', label: 'Primera sangre' },
-  Multikill: { icon: '💥', label: 'Multikill' },
-  Ace: { icon: '💥', label: 'ACE' },
-  DragonKill: { icon: '🐉', label: 'Dragón' },
-  BaronKill: { icon: '🟣', label: 'Barón Nashor' },
-  HeraldKill: { icon: '👁️', label: 'Heraldo' },
-  HordeKill: { icon: '🪲', label: 'Larvas' },
-  TurretKilled: { icon: '🗼', label: 'Torre destruida' },
-  InhibKilled: { icon: '💎', label: 'Inhibidor' },
-  GameStart: { icon: '🟢', label: 'Inicio de partida' },
-  MinionsSpawning: { icon: '🟡', label: 'Súbditos en camino' },
-  GameEnd: { icon: '🏁', label: 'Fin de la partida' },
+// Evento → icono del juego (los locales de /public/lol) + etiqueta.
+const DRAGON_KEY: Record<string, DragonKey> = {
+  Fire: 'infernal', Water: 'ocean', Earth: 'mountain', Air: 'cloud',
+  Hextech: 'hextech', Chemtech: 'chemtech', Elder: 'elder',
 };
+const EVENT_META: Record<string, { icon: string; label: string }> = {
+  ChampionKill: { icon: lol.ui('score'), label: 'Asesinato' },
+  FirstBlood: { icon: lol.ui('score'), label: 'Primera sangre' },
+  Multikill: { icon: lol.ui('score'), label: 'Multikill' },
+  Ace: { icon: lol.ui('score'), label: 'ACE' },
+  DragonKill: { icon: lol.dragon('elder'), label: 'Dragón' },
+  BaronKill: { icon: lol.ui('nashor'), label: 'Barón Nashor' },
+  HeraldKill: { icon: lol.ui('rift_herald'), label: 'Heraldo' },
+  HordeKill: { icon: lol.ui('creep'), label: 'Larvas' },
+  TurretKilled: { icon: lol.ui('tower'), label: 'Torre destruida' },
+  InhibKilled: { icon: lol.ui('tower'), label: 'Inhibidor' },
+  GameStart: { icon: lol.ui('minion'), label: 'Inicio de partida' },
+  MinionsSpawning: { icon: lol.ui('minion'), label: 'Súbditos en camino' },
+  GameEnd: { icon: lol.ui('champion'), label: 'Fin de la partida' },
+};
+const eventIcon = (e: FeedEvent) =>
+  e.name === 'DragonKill' && DRAGON_KEY[e.extra] ? lol.dragon(DRAGON_KEY[e.extra]) : EVENT_META[e.name].icon;
 
 // El companion manda el nombre limpio ("Nombre#TAG"); recorta el tag para las filas.
 const shortName = (riotId: string) => (riotId.includes('#') ? riotId.slice(0, riotId.indexOf('#')) : riotId);
+const hideImg = (e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.visibility = 'hidden'; };
 
-function PlayerLine({ p, champIcon, itemIcon, side }: {
-  p: FeedPlayer; side: 'blue' | 'red';
+function PlayerLine({ p, champIcon, champSplash, itemIcon, side, index }: {
+  p: FeedPlayer; side: 'blue' | 'red'; index: number;
   champIcon: (name: string) => string | null;
+  champSplash: (name: string) => string;
   itemIcon: (id: number) => string;
 }) {
   const icon = champIcon(p.championName);
+  const splash = champSplash(p.championName);
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 12,
-      background: side === 'blue' ? 'rgba(59,130,246,0.05)' : 'rgba(225,36,46,0.05)',
-      opacity: p.isDead ? 0.55 : 1, transition: 'opacity 300ms ease',
-    }}>
-      <div style={{ position: 'relative', flexShrink: 0 }}>
-        {icon ? (
-          <img src={icon} alt="" style={{ width: 40, height: 40, borderRadius: 10, objectFit: 'cover', filter: p.isDead ? 'grayscale(1)' : 'none', background: '#000' }} />
-        ) : (
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-            {p.championName.slice(0, 1)}
-          </div>
-        )}
-        <span style={{
-          position: 'absolute', bottom: -4, right: -4, background: '#0a0a0c', borderRadius: 6,
-          fontSize: 10, fontWeight: 700, color: GOLD, padding: '1px 4px',
-        }}>{p.level}</span>
-        {p.isDead && p.respawnTimer > 0 && (
-          <span style={{
-            position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 800, fontSize: 15, textShadow: '0 0 6px #000',
-          }}>{Math.ceil(p.respawnTimer)}</span>
-        )}
-      </div>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {shortName(p.riotId) || p.championName}
-        </div>
-        <div style={{ display: 'flex', gap: 3, marginTop: 3 }}>
-          {p.items.slice(0, 6).map((id, i) => (
-            <img key={i} src={itemIcon(id)} alt="" style={{ width: 16, height: 16, borderRadius: 3, background: '#000' }}
-              onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
-          ))}
+    <div className={`bb-player ${side}${p.isDead ? ' dead' : ''}`} style={{ animationDelay: `${0.12 + index * 0.06}s` }}>
+      {/* Splash del campeón de fondo, fundido hacia los datos */}
+      {splash && <span className="bb-art" aria-hidden><img src={splash} alt="" loading="lazy" onError={hideImg} /></span>}
+      <span className="bb-face">
+        {icon ? <img src={icon} alt="" onError={hideImg} /> : p.championName.slice(0, 1)}
+        {p.isDead && p.respawnTimer > 0 && <span className="bb-respawn bb-disp">{Math.ceil(p.respawnTimer)}</span>}
+      </span>
+      <span className="bb-lvl">{p.level}</span>
+      <div className="bb-pid">
+        <div className="bb-pname">{shortName(p.riotId) || p.championName}</div>
+        <div className="bb-items">
+          {p.items.slice(0, 6).map((id, i) => <img key={i} src={itemIcon(id)} alt="" onError={hideImg} />)}
         </div>
       </div>
-      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <div style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 15, color: '#fff' }}>
-          {p.kills}/<span style={{ color: '#ff6b73' }}>{p.deaths}</span>/{p.assists}
-        </div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{p.creepScore} CS</div>
+      <div className="bb-pstats">
+        <div className="bb-kda"><span key={p.kills} className="bb-pop">{p.kills}</span>/<i key={p.deaths} className="bb-pop">{p.deaths}</i>/<span key={p.assists} className="bb-pop">{p.assists}</span></div>
+        <div className="bb-cs">{p.creepScore} CS</div>
       </div>
     </div>
   );
@@ -158,12 +146,17 @@ function PlayerLine({ p, champIcon, itemIcon, side }: {
 
 export default function BroadcastPage() {
   const { channel } = useParams<{ channel: string }>();
+  const [params] = useSearchParams();
+  const demo = params.get('demo') === '1';
+  const theme = broadcastThemeFor(channel, params.get('theme'));
   const { data: champs } = useChampions();
   const version = (champs as any)?.version || '';
 
+  useEffect(() => { ensureBroadcastFont(theme); }, [theme]);
+
   const feedQ = useQuery({
     queryKey: ['broadcast', channel],
-    enabled: !!channel,
+    enabled: !!channel && !demo,
     refetchInterval: 2500,
     retry: false,
     queryFn: async () => {
@@ -173,7 +166,18 @@ export default function BroadcastPage() {
       return status === 200 && data?.ok ? (data as Feed) : null;
     },
   });
-  const feed = feedQ.data ?? null;
+  const [demoElapsed, setDemoElapsed] = useState(0);
+  useEffect(() => {
+    if (!demo) return;
+    const id = setInterval(() => setDemoElapsed((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [demo]);
+  const feed: Feed | null = demo
+    ? (demoFeed(demoElapsed, String(channel || 'demo'), theme.id === 'lqc') as Feed)
+    : feedQ.data ?? null;
+  const lqc = theme.id === 'lqc';
+  const team1 = (feed?.team1 || 'Azul').trim();
+  const team2 = (feed?.team2 || 'Rojo').trim();
 
   // championName (display o slug) → icono, tolerante a acentos/espacios
   const champIcon = useMemo(() => {
@@ -184,6 +188,11 @@ export default function BroadcastPage() {
       map[norm(e.id)] = url;
     }
     return (name: string) => map[norm(name)] || null;
+  }, [champs]);
+  const champSplash = useMemo(() => {
+    const slug: Record<string, string> = {};
+    for (const e of Object.values<any>((champs as any)?.byId || {})) { slug[norm(e.name)] = e.id; slug[norm(e.id)] = e.id; }
+    return (name: string) => (slug[norm(name)] ? lol.centered(slug[norm(name)]) : '');
   }, [champs]);
 
   const itemIcon = (id: number) => `https://ddragon.leagueoflegends.com/cdn/${version || '14.1.1'}/img/item/${id}.png`;
@@ -232,48 +241,40 @@ export default function BroadcastPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0c', color: '#e8e8ea', fontFamily: FONT_COND }}>
-      <ScrollVideoBg />
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: 1240, margin: '0 auto', padding: '92px 18px 80px' }}>
-        <style>{`@keyframes atak-live-dot { 0%,100%{opacity:1} 50%{opacity:.35} }`}</style>
-
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 22 }}>
-          {feed && (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 999,
-              background: 'rgba(225,36,46,0.15)', color: '#ff6b73', fontWeight: 700, fontSize: 13, letterSpacing: 0.6,
-            }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: RED, boxShadow: `0 0 10px ${RED}`, animation: 'atak-live-dot 1.4s ease-in-out infinite' }} />
-              EN VIVO
+    <div className="bb-root" data-theme={theme.id} style={broadcastVars(theme, feed?.accent)}>
+      <div className="bb-wrap">
+        {/* Marca de la liga, como en sus publicaciones */}
+        {lqc && (
+          <div className="bb-lqc-top">
+            <span className="bb-lockup">
+              <img src="/lqc-wordmark.png" alt="LQC" />
+              <i />
+              <span><small>League of Legends</small>Queretaro<br />Championship</span>
             </span>
-          )}
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: '#fff' }}>
-            {feed?.matchLabel || `Broadcast · ${channel}`}
-          </h1>
-          {feed && (
-            <span style={{ fontFamily: 'monospace', fontSize: 18, fontWeight: 700, color: GOLD }}>{fmt(feed.gameTime)}</span>
-          )}
-          <div style={{ flex: 1 }} />
-          <button onClick={copyLink} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 999,
-            background: 'rgba(255,255,255,0.07)', color: copied ? '#0bc4e3' : 'rgba(255,255,255,0.8)',
-            border: 'none', cursor: 'pointer', fontFamily: FONT_COND, fontWeight: 700, fontSize: 13,
-          }}>
+            <span className="bb-lqc-sep" />
+            <a className="bb-lqc-watch" href="https://www.twitch.tv/lqroc" target="_blank" rel="noopener noreferrer">
+              <span>Míralos en:</span>
+              <b>TWITCH.TV/LQROC</b>
+            </a>
+          </div>
+        )}
+
+        {/* Cabecera */}
+        {lqc && <div className="bb-kicker">Transmisión / {feed ? 'En vivo' : 'Fuera de línea'}</div>}
+        <div className="bb-head">
+          {feed && <span className="bb-live"><i />EN VIVO</span>}
+          <h1 className="bb-title bb-disp">{feed?.matchLabel || `Broadcast · ${channel}`}</h1>
+          <button type="button" className="bb-btn" data-done={copied} onClick={copyLink}>
             {copied ? <Check size={15} /> : <Link2 size={15} />}
             {copied ? 'Link copiado' : 'Compartir'}
           </button>
         </div>
 
         {!feed && (
-          <div style={{ textAlign: 'center', padding: '110px 20px' }}>
-            <Radio size={44} style={{ color: 'rgba(255,255,255,0.18)', marginBottom: 18 }} />
-            <div style={{ fontSize: 22, fontWeight: 700, color: 'rgba(255,255,255,0.85)', marginBottom: 8 }}>
-              {feedQ.isPending ? 'Conectando al broadcast…' : 'El broadcast no está activo'}
-            </div>
-            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)' }}>
-              Esta página se conecta sola en cuanto la transmisión empiece — déjala abierta.
-            </div>
+          <div className="bb-empty">
+            <Radio size={44} />
+            <h2 className="bb-disp">{feedQ.isPending ? 'Conectando al broadcast…' : 'El broadcast no está activo'}</h2>
+            <p>Esta página se conecta sola en cuanto la transmisión empiece — déjala abierta.</p>
           </div>
         )}
 
@@ -281,62 +282,70 @@ export default function BroadcastPage() {
           <>
             {/* Video (opcional) — embed según el tipo de stream */}
             {embed?.kind === 'iframe' && (
-              <div style={{ marginBottom: 22, borderRadius: 16, overflow: 'hidden', background: '#000', aspectRatio: '16 / 9' }}>
-                <iframe
-                  src={embed.src}
-                  title="Stream en vivo"
-                  allow="autoplay; fullscreen; picture-in-picture"
-                  allowFullScreen
-                  style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-                />
+              <div className="bb-panel bb-video">
+                <iframe src={embed.src} title="Stream en vivo" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
               </div>
             )}
             {embed?.kind === 'hls' && (
-              <div style={{ marginBottom: 22, borderRadius: 16, overflow: 'hidden', background: '#000', aspectRatio: '16 / 9' }}>
-                <video ref={videoRef} controls muted playsInline style={{ width: '100%', height: '100%' }} />
+              <div className="bb-panel bb-video">
+                <video ref={videoRef} controls muted playsInline />
               </div>
             )}
             {embed?.kind === 'link' && (
-              <div style={{ marginBottom: 22, borderRadius: 16, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', padding: '18px 22px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.6)' }}>La transmisión de video está en otro sitio:</span>
-                <a href={embed.href} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 13.5, fontWeight: 700, color: '#ff6b73', textDecoration: 'none' }}>
-                  Abrir stream →
-                </a>
+              <div className="bb-panel bb-extlink">
+                <span>La transmisión de video está en otro sitio:</span>
+                <a href={embed.href} target="_blank" rel="noopener noreferrer">Abrir stream →</a>
               </div>
             )}
 
-            {/* Marcador global */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 26, marginBottom: 22 }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: BLUE, letterSpacing: 1 }}>AZUL</span>
-              <span style={{ fontFamily: FONT_COND, fontSize: 44, fontWeight: 800, color: '#fff' }}>
-                <span style={{ color: BLUE }}>{blueKills}</span>
-                <span style={{ color: 'rgba(255,255,255,0.3)', margin: '0 14px' }}>–</span>
-                <span style={{ color: RED }}>{redKills}</span>
-              </span>
-              <span style={{ fontSize: 15, fontWeight: 700, color: RED, letterSpacing: 1 }}>ROJO</span>
+            {/* Marcador */}
+            <div className="bb-panel bb-bug">
+              <div className="bb-team blue">
+                <span className="bb-team-logo bb-disp">
+                  {feed.logo1 ? <img src={feed.logo1} alt="" onError={hideImg} /> : team1.slice(0, 1)}
+                </span>
+                <span className="bb-team-id">
+                  <span className="bb-team-name bb-disp">{team1}</span>
+                  <span className="bb-team-side">LADO AZUL</span>
+                </span>
+              </div>
+              <div className="bb-kills blue bb-disp"><span key={blueKills} className="bb-pop">{blueKills}</span></div>
+              <div className="bb-mid">
+                <img src={theme.logo} alt={theme.brand} style={{ height: theme.logoHeight }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                <span className="bb-disp">{fmt(feed.gameTime)}</span>
+              </div>
+              <div className="bb-kills red bb-disp"><span key={redKills} className="bb-pop">{redKills}</span></div>
+              <div className="bb-team red">
+                <span className="bb-team-logo bb-disp">
+                  {feed.logo2 ? <img src={feed.logo2} alt="" onError={hideImg} /> : team2.slice(0, 1)}
+                </span>
+                <span className="bb-team-id">
+                  <span className="bb-team-name bb-disp">{team2}</span>
+                  <span className="bb-team-side">LADO ROJO</span>
+                </span>
+              </div>
             </div>
 
-            {/* Scoreboard + feed */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr minmax(220px, 300px)', gap: 16, alignItems: 'start' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {blue.map((p, i) => <PlayerLine key={i} p={p} side="blue" champIcon={champIcon} itemIcon={itemIcon} />)}
+            {/* Equipos + eventos */}
+            <div className="bb-grid">
+              <div className="bb-col blue">
+                <div className="bb-over">{team1}</div>
+                {blue.map((p, i) => <PlayerLine key={i} index={i} p={p} side="blue" champIcon={champIcon} champSplash={champSplash} itemIcon={itemIcon} />)}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {red.map((p, i) => <PlayerLine key={i} p={p} side="red" champIcon={champIcon} itemIcon={itemIcon} />)}
+              <div className="bb-col red">
+                <div className="bb-over">{team2}</div>
+                {red.map((p, i) => <PlayerLine key={i} index={i} p={p} side="red" champIcon={champIcon} champSplash={champSplash} itemIcon={itemIcon} />)}
               </div>
               <div>
-                <div style={{ fontSize: 11, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 8 }}>
-                  Eventos
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {events.length === 0 && <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>Aún sin eventos…</div>}
+                <div className="bb-over">Eventos</div>
+                <div className="bb-events">
+                  {events.length === 0 && <div className="bb-none">Aún sin eventos…</div>}
                   {events.map((e) => {
                     const meta = EVENT_META[e.name];
                     return (
-                      <div key={`${e.id}-${e.t}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, color: 'rgba(255,255,255,0.8)', background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '6px 9px' }}>
-                        <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.4)', flexShrink: 0, marginTop: 1 }}>{fmt(e.t)}</span>
-                        <span>{meta.icon}</span>
+                      <div key={`${e.id}-${e.t}`} className="bb-event">
+                        <time>{fmt(e.t)}</time>
+                        <img src={eventIcon(e)} alt="" onError={hideImg} />
                         <span style={{ minWidth: 0 }}>
                           {e.name === 'ChampionKill'
                             ? <><b>{shortName(e.killer)}</b> eliminó a <b>{shortName(e.victim)}</b></>
@@ -349,9 +358,16 @@ export default function BroadcastPage() {
               </div>
             </div>
 
-            <div style={{ marginTop: 26, fontSize: 12, color: 'rgba(255,255,255,0.35)', textAlign: 'center' }}>
-              Datos en tiempo real vía ATAK Spectator Companion (Live Client Data API oficial de Riot) · se actualiza cada 2s
-            </div>
+            {lqc ? (
+              <div className="bb-foot">
+                <span>Datos en tiempo real<b>ATAK Spectator Companion · API oficial de Riot</b></span>
+                <span>Se actualiza<b>cada 2 segundos</b></span>
+              </div>
+            ) : (
+              <div className="bb-foot">
+                Datos en tiempo real vía ATAK Spectator Companion (Live Client Data API oficial de Riot) · se actualiza cada 2s
+              </div>
+            )}
           </>
         )}
       </div>

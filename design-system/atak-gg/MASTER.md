@@ -116,3 +116,26 @@ decorativo, `loading="lazy"`, y `onError` que oculte la imagen.
 7. Sin scroll horizontal a 375px. Tablas anchas en `ax-table-scroll`.
 8. No cambies lógica de datos, rutas, hooks ni textos legales: es un rediseño visual.
 9. Español (México) en toda la interfaz.
+
+## Transmisión (overlay de OBS y tablero)
+
+`/broadcast/:canal/overlay` (Browser Source 1920×1080, fondo transparente) y `/broadcast/:canal` (tablero público)
+comparten tema por variables `--bo-*` (`src/lib/broadcastTheme.ts`):
+
+- **atak** — Arena: Barlow Condensed en itálica, crimson, cajas opacas.
+- **lqc** — la liga, con la identidad de sus publicaciones (instagram.com/lqro.c): títulos en Orbitron 900 inclinada con
+  resplandor azul, datos en JetBrains Mono en mayúsculas, rótulos con barras (`LQC / RONDA 5`), reglas azules y de fondo el
+  degradado azul con las letras "LQC" gigantes (`public/lqc/bg.webp`, generado desde su logo). Azul `#2a86f0`, rojo `#e5235a`.
+
+El tema sale del canal (los que empiezan por `lqc` usan el de la liga) y se fuerza con `?theme=atak|lqc`. El acento que
+manda el caster (`feed.accent`) pisa solo `--bo-accent`. Para una liga nueva: añadir un tema en ese archivo, nada más.
+
+Arte y movimiento del overlay: splash del campeón (`lol.centered`) de fondo en cada fila y en los avisos; iconos locales
+de `/public/lol` (dragones, barón, heraldo, torre, oro, súbdito, líneas). Avisos en cola (objetivos, primera sangre, torres,
+inhibidores). Entradas del marcador y del tablero, kills que saltan con destello, dragones e items que aparecen: todo con
+`transform`/`opacity` y apagado con `prefers-reduced-motion`. Los bloques internos se llaman como funciones (no como
+`<Componente />`) para que un snapshot nuevo no repita las entradas.
+
+`?demo=1` muestra una partida simulada (`src/lib/broadcastDemo.ts`) para colocar el overlay en OBS sin transmisión;
+`?bg=1` pone un fondo de prueba. CSS en `src/styles/pages/broadcast-overlay.css` (`bo-*`) y `broadcast-board.css` (`bb-*`).
+La barra local del companion (`CasterView.tsx`) replica el mismo marcador y los mismos dos temas.

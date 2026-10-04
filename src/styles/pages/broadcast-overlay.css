@@ -1,0 +1,244 @@
+/* Overlay de espectador para OBS (/broadcast/:canal/overlay, 1920×1080, fondo
+   transparente). Mismo lenguaje que el sitio: cajas opacas con hairline, cifras
+   en la display, chips rectos. Los colores y la tipografía llegan por variables
+   --bo-* del tema (src/lib/broadcastTheme.ts): "atak" (Arena) o "lqc" (azul).
+   Solo se animan transform / opacity / width. */
+
+.bo-root {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  color: var(--bo-text);
+  font-family: var(--bo-font-data);
+  font-variant-numeric: tabular-nums lining-nums;
+  -webkit-font-smoothing: antialiased;
+  background: transparent;
+}
+/* ?bg=1: fondo de prueba para colocar el overlay sin tener el juego detrás. */
+.bo-root[data-bg='1'] {
+  background:
+    radial-gradient(900px 500px at 30% 40%, #3a5a48 0%, transparent 70%),
+    radial-gradient(900px 600px at 75% 60%, #4a5a3a 0%, transparent 70%),
+    #24352c;
+}
+.bo-root *, .bo-root *::before, .bo-root *::after { box-sizing: border-box; }
+.bo-root img { display: block; }
+
+.bo-disp {
+  font-family: var(--bo-font-display);
+  font-style: var(--bo-display-style);
+  font-weight: var(--bo-display-weight);
+  letter-spacing: var(--bo-display-track);
+  text-transform: uppercase;
+  line-height: 1;
+  text-shadow: var(--bo-display-glow, none);
+}
+.bo-root .blue { --side: var(--bo-blue); --side-fill: var(--bo-blue-fill); }
+.bo-root .red { --side: var(--bo-red); --side-fill: var(--bo-red-fill); }
+
+/* ── Bloque superior: marcador + oro + timers ───────────────────────────── */
+.bo-top {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 1320px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.bo-bug {
+  position: relative;
+  width: 100%; height: 68px;
+  display: grid; grid-template-columns: minmax(0, 1fr) 88px 150px 88px minmax(0, 1fr);
+  background: var(--bo-panel-img, var(--bo-panel));
+  border: 1px solid var(--bo-line); border-top: 0;
+  border-radius: 0 0 10px 10px;
+  overflow: hidden;
+  box-shadow: 0 16px 34px -16px rgba(0, 0, 0, 0.85);
+}
+.bo-team { position: relative; display: flex; align-items: center; gap: 14px; padding: 0 20px 4px; min-width: 0; }
+.bo-team.red { flex-direction: row-reverse; }
+/* Carril del lado: lo único de color en el bloque del equipo. */
+.bo-team::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--side-fill); }
+.bo-team-logo { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 6px; overflow: hidden; }
+.bo-team-logo img { width: 100%; height: 100%; object-fit: contain; }
+.bo-team-logo.ph { background: var(--side-fill); color: #fff; font-size: calc(26px * var(--bo-display-scale)); }
+.bo-team-id { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.bo-team.red .bo-team-id { align-items: flex-end; }
+/* El cuerpo base (--fit) baja con los nombres largos: ver fitName() en la página. */
+.bo-team-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: calc(var(--fit, 31px) * var(--bo-display-scale)); color: var(--bo-text); padding-right: 3px; }
+.bo-team-side { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; line-height: 1; color: var(--side); }
+.bo-team-stats { flex: none; margin-left: auto; display: flex; align-items: center; gap: 16px; }
+.bo-team.red .bo-team-stats { margin-left: 0; margin-right: auto; flex-direction: row-reverse; }
+.bo-stat { display: inline-flex; align-items: center; gap: 6px; font-size: 20px; font-weight: 700; line-height: 1; color: var(--bo-text); }
+.bo-stat img { width: 22px; height: 22px; object-fit: contain; }
+.bo-stat.gold { color: var(--bo-gold); }
+.bo-team.red .bo-stat { flex-direction: row-reverse; }
+
+.bo-kills { position: relative; overflow: hidden; display: grid; place-items: center; background: var(--side-fill); color: #fff; font-size: calc(50px * var(--bo-display-scale)); }
+.bo-kills > span { display: inline-block; }
+.bo-flash { position: absolute; inset: 0; background: #fff; pointer-events: none; }
+/* Brillo que cruza el marcador de vez en cuando: mantiene viva la imagen. */
+.bo-shine {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 180px; pointer-events: none;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.13), transparent);
+  transform: translateX(-220px);
+  animation: bo-shine 16s ease-in-out infinite;
+}
+@keyframes bo-shine { 0%, 84% { transform: translateX(-220px); } 100% { transform: translateX(1540px); } }
+.bo-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: var(--bo-strip); }
+.bo-center img { width: auto; object-fit: contain; }
+.bo-clock { font-size: calc(23px * var(--bo-display-scale)); color: var(--bo-text); }
+
+/* Dragones tomados + diferencia de oro */
+.bo-subrow { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 460px minmax(0, 1fr); align-items: start; gap: 14px; margin-top: 8px; }
+.bo-drakes { display: flex; gap: 5px; min-height: 32px; }
+.bo-drakes.blue { justify-content: flex-end; }
+.bo-drake { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 4px; background: var(--bo-panel); border: 1px solid var(--bo-line); border-bottom: 3px solid var(--side); }
+.bo-drake img { width: 22px; height: 22px; object-fit: contain; }
+.bo-goldbar { position: relative; height: 8px; border-radius: 2px; overflow: hidden; background: var(--bo-sunken); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55); }
+.bo-goldbar i { position: absolute; top: 0; bottom: 0; display: block; transition: width 1s ease; }
+.bo-goldbar i.blue { left: 0; background: var(--bo-blue-fill); }
+.bo-goldbar i.red { right: 0; background: var(--bo-red-fill); }
+.bo-goldbar::after { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; margin-left: -1px; background: #fff; }
+.bo-goldchip {
+  display: flex; align-items: center; gap: 7px; width: max-content; height: 26px; margin: 6px auto 0; padding: 0 10px;
+  border-radius: 4px; background: var(--bo-panel); border: 1px solid var(--bo-line);
+  font-size: 14px; font-weight: 700; letter-spacing: 0.08em; color: var(--bo-text-2);
+}
+.bo-goldchip img { width: 16px; height: 16px; object-fit: contain; }
+.bo-goldchip b { font-family: var(--bo-font-display); font-style: var(--bo-display-style); font-weight: var(--bo-display-weight); font-size: calc(19px * var(--bo-display-scale)); letter-spacing: 0.02em; color: var(--side, var(--bo-text)); }
+
+/* Timers de objetivos */
+.bo-timers { display: flex; gap: 8px; margin-top: 8px; }
+.bo-chip {
+  display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px;
+  border-radius: 4px; background: var(--bo-panel); border: 1px solid var(--bo-line);
+  font-size: 13.5px; font-weight: 700; letter-spacing: 0.1em; color: var(--bo-text-2);
+}
+.bo-chip img { width: 20px; height: 20px; object-fit: contain; }
+.bo-chip b { font-family: var(--bo-font-display); font-style: var(--bo-display-style); font-weight: var(--bo-display-weight); font-size: calc(20px * var(--bo-display-scale)); letter-spacing: 0.02em; color: var(--bo-text); }
+/* Objetivo vivo: el único chip relleno, como el "LIVE" de una retransmisión. */
+.bo-chip.live { background: var(--bo-accent); border-color: var(--bo-accent); color: #fff; }
+.bo-chip.live b { color: #fff; }
+.bo-chip.live .bo-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: bo-pulse 1.2s ease-in-out infinite alternate; }
+@keyframes bo-pulse { from { opacity: 0.35; } to { opacity: 1; } }
+
+/* ── Banner de objetivo ──────────────────────────────────────────────────── */
+.bo-banner {
+  position: absolute; top: 200px; left: 50%;
+  display: flex; align-items: center; gap: 18px; min-width: 560px; padding: 14px 150px 14px 28px;
+  overflow: hidden; pointer-events: none;
+  background: var(--bo-panel-img, var(--bo-panel)); border: 1px solid var(--bo-line); border-radius: 8px;
+  box-shadow: 0 18px 44px -14px rgba(0, 0, 0, 0.9);
+}
+.bo-banner::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 7px; background: var(--side-fill); }
+/* Splash de quien lo consiguió: asoma por la derecha y se funde hacia el texto. */
+.bo-banner-art {
+  position: absolute; top: 0; bottom: 0; right: 0; width: 64%; overflow: hidden; opacity: 0.7;
+  -webkit-mask-image: linear-gradient(270deg, #000 0%, rgba(0, 0, 0, 0.55) 50%, transparent 100%);
+          mask-image: linear-gradient(270deg, #000 0%, rgba(0, 0, 0, 0.55) 50%, transparent 100%);
+}
+.bo-banner-art img { width: 100%; height: 100%; object-fit: cover; object-position: center 22%; }
+.bo-banner-icon, .bo-banner-text { position: relative; z-index: 1; }
+.bo-banner-icon { width: 54px; height: 54px; flex: none; display: grid; place-items: center; border-radius: 6px; overflow: hidden; }
+.bo-banner-icon img { width: 100%; height: 100%; object-fit: contain; }
+.bo-banner-kicker { font-size: 13px; font-weight: 700; letter-spacing: 0.14em; line-height: 1; color: var(--side); }
+.bo-banner-title { margin-top: 5px; font-size: calc(38px * var(--bo-display-scale)); color: var(--bo-text); white-space: nowrap; }
+.bo-banner-sweep { position: absolute; top: 0; bottom: 0; left: 0; z-index: 2; width: 110px; background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.22), transparent); }
+/* Avisos menores (torres, larvas): más compactos. */
+.bo-banner.minor { min-width: 0; padding: 9px 26px 9px 22px; gap: 14px; }
+.bo-banner.minor .bo-banner-icon { width: 38px; height: 38px; }
+.bo-banner.minor .bo-banner-title { margin-top: 4px; font-size: calc(27px * var(--bo-display-scale)); }
+
+/* ── Tablero inferior: enfrentamientos por línea ─────────────────────────── */
+.bo-board {
+  /* Centrado con margen (no con transform): el transform lo usa la entrada animada. */
+  position: absolute; bottom: 0; left: 50%; margin-left: -660px;
+  width: 1320px; padding: 0 16px 8px;
+  background: var(--bo-panel-img, var(--bo-panel));
+  border: 1px solid var(--bo-line); border-bottom: 0; border-top: 3px solid var(--bo-accent);
+  border-radius: 10px 10px 0 0;
+  box-shadow: 0 -16px 36px -16px rgba(0, 0, 0, 0.85);
+}
+.bo-board-head { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 16px; height: 34px; }
+.bo-board-team { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: var(--side); white-space: nowrap; }
+.bo-board-team i { width: 18px; height: 3px; flex: none; background: var(--side-fill); }
+.bo-board-team.red { justify-content: flex-end; }
+.bo-board-label { font-size: calc(17px * var(--bo-display-scale)); color: var(--bo-text); white-space: nowrap; }
+.bo-row { display: grid; grid-template-columns: minmax(0, 1fr) 132px minmax(0, 1fr); align-items: center; gap: 14px; height: 46px; border-top: 1px solid var(--bo-line); }
+
+.bo-p { position: relative; align-self: stretch; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bo-p.red { flex-direction: row-reverse; }
+.bo-p > *:not(.bo-art) { position: relative; z-index: 1; }
+/* Splash del campeón de fondo: nace en el borde del tablero y se funde hacia el centro. */
+.bo-art {
+  position: absolute; top: 0; bottom: 0; left: -16px; width: 330px; z-index: 0; overflow: hidden; opacity: 0.6;
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0.7) 38%, transparent 100%);
+          mask-image: linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0.7) 38%, transparent 100%);
+  transition: opacity 400ms ease;
+}
+.bo-p.red .bo-art {
+  left: auto; right: -16px;
+  -webkit-mask-image: linear-gradient(270deg, #000 0%, rgba(0, 0, 0, 0.7) 38%, transparent 100%);
+          mask-image: linear-gradient(270deg, #000 0%, rgba(0, 0, 0, 0.7) 38%, transparent 100%);
+}
+.bo-art img { width: 100%; height: 100%; object-fit: cover; object-position: center 24%; transition: filter 400ms ease; }
+.bo-p.dead .bo-art { opacity: 0.28; }
+.bo-p.dead .bo-art img { filter: grayscale(1); }
+.bo-face { position: relative; width: 36px; height: 36px; flex: none; border-radius: 4px; overflow: hidden; background: var(--bo-sunken); outline: 2px solid transparent; outline-offset: -2px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6); transition: outline-color 300ms ease; }
+.bo-face img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.1); transition: filter 400ms ease; }
+/* Quien va por delante en oro en su línea lleva el marco de su lado. */
+.bo-p.lead .bo-face { outline-color: var(--side); }
+.bo-p.dead .bo-face img { filter: grayscale(1) brightness(0.45); }
+.bo-respawn { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--bo-font-display); font-style: var(--bo-display-style); font-weight: var(--bo-display-weight); font-size: calc(20px * var(--bo-display-scale)); color: #fff; }
+.bo-lvl { width: 22px; flex: none; text-align: center; font-size: 13px; font-weight: 700; color: var(--bo-text-2); text-shadow: 0 1px 5px rgba(0, 0, 0, 0.85); }
+.bo-pid { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; line-height: 1.15; }
+.bo-p.red .bo-pid { align-items: flex-end; }
+.bo-pname { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 700; color: var(--bo-text); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85); transition: color 300ms ease; }
+.bo-p.dead .bo-pname { color: var(--bo-muted); }
+.bo-psub { display: flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--bo-text-2); white-space: nowrap; text-shadow: 0 1px 5px rgba(0, 0, 0, 0.85); }
+.bo-psub img { width: 13px; height: 13px; object-fit: contain; }
+.bo-psub img + b, .bo-psub img:nth-of-type(2) { margin-left: 0; }
+.bo-psub img:nth-of-type(2) { margin-left: 7px; }
+.bo-psub b { font-weight: 700; color: var(--bo-gold); }
+.bo-kda { width: 78px; flex: none; text-align: center; font-size: 18px; font-weight: 700; color: var(--bo-text); white-space: nowrap; }
+.bo-kda i { font-style: normal; color: var(--bo-red); }
+.bo-items { display: flex; gap: 2px; flex: none; }
+.bo-p.red .bo-items { flex-direction: row-reverse; }
+.bo-item { width: 24px; height: 24px; border-radius: 3px; overflow: hidden; background: var(--bo-sub); }
+.bo-item img { width: 100%; height: 100%; object-fit: cover; }
+
+.bo-mid { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.bo-mid-top { display: flex; align-items: center; gap: 6px; height: 18px; font-size: 13.5px; font-weight: 700; color: var(--bo-muted); }
+.bo-mid-top img { width: 17px; height: 17px; object-fit: contain; opacity: 0.9; }
+.bo-mid-top b { color: var(--side, var(--bo-muted)); }
+.bo-mid .bo-goldbar { width: 100%; height: 5px; }
+
+/* ── Tema LQC: datos en monoespaciada y en mayúsculas, como sus publicaciones ── */
+/* Sus títulos son más gruesos que Orbitron 900: se engorda el trazo. */
+.bo-root[data-theme='lqc'] .bo-disp { -webkit-text-stroke: 0.03em currentColor; paint-order: stroke fill; }
+.bo-root[data-theme='lqc'] .bo-team-side,
+.bo-root[data-theme='lqc'] .bo-board-team { font-weight: 700; letter-spacing: 0.1em; }
+.bo-root[data-theme='lqc'] .bo-stat { font-size: 18px; font-weight: 700; }
+.bo-root[data-theme='lqc'] .bo-kills { text-shadow: 0 0 18px rgba(255, 255, 255, 0.45); }
+.bo-root[data-theme='lqc'] .bo-team::after { height: 3px; }
+.bo-root[data-theme='lqc'] .bo-goldchip,
+.bo-root[data-theme='lqc'] .bo-chip { font-size: 12.5px; letter-spacing: 0.08em; }
+.bo-root[data-theme='lqc'] .bo-banner-kicker { font-size: 12.5px; letter-spacing: 0.12em; }
+/* Rótulo del tablero: "LQC / RONDA 5 / JUEGO 2 DE 3", azul sobre una regla azul. */
+.bo-root[data-theme='lqc'] .bo-board-head { height: 36px; border-bottom: 2px solid var(--bo-accent); }
+.bo-root[data-theme='lqc'] .bo-board-head + .bo-row { border-top: 0; }
+.bo-root[data-theme='lqc'] .bo-board-label { font-family: var(--bo-font-data); font-style: normal; font-weight: 700; font-size: 15px; letter-spacing: 0.14em; color: var(--bo-blue); text-shadow: none; }
+.bo-root[data-theme='lqc'] .bo-board-team { color: var(--bo-text); }
+.bo-root[data-theme='lqc'] .bo-pname { font-size: 15px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+.bo-root[data-theme='lqc'] .bo-psub { font-size: 12px; font-weight: 500; letter-spacing: 0.02em; }
+.bo-root[data-theme='lqc'] .bo-kda { width: 84px; font-size: 17px; }
+.bo-root[data-theme='lqc'] .bo-lvl { font-size: 12.5px; }
+.bo-root[data-theme='lqc'] .bo-mid-top { font-size: 12.5px; }
+.bo-root[data-theme='lqc'] .bo-row { border-top-color: rgba(96, 165, 255, 0.16); }
+
+/* Aviso de espera (solo con ?bg=1) */
+.bo-wait { width: 100vw; height: 100vh; display: grid; place-items: center; background: #1c1c22; color: #f5f5f6; font-family: 'Barlow Semi Condensed', sans-serif; font-size: 20px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bo-goldbar i, .bo-art, .bo-art img, .bo-face, .bo-face img, .bo-pname { transition: none; }
+  .bo-chip.live .bo-live-dot, .bo-shine { animation: none; }
+}
