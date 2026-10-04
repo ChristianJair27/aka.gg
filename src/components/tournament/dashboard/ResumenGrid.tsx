@@ -64,11 +64,11 @@ export function StatsMainCard({ id, onFull, region }: { id: string; onFull: () =
       <SectionHead
         size="lg"
         icon={<BarChart3 size={19} color={RED} />}
-        title="ESTADÍSTICAS DEL TORNEO"
+        title="Estadísticas del torneo"
         right={
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {loading && <RefreshCw size={13} color="var(--td-muted)" className="td-spin" />}
-            <Button variant="secondary" icon={<ArrowRight size={13} />} onClick={onFull}>VER TODO</Button>
+            <Button variant="secondary" icon={<ArrowRight size={14} />} onClick={onFull}>Ver todo</Button>
           </div>
         }
       />
@@ -97,15 +97,15 @@ export function StatsMainCard({ id, onFull, region }: { id: string; onFull: () =
                 <span className="td-leader-veil" aria-hidden />
                 <div className="td-leader-body">
                   <PlayerAvatar riotId={riotIdOf(l.p)} profileIconId={iconFor(iconMap, riotIdOf(l.p))}
-                    mostPlayedChamp={l.p.mostPlayedChamp} size={44} />
+                    mostPlayedChamp={l.p.mostPlayedChamp} size={52} />
                   <div style={{ minWidth: 0 }}>
-                    <div className="td-over" style={{ display: 'flex', alignItems: 'center', gap: 5, color: RED }}>
+                    <div className="td-over" style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--td-red-hover)' }}>
                       {l.icon}{l.label}
                     </div>
-                    <div style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div className="td-leader-value">{l.fmt(l.p)}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--td-text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {l.p.summonerName}
                     </div>
-                    <div className="td-num" style={{ fontSize: 19, fontWeight: 800, color: '#fff', lineHeight: 1.1 }}>{l.fmt(l.p)}</div>
                   </div>
                 </div>
               </div>
@@ -115,12 +115,12 @@ export function StatsMainCard({ id, onFull, region }: { id: string; onFull: () =
           {/* Ranking del torneo (Top 5) */}
           <div style={{ marginTop: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 8px 8px' }}>
-              <span className="td-over" style={{ color: RED, letterSpacing: '2px' }}>
-                {hasRank ? 'RANKING DEL TORNEO' : 'TOP 5 POR KDA'}
+              <span className="td-over" style={{ color: 'var(--td-text)' }}>
+                {hasRank ? 'Ranking del torneo' : 'Top 5 por KDA'}
               </span>
               {hasRank && (
                 <Tip label="Puntuación 0-100: promedio de los 8 ejes del radar (KDA, WR, daño, oro, CS, visión, participación, supervivencia), recortados al p95. Solo jugadores con 3+ partidas.">
-                  <span className="td-over" style={{ cursor: 'help' }}>¿CÓMO?</span>
+                  <span className="td-over" style={{ cursor: 'help', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>¿Cómo se calcula?</span>
                 </Tip>
               )}
             </div>
@@ -129,36 +129,36 @@ export function StatsMainCard({ id, onFull, region }: { id: string; onFull: () =
               <span className="td-st-wr">WR</span><span>KDA</span><span className="td-st-dmg" style={{ textAlign: 'right' }}>{hasRank ? 'Rango' : 'Daño/min'}</span>
             </div>
             {top5.map((p, i) => (
-              <div key={p.summonerName + p.tagLine} className="td-strow td-strow-stats td-row-hover" style={{ padding: '8px', borderRadius: 8 }}>
+              <div key={p.summonerName + p.tagLine} className="td-strow td-strow-stats td-row-hover" style={{ padding: '9px 8px' }}>
                 {hasRank ? (
-                  <Ring value={p.score ?? 0} size={30} stroke={3} label={String(p.rank)}
+                  <Ring value={p.score ?? 0} size={32} stroke={3} label={String(p.rank)}
                     color={i === 0 ? '#c8aa6e' : i === 1 ? '#e5e7eb' : i === 2 ? '#d9a066' : '#e1242e'}
                     tip={`Puesto ${p.rank} · ${p.score} pts de 100`} />
                 ) : (
-                  <span className="td-num" style={{ fontSize: 12.5, fontWeight: 800, color: i === 0 ? '#c8aa6e' : 'var(--td-text-2)' }}>{i + 1}</span>
+                  <span className="ax-pos" data-pos={i + 1}>{i + 1}</span>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                   <PlayerAvatar riotId={riotIdOf(p)} profileIconId={iconFor(iconMap, riotIdOf(p))}
-                    mostPlayedChamp={p.mostPlayedChamp} size={24} ring={false} />
-                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    mostPlayedChamp={p.mostPlayedChamp} size={28} ring={false} />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {p.summonerName}
                   </span>
                 </div>
                 {hasRank
-                  ? <MiniBar value={p.score ?? 0} max={100} label={`${p.score}`} color="#e1242e" width={40} tip={`${p.score} puntos de 100`} />
-                  : <span className="td-num" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--td-text-2)' }}>{p.gamesPlayed}</span>}
+                  ? <MiniBar value={p.score ?? 0} max={100} label={`${p.score}`} color="#ff4b57" width={56} tip={`${p.score} puntos de 100`} />
+                  : <span className="td-num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--td-text-2)' }}>{p.gamesPlayed}</span>}
                 <span className="td-st-wr">
-                  <MiniBar value={p.winrate} max={100} label={`${p.winrate}%`} width={40}
-                    color={p.winrate >= 60 ? '#2fbf8a' : p.winrate >= 50 ? '#e5e7eb' : '#ff5a64'} tip={`${p.wins}V · ${p.losses}D`} />
+                  <MiniBar value={p.winrate} max={100} label={`${p.winrate}%`} width={56}
+                    color={p.winrate >= 60 ? '#3ddc97' : p.winrate >= 50 ? '#d7d9de' : '#ff6b76'} tip={`${p.wins}V · ${p.losses}D`} />
                 </span>
-                <MiniBar value={Math.min(10, p.avgKda)} max={10} label={p.avgKda > 20 ? '20+' : p.avgKda.toFixed(2)} width={40}
+                <MiniBar value={Math.min(10, p.avgKda)} max={10} label={p.avgKda > 20 ? '20+' : p.avgKda.toFixed(2)} width={56}
                   color={p.avgKda >= 4 ? '#fde047' : '#e5e7eb'} tip={`KDA ${p.avgKda.toFixed(2)} (${p.totalKills}/${p.totalDeaths}/${p.totalAssists})`} />
                 {hasRank ? (
                   <span className="td-st-dmg" style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <TierEmblem tier={p.soloTier} division={p.soloDivision} lp={p.soloLp} size={40} />
+                    <TierEmblem tier={p.soloTier} division={p.soloDivision} lp={p.soloLp} size={38} />
                   </span>
                 ) : (
-                  <span className="td-num td-st-dmg" style={{ fontSize: 12, color: 'var(--td-text-2)', textAlign: 'right' }}>{Math.round(p.avgDamagePerMin)}</span>
+                  <span className="td-num td-st-dmg" style={{ fontSize: 14, color: 'var(--td-text-2)', textAlign: 'right' }}>{Math.round(p.avgDamagePerMin)}</span>
                 )}
               </div>
             ))}
@@ -208,7 +208,7 @@ export function ResumenGrid({ data, id, navigate, onStats, onRound }: {
         {data.myTeam && <MyTeamCard data={data} id={id} />}
         {roundItems.length > 1 && (
           <Card style={{ padding: '12px 14px' }}>
-            <div className="td-over" style={{ marginBottom: 8 }}>RONDAS</div>
+            <div className="td-over" style={{ marginBottom: 8 }}>Rondas</div>
             <RoundRail items={roundItems} value={currentRound} onChange={onRound} tip={roundTip} compact />
           </Card>
         )}
@@ -242,15 +242,15 @@ export function FearlessCard({ id, myTeam }: { id: string; myTeam?: string | nul
   const rest = d ? d.teams.filter((t) => t.team !== mine?.team) : [];
 
   return (
-    <Card accent="rgba(245,158,11,0.35)">
-      <SectionHead icon={<Swords size={14} color="var(--td-amber)" />} title="FEARLESS · CAMPEONES BLOQUEADOS" />
+    <Card>
+      <SectionHead icon={<Swords size={15} />} title="Fearless · campeones bloqueados" />
       {!d ? (
         <Block h={80} />
       ) : d.allUsed.length === 0 ? (
         <EmptyState>Aún no hay campeones bloqueados — se llenan al terminar cada partida</EmptyState>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ fontSize: 12.5, color: 'var(--td-text-2)' }}>
+          <div style={{ fontSize: 14, color: 'var(--td-text-2)' }}>
             <strong style={{ color: 'var(--td-text)' }}>{d.allUsed.length}</strong> campeones bloqueados ·{' '}
             <strong style={{ color: 'var(--td-text)' }}>{d.teams.length}</strong> equipos ·{' '}
             {d.gamesCounted} partidas
@@ -301,7 +301,7 @@ export function FearlessCard({ id, myTeam }: { id: string; myTeam?: string | nul
             </CollapsibleContent>
           </Collapsible>
 
-          <p style={{ margin: 0, fontSize: 11, color: 'var(--td-muted)' }}>
+          <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: 'var(--td-muted)' }}>
             El lobby no lo bloquea automáticamente — es responsabilidad de los capitanes respetarlo
           </p>
         </div>
@@ -325,7 +325,7 @@ export function StandingsCard({ data, id, region }: { data: TdBoardPayload; id: 
 
   return (
     <Card>
-      <SectionHead icon={<BarChart3 size={14} color={BLUE} />} title="CLASIFICACIÓN" />
+      <SectionHead icon={<Trophy size={15} />} title="Clasificación" />
       {!rows.length ? (
         <EmptyState>Sin clasificación todavía</EmptyState>
       ) : (
@@ -336,26 +336,24 @@ export function StandingsCard({ data, id, region }: { data: TdBoardPayload; id: 
             <span style={{ textAlign: 'right' }}>Pts</span>
           </div>
           {rows.map((s) => (
-            <div key={s.teamId} className="td-strow td-row-hover td-strow-click" style={{ padding: '9px 8px', borderRadius: 8 }}
+            <div key={s.teamId} className="td-strow td-row-hover td-strow-click" style={{ padding: '10px 8px' }}
               role="button" tabIndex={0} aria-label={`Ver análisis de ${s.name}`}
               onClick={() => setOpenTeam(s.name)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenTeam(s.name); } }}
             >
-              <span className="td-num" style={{ fontSize: 13, fontWeight: 700, color: s.position === 1 ? RED : 'var(--td-text-2)' }}>
-                {s.position}
-              </span>
+              <span className="ax-pos" data-pos={s.position}>{s.position}</span>
               <Tip label="Click para stats del equipo y jugadores">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                  <TeamBadge name={s.name} color={s.color} mono={s.mono} size={22} />
-                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <TeamBadge name={s.name} color={s.color} mono={s.mono} size={28} />
+                  <span style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {s.name}
                   </span>
                 </div>
               </Tip>
-              <span className="td-num" style={{ fontSize: 12.5, color: 'var(--td-text-2)' }}>{s.wins}-{s.losses}</span>
+              <span className="td-num" style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--td-text-2)' }}>{s.wins}-{s.losses}</span>
               <div className="td-st-wr" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ flex: 1 }}><ProgressBar kind="wr" pct={s.winratePct} /></div>
-                <span className="td-num" style={{ fontSize: 11.5, color: 'var(--td-text-2)', width: 34 }}>{Math.round(s.winratePct)}%</span>
+                <span className="td-num" style={{ fontSize: 13.5, color: 'var(--td-text-2)', width: 38, textAlign: 'right' }}>{Math.round(s.winratePct)}%</span>
               </div>
               <span className="td-st-streak">
                 {s.streak ? (
@@ -370,10 +368,10 @@ export function StandingsCard({ data, id, region }: { data: TdBoardPayload; id: 
                     </span>
                   </Tip>
                 ) : (
-                  <span style={{ fontSize: 11, color: 'var(--td-disabled)' }}>—</span>
+                  <span style={{ fontSize: 13, color: 'var(--td-disabled)' }}>—</span>
                 )}
               </span>
-              <span className="td-num" style={{ fontSize: 13, fontWeight: 700, color: '#fff', textAlign: 'right' }}>{s.points}</span>
+              <span className="td-num" style={{ fontSize: 17, fontWeight: 700, color: '#fff', textAlign: 'right' }}>{s.points}</span>
             </div>
           ))}
         </div>
@@ -440,18 +438,16 @@ export function LiveCard({ data, navigate, id, onRound }: {
     ? `${pad(Math.floor(live.timer / 60))}:${pad(live.timer % 60)}`
     : null;
   return (
-    <Card accent="rgba(59,130,246,0.35)" anchor="data-td-live">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-        <span className="td-dot-pulse" style={{ width: 6, height: 6, borderRadius: '50%', background: BLUE }} />
-        <span className="td-over" style={{ color: 'var(--td-live-text)', letterSpacing: '2px' }}>
-          EN DIRECTO · MAPA {live.game}
-        </span>
-        {timer && <span className="td-num" style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--td-live-text)' }}>{timer}</span>}
+    <Card accent="rgba(232,50,60,0.45)" anchor="data-td-live">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <StatusChip kind="live">En vivo</StatusChip>
+        <span className="td-over">Mapa {live.game}</span>
+        {timer && <span className="td-num" style={{ marginLeft: 'auto', fontSize: 16, fontWeight: 700, color: 'var(--td-text)' }}>{timer}</span>}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <TeamCol team={live.teamA} />
-        <div className="td-num" style={{ fontSize: 32, fontWeight: 700, whiteSpace: 'nowrap' }}>
+        <div style={{ fontFamily: 'var(--td-font-display)', fontSize: 48, fontWeight: 800, lineHeight: 1, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
           <span style={{ color: '#fff' }}>{live.teamA.score ?? 0}</span>
           <span style={{ color: RED, margin: '0 8px' }}>–</span>
           <span style={{ color: '#fff' }}>{live.teamB.score ?? 0}</span>
@@ -479,7 +475,7 @@ export function LiveCard({ data, navigate, id, onRound }: {
       <div style={{ marginTop: 14 }}>
         <Tip label="Ver la partida en vivo">
           <span style={{ display: 'block' }}>
-            <Button variant="primary" icon={<Play size={15} />} full onClick={() => navigate(`/tournaments/${id}/live`)}>ESPECTAR</Button>
+            <Button variant="primary" icon={<Play size={15} />} full onClick={() => navigate(`/tournaments/${id}/live`)}>Espectar</Button>
           </span>
         </Tip>
       </div>
@@ -508,28 +504,28 @@ export function NextMatchCard({ data, onRound, pendingSeries, id, navigate }: {
   }, [isActive]);
 
   return (
-    <Card accent="rgba(59,130,246,0.25)" anchor="data-td-live">
+    <Card anchor="data-td-live">
       <SectionHead
-        icon={<Play size={14} color={BLUE} />}
-        title={pendingSeries ? 'RONDA ACTIVA — SPECTATOR PENDIENTE' : 'PRÓXIMA PARTIDA'}
+        icon={<Play size={15} />}
+        title={pendingSeries ? 'Serie en juego' : 'Próxima partida'}
+        right={pendingSeries ? <StatusChip kind="live">En curso</StatusChip> : undefined}
       />
       {pendingSeries ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <TeamCol team={pendingSeries.teamA} />
-            <StatusChip kind="dim" dot={false}>EN CURSO</StatusChip>
+            <span aria-hidden style={{ fontFamily: 'var(--td-font-display)', fontSize: 26, fontWeight: 800, fontStyle: 'italic', color: 'var(--td-red)' }}>VS</span>
             <TeamCol team={pendingSeries.teamB} />
           </div>
-          <p style={{ margin: 0, fontSize: 12, lineHeight: 1.55, color: 'var(--td-muted)', textAlign: 'center' }}>
-            La serie está en curso. El marcador en vivo aparecerá cuando el Spectator Companion
-            esté conectado.
+          <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55, color: 'var(--td-text-2)', textAlign: 'center' }}>
+            El marcador en vivo aparece cuando el Spectator Companion se conecte a la partida.
           </p>
           {id && navigate && (
             <Tip label="Puede no haber feed todavía">
               <span style={{ display: 'block' }}>
                 <Button variant="secondary" icon={<Play size={14} />} full
                   onClick={() => navigate(`/tournaments/${id}/live?match=${pendingSeries.matchId}`)}>
-                  ESPECTAR
+                  Espectar
                 </Button>
               </span>
             </Tip>
@@ -541,15 +537,15 @@ export function NextMatchCard({ data, onRound, pendingSeries, id, navigate }: {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <ScheduleTeams a={next.teamA} b={next.teamB} />
           <div style={{ textAlign: 'right' }}>
-            <div className="td-num" style={{ fontSize: 15, fontWeight: 700, color: RED }}>{fmtTime(next.scheduledAt) ?? 'Por definir'}</div>
+            <div className="td-num" style={{ fontSize: 17, fontWeight: 700, color: 'var(--td-text)' }}>{fmtTime(next.scheduledAt) ?? 'Por definir'}</div>
             <div className="td-over" style={{ marginTop: 2 }}>{next.roundLabel}</div>
           </div>
         </div>
       )}
       {activeRound != null && (
-        <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center' }}>
-          <Button variant="secondary" icon={<Swords size={14} />} onClick={() => onRound(String(activeRound))}>
-            Ver Partidas de la ronda
+        <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center' }}>
+          <Button variant="ghost" icon={<Swords size={14} />} onClick={() => onRound(String(activeRound))}>
+            Ver partidas de la ronda
           </Button>
         </div>
       )}
@@ -581,13 +577,13 @@ export function MyTeamCard({ data, id }: { data: TdBoardPayload; id: string }) {
   return (
     <Card>
       <SectionHead
-        icon={<Users size={14} color={RED} />}
-        title={`MI EQUIPO · ${my.tag}`}
+        icon={<Users size={15} />}
+        title={`Mi equipo · ${my.tag}`}
         right={
           my.checkedIn
-            ? <StatusChip kind="pos" dot={false}>LISTO</StatusChip>
+            ? <StatusChip kind="pos" dot={false}>Listo</StatusChip>
             : countdown
-              ? <span className="td-num" style={{ fontSize: 12.5, color: 'var(--td-green)' }}>{countdown}</span>
+              ? <span className="td-num" style={{ fontSize: 15, fontWeight: 700, color: 'var(--td-green)' }}>{countdown}</span>
               : null
         }
       />
@@ -606,16 +602,17 @@ export function MyTeamCard({ data, id }: { data: TdBoardPayload; id: string }) {
             )}
             <span
               style={{
-                fontSize: 10, fontWeight: 700, color: RED, border: '1px solid var(--td-red-glow)',
-                borderRadius: 999, padding: '2px 8px', minWidth: 42, textAlign: 'center', flexShrink: 0,
+                fontFamily: 'var(--td-font-mono)', fontSize: 11.5, fontWeight: 700, letterSpacing: 0.6,
+                color: 'var(--td-red-hover)', border: '1px solid var(--td-red-glow)',
+                borderRadius: 4, padding: '2px 8px', minWidth: 46, textAlign: 'center', flexShrink: 0,
               }}
             >
               {p.role ? p.role.toUpperCase() : '—'}
             </span>
-            <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {p.playerName}
             </span>
-            <span style={{ fontSize: 11.5, fontWeight: 600, color: p.rank?.color ?? 'var(--td-muted)', flexShrink: 0 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: p.rank?.color ?? 'var(--td-muted)', flexShrink: 0 }}>
               {p.rank ? `${p.rank.tier} ${p.rank.division}` : 'Sin rango'}
             </span>
           </div>
@@ -625,7 +622,7 @@ export function MyTeamCard({ data, id }: { data: TdBoardPayload; id: string }) {
         <Tip label="Tu equipo en el torneo">
           <span style={{ display: 'block' }}>
             <Button variant="primary" icon={<Check size={15} />} full disabled={disabled} onClick={doCheckin}>
-              {my.checkedIn ? 'CHECK-IN COMPLETADO' : 'HACER CHECK-IN'}
+              {my.checkedIn ? 'Check-in completado' : 'Hacer check-in'}
             </Button>
           </span>
         </Tip>
@@ -643,13 +640,14 @@ export function ScheduleCard({ data }: { data: TdBoardPayload }) {
 
   return (
     <Card>
-      <SectionHead icon={<Calendar size={14} color={BLUE} />} title="PRÓXIMAS PARTIDAS" />
+      <SectionHead icon={<Calendar size={15} />} title="Próximas partidas" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {data.schedule.length === 0 && <EmptyState>No hay partidas programadas</EmptyState>}
         {data.schedule.map((s) => (
           <div key={s.matchId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px' }}>
-            <span className="td-num" style={{ fontSize: 12.5, fontWeight: 700, color: RED, width: 52, flexShrink: 0 }}>
-              {fmtTime(s.scheduledAt) ?? 'S/D'}
+            <span className="td-num" title={s.scheduledAt ? undefined : 'Sin horario definido'}
+              style={{ fontSize: 14, fontWeight: 700, color: s.scheduledAt ? 'var(--td-text)' : 'var(--td-muted)', width: 62, flexShrink: 0 }}>
+              {fmtTime(s.scheduledAt) ?? 'Por def.'}
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <ScheduleTeams a={s.teamA} b={s.teamB} />
@@ -661,7 +659,7 @@ export function ScheduleCard({ data }: { data: TdBoardPayload }) {
 
       {activity.length > 1 && (
         <div style={{ marginTop: 16, borderTop: '1px solid var(--td-border)', paddingTop: 14 }}>
-          <div className="td-over" style={{ marginBottom: 10 }}>PARTIDAS POR DÍA</div>
+          <div className="td-over" style={{ marginBottom: 10 }}>Partidas por día</div>
           {/* Barras con ancho acotado: con pocos días, una barra flex:1 se veía
               como un bloque rojo gigante. Solo se muestra con 2+ días. */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 60, justifyContent: 'flex-start' }}>
@@ -670,8 +668,8 @@ export function ScheduleCard({ data }: { data: TdBoardPayload }) {
               const isPeak = d.games === peak && peak > 0;
               return (
                 <div key={i} style={{ width: 34, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }} title={`${d.day}: ${d.games}`}>
-                  <div style={{ width: '100%', height: h, borderRadius: 4, background: isPeak ? RED : 'var(--td-sunken)' }} />
-                  <span className="td-over" style={{ fontSize: 8 }}>{DAY_LABELS[i] ?? d.day.slice(0, 1)}</span>
+                  <div style={{ width: '100%', height: h, borderRadius: 2, background: isPeak ? RED : 'var(--td-sunken-2)' }} />
+                  <span className="td-over">{DAY_LABELS[i] ?? d.day.slice(0, 1)}</span>
                 </div>
               );
             })}

@@ -1,37 +1,51 @@
-// src/pages/Social.tsx — glass/space · React Query · optimistic likes/comments/posts
-import { useState, useEffect, useRef } from 'react';
-import gsap from 'gsap';
-import { motion, AnimatePresence } from 'framer-motion';
+// src/pages/Social.tsx — feed de la comunidad (sistema "Arena").
+// React Query con likes / comentarios / publicaciones optimistas: la lógica de
+// datos no cambia, solo la capa visual (ver design-system/atak-gg/MASTER.md).
+import { useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import {
-  Heart, MessageSquare, Trash2, Send, Users,
-  Zap, Trophy, HelpCircle, Video, Star, ChevronDown,
-  RefreshCw, Lock, Plus,
+  Heart, MessageSquare, Trash2, Send, Users, Zap, Trophy, HelpCircle, Video, Star,
+  ChevronDown, RefreshCw, Lock, LogIn, ArrowRight, LayoutDashboard, BarChart3, Flame,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { ScrollVideoBg } from '@/components/ScrollVideoBg';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tip } from '@/components/ui/Tip';
+import {
+  ArenaPage, SplashBackdrop, PageHero, Button, StatusChip, SectionHead, FilterPills,
+  RoleIcon, ChampIcon, lol, stagger,
+} from '@/components/arena';
+import { useChampions } from '@/hooks/use-ddragon';
 import {
   useFeed, flattenFeed, useToggleLike, useCreatePost, useDeletePost,
   useComments, useAddComment, useDeleteComment,
   type Post, type Comment,
 } from '@/hooks/queries/social';
+import '@/styles/pages/social.css';
 
-// ─── Tag config ───────────────────────────────────────────────────────────────
+// ─── Tipos de publicación ────────────────────────────────────────────────────
+// Un solo acento: solo "Torneo" va en crimson (ver .so-tag en social.css);
+// oro para lo destacado y verde para "abierto a jugar".
+type ChipKind = 'registration' | 'gold' | 'dim';
 const TAGS = [
-  { key:'general',   label:'General',    icon:<Star className="h-3.5 w-3.5"/>,      color:'text-gray-300 border-gray-600/40 bg-gray-500/10' },
-  { key:'highlight', label:'Highlight',  icon:<Zap className="h-3.5 w-3.5"/>,       color:'text-yellow-300 border-yellow-500/40 bg-yellow-500/10' },
-  { key:'lfg',       label:'LFG',        icon:<Users className="h-3.5 w-3.5"/>,     color:'text-green-300 border-green-500/40 bg-green-500/10' },
-  { key:'ayuda',     label:'Ayuda',      icon:<HelpCircle className="h-3.5 w-3.5"/>,color:'text-orange-300 border-orange-500/40 bg-orange-500/10' },
-  { key:'clip',      label:'Clip',       icon:<Video className="h-3.5 w-3.5"/>,     color:'text-[#e8d5a8] border-[#c8aa6e]/40 bg-[#c8aa6e]/10' },
-  { key:'torneo',    label:'Torneo',     icon:<Trophy className="h-3.5 w-3.5"/>,    color:'text-red-300 border-red-500/40 bg-red-500/10' },
-] as const;
+  { key: 'general',   label: 'General',   Icon: Star,       kind: 'dim' },
+  { key: 'highlight', label: 'Highlight', Icon: Zap,        kind: 'gold' },
+  { key: 'lfg',       label: 'LFG',       Icon: Users,      kind: 'registration' },
+  { key: 'ayuda',     label: 'Ayuda',     Icon: HelpCircle, kind: 'dim' },
+  { key: 'clip',      label: 'Clip',      Icon: Video,      kind: 'dim' },
+  { key: 'torneo',    label: 'Torneo',    Icon: Trophy,     kind: 'dim' },
+] as const satisfies ReadonlyArray<{ key: string; label: string; Icon: typeof Star; kind: ChipKind }>;
 
 type TagKey = typeof TAGS[number]['key'];
+type FilterKey = 'all' | TagKey;
 
 function tagConfig(key: string) {
   return TAGS.find(t => t.key === key) ?? TAGS[0];
 }
+
+const FILTERS: { key: FilterKey; label: string }[] = [
+  { key: 'all', label: 'Todo' },
+  ...TAGS.map(t => ({ key: t.key as FilterKey, label: t.label })),
+];
+const ROLES = ['top', 'jungle', 'middle', 'bottom', 'support'] as const;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function timeAgo(dt: string) {
@@ -41,6 +55,11 @@ function timeAgo(dt: string) {
   if (diff < 86400)return `${Math.floor(diff/3600)}h`;
   return `${Math.floor(diff/86400)}d`;
 }
+const fullDate = (dt: string) => {
+  const d = new Date(dt);
+  return Number.isNaN(d.getTime()) ? undefined
+    : d.toLocaleString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
 
 function getUser(): { name: string; id?: number } | null {
   try {
@@ -49,60 +68,86 @@ function getUser(): { name: string; id?: number } | null {
   } catch { return null; }
 }
 
-// ─── Avatar ───────────────────────────────────────────────────────────────────
-function Avatar({ name, size=9 }: { name: string; size?: number }) {
-  // ATAK palette — red family + warm neutrals + gold (no purple/blue/cyan AI-tells)
-  const colors = ['from-red-700 to-red-900','from-rose-800 to-red-950',
-    'from-zinc-700 to-zinc-900','from-stone-700 to-stone-900','from-amber-700 to-amber-900'];
-  const color = colors[name.charCodeAt(0) % colors.length];
-  return (
-    <div className={`w-${size} h-${size} rounded-xl bg-gradient-to-br ${color}
-      border border-white/[0.12] flex items-center justify-center text-sm font-black text-white flex-shrink-0`}>
-      {name[0]?.toUpperCase()}
-    </div>
-  );
+// ─── Campeón mencionado en el texto ──────────────────────────────────────────
+// El post no trae campeón como dato; si el texto nombra uno (nombre completo de
+// Data Dragon) se usa su arte. Fuera los nombres que en español son palabras
+// comunes: mejor no pintar nada que pintar un campeón que nadie mencionó.
+type ChampRef = { id: string; name: string; image: string };
+const AMBIGUOUS = new Set(['karma', 'graves', 'twitch', 'brand', 'rumble', 'aurora']);
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function useChampionMention(): (text: string) => ChampRef | null {
+  const { data } = useChampions();
+  return useMemo(() => {
+    if (!data) return () => null;
+    const list = Object.values(data.byId)
+      .filter(c => c.name.length >= 4 && !AMBIGUOUS.has(c.name.toLowerCase()))
+      .sort((a, b) => b.name.length - a.name.length);
+    if (!list.length) return () => null;
+    const byName = new Map(list.map(c => [c.name.toLowerCase(), c] as const));
+    const re = new RegExp(
+      `(?:^|[^\\p{L}\\p{N}])(${list.map(c => escapeRe(c.name)).join('|')})(?![\\p{L}\\p{N}])`, 'iu');
+    return (text: string) => {
+      const m = re.exec(text || '');
+      return m ? byName.get(m[1].toLowerCase()) ?? null : null;
+    };
+  }, [data]);
 }
 
-// ─── Tag pill ─────────────────────────────────────────────────────────────────
-function TagPill({ tag }: { tag: string }) {
-  const cfg = tagConfig(tag);
+// ─── Avatar ───────────────────────────────────────────────────────────────────
+function Avatar({ name, size = 40, me }: { name: string; size?: number; me?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border font-medium ${cfg.color}`}>
-      {cfg.icon}{cfg.label}
+    <span className="so-avatar" data-me={me ? 'true' : undefined} aria-hidden
+      style={{ ['--s' as string]: `${size}px` } as CSSProperties}>
+      {name?.[0] ?? '?'}
     </span>
   );
 }
 
-// ─── Comment item ─────────────────────────────────────────────────────────────
+// ─── Chip del tipo ────────────────────────────────────────────────────────────
+function TagChip({ tag }: { tag: string }) {
+  const cfg = tagConfig(tag);
+  return (
+    <span className="so-tag" data-tag={cfg.key}>
+      <StatusChip kind={cfg.kind} dot={false}><cfg.Icon size={12} aria-hidden />{cfg.label}</StatusChip>
+    </span>
+  );
+}
+
+// ─── Comentario ───────────────────────────────────────────────────────────────
 function CommentItem({ c, myId, onDelete }: { c: Comment; myId?: number; onDelete:(id:number)=>void }) {
   return (
-    <div className="flex gap-3">
-      <Avatar name={c.user_name} size={7} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5">
-          <span className="text-sm font-semibold text-gray-300">{c.user_name}</span>
-          <span className="text-xs text-gray-600">{timeAgo(c.created_at)}</span>
+    <div className="so-comment">
+      <Avatar name={c.user_name} size={32} me={myId === c.user_id} />
+      <div className="so-comment-body">
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+          <span className="so-comment-name">{c.user_name}</span>
+          <time className="td-num so-post-time" dateTime={c.created_at} title={fullDate(c.created_at)}>{timeAgo(c.created_at)}</time>
         </div>
-        <p className="text-sm text-gray-300 leading-relaxed">{c.content}</p>
+        <p className="so-comment-text">{c.content}</p>
       </div>
       {myId === c.user_id && (
-        <button onClick={() => onDelete(c.id)}
-          className="text-gray-700 hover:text-red-400 transition-colors flex-shrink-0 mt-1">
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        <Tip label="Eliminar comentario">
+          <button type="button" className="so-iconbtn" aria-label="Eliminar comentario" onClick={() => onDelete(c.id)}>
+            <Trash2 size={16} />
+          </button>
+        </Tip>
       )}
     </div>
   );
 }
 
-// ─── Post card ────────────────────────────────────────────────────────────────
+// ─── Publicación ──────────────────────────────────────────────────────────────
 function PostCard({
-  post, myUserId, onLike, onDelete, feedTag,
+  post, myUserId, onLike, onDelete, feedTag, index, champ,
 }: {
   post: Post; myUserId?: number;
   onLike: (post: Post)=>void;
   onDelete: (id:number)=>void;
   feedTag: string;
+  index: number;
+  /** Campeón que el texto menciona (si lo hay): arte + enlace a su página. */
+  champ: ChampRef | null;
 }) {
   const [showComments,  setShowComments]  = useState(false);
   const [newComment,    setNewComment]    = useState('');
@@ -125,7 +170,7 @@ function PostCard({
     onLike(post); // optimistic in the feed cache
   };
 
-  const submitComment = (e: React.FormEvent) => {
+  const submitComment = (e: FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || !isAuth) return;
     addComment.mutate(newComment.trim(), { onSuccess: () => setNewComment('') });
@@ -133,134 +178,126 @@ function PostCard({
 
   const deleteComment = (cid: number) => delComment.mutate(cid);
   const sendingC = addComment.isPending;
+  const mine = myUserId === post.user_id;
+
+  // Arte del dato: el campeón mencionado o, en posts de torneo, el mapa de Clash.
+  const art = champ ? lol.splash(champ.id) : post.tag === 'torneo' ? lol.map('clash') : null;
+  const commentsId = `so-comments-${post.id}`;
 
   return (
-    <div className="rounded-2xl transition-all duration-200 overflow-hidden group hover:-translate-y-0.5"
-      style={{
-        background:
-          'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 22%, rgba(255,255,255,0) 70%), rgba(13,13,17,0.30)',
-        backdropFilter: 'blur(20px) saturate(120%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(120%)',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 44px -30px rgba(0,0,0,.6)',
-      }}>
-      <div className="p-5">
-        {/* Header */}
-        <div className="flex items-start gap-3 mb-4">
-          <Avatar name={post.user_name} />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-white text-sm">{post.user_name}</span>
-              <TagPill tag={post.tag} />
-              <span className="text-gray-600 text-xs ml-auto">{timeAgo(post.created_at)}</span>
+    <article className="td-panel so-post ax-rise" style={stagger(Math.min(index, 6))}>
+      <div className="so-post-main">
+        {art && (
+          <img className="so-post-art" data-art={champ ? 'champion' : 'map'} src={art} alt="" aria-hidden loading="lazy" decoding="async"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+        )}
+        <header className="so-post-head">
+          <Avatar name={post.user_name} me={mine} />
+          <div className="so-post-who">
+            <span className="so-post-name">{post.user_name}</span>
+            <div className="so-post-meta">
+              <TagChip tag={post.tag} />
+              <time className="td-num so-post-time" dateTime={post.created_at} title={fullDate(post.created_at)}>
+                {timeAgo(post.created_at)}
+              </time>
             </div>
           </div>
-          {myUserId === post.user_id && (
+          {mine && (
             <Tip label="Eliminar publicación">
-              <button onClick={() => onDelete(post.id)}
-                className="text-gray-700 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0">
-                <Trash2 className="h-4 w-4" />
+              <button type="button" className="so-iconbtn" aria-label="Eliminar publicación" onClick={() => onDelete(post.id)}>
+                <Trash2 size={17} />
               </button>
             </Tip>
           )}
-        </div>
+        </header>
 
-        {/* Content */}
-        <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap mb-4">{post.content}</p>
+        <p className="so-post-body">{post.content}</p>
 
-        {/* Actions */}
-        <div className="flex items-center gap-5 pt-2 border-t border-white/[0.05]">
-          <Tip label={liked ? 'Quitar me gusta' : 'Me gusta'}>
-            <button onClick={handleLike}
-              disabled={!isAuth}
-              className={`flex items-center gap-1.5 text-sm transition-all duration-200 ${
-                liked ? 'text-red-400 scale-110' : 'text-gray-500 hover:text-red-400'
-              } disabled:cursor-default`}>
-              <Heart className={`h-4 w-4 transition-all ${liked ? 'fill-red-400' : ''}`} />
-              <span className="font-medium">{likesCount}</span>
-            </button>
+        {champ && (
+          <Link to={`/champion/${champ.id}`} className="so-champ-ref" aria-label={`Ver la página de ${champ.name}`}>
+            <ChampIcon src={champ.image} size={28} />
+            {champ.name}
+          </Link>
+        )}
+
+        <div className="so-post-actions">
+          <Tip label={!isAuth ? 'Inicia sesión para dar me gusta' : liked ? 'Quitar me gusta' : 'Me gusta'}>
+            {/* El span mantiene el tooltip cuando el botón está deshabilitado. */}
+            <span style={{ display: 'inline-flex' }}>
+              <button type="button" className="so-action" data-on={liked} aria-pressed={liked}
+                aria-label={`Me gusta (${likesCount})`} onClick={handleLike} disabled={!isAuth}>
+                <Heart size={18} aria-hidden />
+                <span>{likesCount}</span>
+              </button>
+            </span>
           </Tip>
 
-          <Tip label="Ver comentarios">
-            <button onClick={toggleComments}
-              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-400 transition-colors">
-              <MessageSquare className="h-4 w-4" />
-              <span className="font-medium">{post.comments_count}</span>
+          <Tip label={showComments ? 'Ocultar comentarios' : 'Ver comentarios'}>
+            <button type="button" className="so-action" aria-expanded={showComments} aria-controls={commentsId}
+              aria-label={`Comentarios (${post.comments_count})`} onClick={toggleComments}>
+              <MessageSquare size={18} aria-hidden />
+              <span>{post.comments_count}</span>
             </button>
           </Tip>
         </div>
       </div>
 
-      {/* Comments section */}
-      <AnimatePresence>
-        {showComments && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="border-t border-white/[0.06] bg-white/[0.02] overflow-hidden"
-          >
-            <div className="p-5 space-y-4">
-              {loadingC && (
-                <div className="space-y-3">
-                  {[0, 1].map(i => (
-                    <div key={i} className="flex gap-3">
-                      <Skeleton variant="circle" width={28} height={28} />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton width="30%" height={12} />
-                        <Skeleton width="80%" height={12} />
-                      </div>
-                    </div>
-                  ))}
+      {showComments && (
+        <div className="so-comments ax-rise" id={commentsId}>
+          {loadingC && (
+            <div style={{ display: 'grid', gap: 12 }}>
+              {[0, 1].map(i => (
+                <div key={i} style={{ display: 'flex', gap: 12 }}>
+                  <Skeleton width={32} height={32} style={{ borderRadius: 6 }} />
+                  <div style={{ flex: 1, display: 'grid', gap: 8 }}>
+                    <Skeleton width="30%" height={12} />
+                    <Skeleton width="80%" height={12} />
+                  </div>
                 </div>
-              )}
-              {comments.map(c => (
-                <CommentItem key={c.id} c={c} myId={myUserId} onDelete={deleteComment} />
               ))}
-              {comments.length === 0 && !loadingC && (
-                <p className="text-gray-600 text-sm text-center py-2">Sé el primero en comentar</p>
-              )}
-
-              {isAuth ? (
-                <form onSubmit={submitComment} className="flex gap-3 pt-2">
-                  <input
-                    value={newComment}
-                    onChange={e => setNewComment(e.target.value)}
-                    placeholder="Escribe un comentario..."
-                    maxLength={280}
-                    className="flex-1 bg-white/[0.05] border border-white/[0.08] rounded-xl px-4 py-2.5
-                      text-sm text-white placeholder:text-gray-700 outline-none
-                      focus:border-red-500/50 transition-colors"
-                  />
-                  <button type="submit" disabled={!newComment.trim() || sendingC}
-                    className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white
-                      transition-all disabled:opacity-40 flex items-center gap-1.5 text-sm font-semibold">
-                    {sendingC ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </button>
-                </form>
-              ) : (
-                <p className="text-gray-600 text-sm text-center">
-                  <Link to="/login" className="text-red-400 hover:underline">Inicia sesión</Link> para comentar
-                </p>
-              )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+          )}
+          {comments.map(c => (
+            <CommentItem key={c.id} c={c} myId={myUserId} onDelete={deleteComment} />
+          ))}
+          {comments.length === 0 && !loadingC && (
+            <p className="so-note">Sé el primero en comentar</p>
+          )}
+
+          {isAuth ? (
+            <form onSubmit={submitComment} className="so-comment-form">
+              <input
+                className="td-input"
+                value={newComment}
+                onChange={e => setNewComment(e.target.value)}
+                placeholder="Escribe un comentario…"
+                aria-label="Escribe un comentario"
+                maxLength={280}
+              />
+              <Button type="submit" variant="primary" ariaLabel="Enviar comentario" disabled={!newComment.trim() || sendingC}>
+                {sendingC ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
+              </Button>
+            </form>
+          ) : (
+            <p className="so-note">
+              <Link to="/login" className="ax-link">Inicia sesión</Link> para comentar
+            </p>
+          )}
+        </div>
+      )}
+    </article>
   );
 }
 
-// ─── Compose box ──────────────────────────────────────────────────────────────
+// ─── Composer ─────────────────────────────────────────────────────────────────
 function ComposeBox({ feedTag }: { feedTag: string }) {
   const [content,  setContent]  = useState('');
   const [tag,      setTag]      = useState<TagKey>('general');
-  const [focused,  setFocused]  = useState(false);
   const user = getUser();
   const createPost = useCreatePost(feedTag);
   const loading = createPost.isPending;
 
-  const submit = (e: React.FormEvent) => {
+  const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
     // Optimistic: the new post appears instantly via useCreatePost.onMutate.
@@ -271,79 +308,75 @@ function ComposeBox({ feedTag }: { feedTag: string }) {
   };
 
   return (
-    <div className={`rounded-2xl transition-all duration-300 mb-6 overflow-hidden ${
-      focused ? 'shadow-[0_0_30px_rgba(239,68,68,0.16)]' : ''
-    }`}
-      style={{
-        background:
-          'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 22%, rgba(255,255,255,0) 70%), rgba(13,13,17,0.30)',
-        backdropFilter: 'blur(20px) saturate(120%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(120%)',
-        boxShadow: focused
-          ? 'inset 0 1px 0 rgba(255,255,255,0.05), 0 0 30px rgba(239,68,68,0.16)'
-          : 'inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 44px -30px rgba(0,0,0,.6)',
-      }}>
-      <form onSubmit={submit}>
-        <div className="p-5">
-          <div className="flex gap-3">
-            {user && <Avatar name={user.name} />}
-            <textarea
-              value={content}
-              onChange={e => setContent(e.target.value)}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              placeholder="Comparte tu highlight, busca teammates, pide ayuda..."
-              maxLength={280}
-              rows={focused || content ? 3 : 1}
-              className="flex-1 bg-transparent text-white placeholder:text-gray-600 text-sm
-                resize-none outline-none leading-relaxed transition-all duration-200"
-            />
-          </div>
+    <form className="td-panel so-compose" onSubmit={submit}>
+      <div className="so-compose-top">
+        {user && <Avatar name={user.name} me />}
+        <div className="td-field">
+          <label className="td-label" htmlFor="so-new-post">Nueva publicación</label>
+          <textarea
+            id="so-new-post"
+            className="td-textarea"
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            placeholder="Comparte tu highlight, busca teammates, pide ayuda…"
+            maxLength={280}
+            rows={3}
+          />
         </div>
+      </div>
 
-        <AnimatePresence>
-          {(focused || content) && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="border-t border-white/[0.06] px-5 py-3 flex items-center justify-between gap-4 overflow-hidden"
-            >
-              {/* Tag selector */}
-              <div className="flex flex-wrap gap-1.5">
-                {TAGS.map(t => (
-                  <button key={t.key} type="button" onClick={() => setTag(t.key)}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border font-medium
-                      transition-all ${tag === t.key ? t.color : 'border-white/[0.06] text-gray-600 hover:text-gray-400'}`}>
-                    {t.icon}{t.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <span className={`text-xs ${content.length > 240 ? 'text-red-400' : 'text-gray-600'}`}>
-                  {content.length}/280
-                </span>
-                <button type="submit" disabled={!content.trim() || loading}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500
-                    text-white text-sm font-bold transition-all disabled:opacity-40
-                    shadow-[0_0_16px_rgba(239,68,68,0.25)]">
-                  {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  Publicar
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </form>
+      <div className="so-compose-bar">
+        <div className="so-compose-type">
+          <span className="td-over">Tipo</span>
+          <FilterPills<TagKey>
+            ariaLabel="Tipo de publicación"
+            items={TAGS.map(t => ({ key: t.key, label: t.label }))}
+            value={tag} onChange={setTag}
+          />
+        </div>
+        <div className="so-compose-send">
+          <span className="td-num so-count" data-near={content.length > 240} aria-live="polite">
+            {content.length}/280
+          </span>
+          <Button type="submit" variant="primary" disabled={!content.trim() || loading}
+            icon={loading ? <RefreshCw size={15} className="animate-spin" /> : <Send size={15} />}>
+            Publicar
+          </Button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+function PostSkeleton() {
+  return (
+    <div className="td-panel" style={{ padding: '18px 20px' }} aria-hidden>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+        <Skeleton width={40} height={40} style={{ borderRadius: 6 }} />
+        <div style={{ flex: 1, display: 'grid', gap: 8, alignContent: 'center' }}>
+          <Skeleton width="33%" height={14} />
+          <Skeleton width="22%" height={12} />
+        </div>
+      </div>
+      <div style={{ display: 'grid', gap: 8 }}>
+        <Skeleton width="100%" height={13} />
+        <Skeleton width="83%" height={13} />
+      </div>
     </div>
+  );
+}
+
+function SideLink({ to, icon, children }: { to: string; icon: ReactNode; children: ReactNode }) {
+  return (
+    <li>
+      <Link to={to}>{icon}<span>{children}</span><ArrowRight size={16} aria-hidden /></Link>
+    </li>
   );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function Social() {
-  const [tagFilter,   setTagFilter]   = useState('all');
-  const [mousePos,    setMousePos]    = useState({ x:0, y:0 });
-  const headerRef = useRef<HTMLDivElement>(null);
+  const [tagFilter, setTagFilter] = useState<FilterKey>('all');
   const user   = getUser();
   const isAuth = !!localStorage.getItem('access_token');
 
@@ -357,14 +390,7 @@ export default function Social() {
 
   const toggleLike = useToggleLike(tagFilter);
   const deletePost = useDeletePost(tagFilter);
-
-  useEffect(() => {
-    if (loading || !headerRef.current) return;
-    gsap.fromTo(headerRef.current.querySelectorAll('[data-h]'),
-      { opacity:0, y:25 },
-      { opacity:1, y:0, stagger:0.1, duration:0.65, ease:'power2.out' }
-    );
-  }, [loading]);
+  const mentionOf = useChampionMention();
 
   const handleLike = (post: Post) => toggleLike.mutate(post);
 
@@ -373,145 +399,125 @@ export default function Social() {
     deletePost.mutate(postId);
   };
 
-  const ALL_TAGS = [{ key:'all', label:'Todo', icon:<Star className="h-3.5 w-3.5"/> }, ...TAGS];
+  const filtering = tagFilter !== 'all';
 
   return (
-    <div className="min-h-screen text-white"
-      onMouseMove={e => setMousePos({ x:e.clientX, y:e.clientY })}>
-      {/* Living scroll-scrubbed dagger background (shared) */}
-      <ScrollVideoBg />
-      <div className="fixed inset-0 -z-10 pointer-events-none"
-        style={{ background:'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(29,78,127,0.16) 0%, transparent 60%)' }} />
-      <div className="fixed inset-0 pointer-events-none -z-10"
-        style={{ background:`radial-gradient(450px circle at ${mousePos.x}px ${mousePos.y}px, rgba(59,130,246,0.05), transparent 70%)` }} />
-      <div className="fixed inset-0 -z-10 opacity-[0.025]"
-        style={{ backgroundImage:'linear-gradient(rgba(255,255,255,0.5) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.5) 1px,transparent 1px)', backgroundSize:'60px 60px' }} />
+    <ArenaPage backdrop={<SplashBackdrop map="summoners-rift" opacity={0.8} height="600px" position="50% 42%" side="right" />}>
+      <PageHero
+        kicker="Comunidad · League of Legends"
+        title={<>Comunidad <em>ATAK</em></>}
+        lede="Comparte highlights, busca dúo, pide consejos y conecta con la comunidad."
+      />
 
-      <div className="max-w-2xl mx-auto px-4 py-14 relative z-[1]">
+      <div className="so-layout">
+        <div className="so-feed">
+          {/* Publicar, o el porqué de no poder */}
+          {isAuth ? (
+            <ComposeBox feedTag={tagFilter} />
+          ) : (
+            <div className="td-panel so-locked ax-rise" style={stagger(3)}>
+              <span className="so-locked-ico" aria-hidden><Lock size={20} /></span>
+              <div className="so-locked-text">
+                <h2 className="ax-h3">Únete a la conversación</h2>
+                <p>Inicia sesión para publicar en la comunidad</p>
+              </div>
+              <div className="so-locked-actions">
+                <Link to="/login" className="td-btn td-btn--primary"><LogIn size={15} aria-hidden /> Iniciar sesión</Link>
+                <Link to="/register" className="td-btn td-btn--secondary">Crear cuenta</Link>
+              </div>
+            </div>
+          )}
 
-        {/* Header */}
-        <div ref={headerRef} className="text-center mb-10">
-          <div data-h className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6
-            bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-            <Users className="h-4 w-4" />
-            <span>Comunidad ATAK.GG</span>
-            <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+          <div className="so-feedhead">
+            <SectionHead
+              size="lg"
+              icon={<MessageSquare size={19} />}
+              title="Publicaciones"
+              right={
+                <FilterPills<FilterKey>
+                  ariaLabel="Filtrar publicaciones por tipo"
+                  items={FILTERS} value={tagFilter} onChange={setTagFilter}
+                />
+              }
+            />
           </div>
-          <h1 data-h className="text-4xl md:text-5xl font-black text-white mb-3">
-            Feed <span className="font-serif italic font-normal text-red-500">Social</span>
-          </h1>
-          <p data-h className="text-gray-400">
-            Comparte highlights, busca duo, pide consejos y conecta con la comunidad.
-          </p>
+
+          {/* Feed */}
+          {loading ? (
+            <>{[1, 2, 3].map(i => <PostSkeleton key={i} />)}</>
+          ) : posts.length > 0 ? (
+            <>
+              {posts.map((post, i) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  index={i}
+                  myUserId={user?.id}
+                  onLike={handleLike}
+                  onDelete={handleDelete}
+                  feedTag={tagFilter}
+                  champ={mentionOf(post.content)}
+                />
+              ))}
+
+              {hasMore && (
+                <div className="so-more">
+                  <Button variant="secondary" onClick={() => feed.fetchNextPage()} disabled={loadingMore}
+                    icon={loadingMore ? <RefreshCw size={15} className="animate-spin" /> : <ChevronDown size={16} />}>
+                    {loadingMore ? 'Cargando…' : 'Cargar más'}
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="ax-empty">
+              <Users size={28} color="var(--td-muted)" aria-hidden />
+              <h3>No hay publicaciones aún</h3>
+              {isAuth && <p style={{ margin: 0, fontSize: 14.5 }}>¡Sé el primero en publicar algo!</p>}
+              {filtering && (
+                <div style={{ marginTop: 16 }}>
+                  <Button variant="secondary" onClick={() => setTagFilter('all')}>Ver todas las publicaciones</Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Compose or login prompt */}
-        {isAuth ? (
-          <ComposeBox feedTag={tagFilter} />
-        ) : (
-          <div className="rounded-2xl p-6 text-center mb-6"
-            style={{
-              background:
-                'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 70%), rgba(13,13,17,0.30)',
-              backdropFilter: 'blur(20px) saturate(120%)',
-              WebkitBackdropFilter: 'blur(20px) saturate(120%)',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 44px -30px rgba(0,0,0,.6)',
-            }}>
-            <Lock className="h-8 w-8 text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-400 text-sm mb-4">Inicia sesión para publicar en la comunidad</p>
-            <Link to="/login"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500
-                text-white text-sm font-bold transition-all">
-              <Plus className="h-4 w-4" /> Iniciar sesión
-            </Link>
-          </div>
-        )}
+        {/* Columna lateral: accesos con lo que la página ya tiene (sin llamadas nuevas) */}
+        <aside className="so-side" aria-label="Accesos de la comunidad">
+          <Link to="/tournaments" className="ax-artcard so-side-art">
+            <img className="ax-artcard-img" src={lol.map('clash')} alt="" loading="lazy" decoding="async"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+            <span className="td-over">Competitivo</span>
+            <h2 className="ax-h3" style={{ marginTop: 4 }}>Torneos ATAK</h2>
+            <p>Brackets automáticos y stats en vivo de cada partida.</p>
+            <span className="so-side-go">Ver torneos <ArrowRight size={15} aria-hidden /></span>
+          </Link>
 
-        {/* Tag filter pills */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          {ALL_TAGS.map(t => (
-            <Tip key={t.key} label={`Filtrar: ${t.label}`}>
-              <button onClick={() => setTagFilter(t.key)}
-                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold
-                  border transition-all duration-200 ${
-                  tagFilter === t.key
-                    ? 'bg-white/[0.1] border-white/30 text-white'
-                    : 'border-white/[0.06] text-gray-500 hover:text-gray-300 hover:border-white/[0.12]'
-                }`}>
-                {t.icon}{t.label}
-              </button>
-            </Tip>
-          ))}
-        </div>
+          <section className="td-panel so-side-card">
+            <SectionHead icon={<Users size={15} />} title="Buscar dúo" />
+            <div className="so-roles" aria-hidden>
+              {ROLES.map(r => <span key={r}><RoleIcon lane={r} size={24} /></span>)}
+            </div>
+            <p>Las publicaciones LFG son de jugadores que buscan con quién jugar. Publica la tuya con tu rol y tu rango.</p>
+            <Button variant="secondary" full
+              onClick={() => setTagFilter(tagFilter === 'lfg' ? 'all' : 'lfg')}>
+              {tagFilter === 'lfg' ? 'Ver todas las publicaciones' : 'Ver publicaciones LFG'}
+            </Button>
+          </section>
 
-        {/* Feed */}
-        {loading ? (
-          <div className="space-y-4">
-            {[1,2,3].map(i => (
-              <div key={i} className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
-                <div className="flex gap-3 mb-4">
-                  <Skeleton variant="circle" width={36} height={36} style={{ borderRadius: 12 }} />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton width="33%" height={12} />
-                    <Skeleton width="25%" height={12} />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Skeleton width="100%" height={12} />
-                  <Skeleton width="83%" height={12} />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <AnimatePresence mode="popLayout">
-            {posts.length > 0 ? (
-              <div className="space-y-4">
-                {posts.map((post, i) => (
-                  <motion.div key={post.id}
-                    initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }}
-                    exit={{ opacity:0, scale:0.95 }}
-                    transition={{ duration:0.3, delay: i < 5 ? i * 0.06 : 0 }}>
-                    <PostCard
-                      post={post}
-                      myUserId={user?.id}
-                      onLike={handleLike}
-                      onDelete={handleDelete}
-                      feedTag={tagFilter}
-                    />
-                  </motion.div>
-                ))}
-
-                {/* Load more */}
-                {hasMore && (
-                  <div className="text-center pt-4">
-                    <button
-                      onClick={() => feed.fetchNextPage()}
-                      disabled={loadingMore}
-                      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold
-                        border border-white/[0.08] text-gray-400 hover:text-white hover:border-white/20
-                        transition-all disabled:opacity-50">
-                      {loadingMore
-                        ? <><RefreshCw className="h-4 w-4 animate-spin"/> Cargando...</>
-                        : <><ChevronDown className="h-4 w-4"/> Cargar más</>
-                      }
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }}
-                className="text-center py-20">
-                <Users className="h-16 w-16 text-gray-800 mx-auto mb-4" />
-                <p className="text-gray-500 text-lg mb-2">No hay publicaciones aún</p>
-                {isAuth && (
-                  <p className="text-gray-600 text-sm">¡Sé el primero en publicar algo!</p>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        )}
+          <nav className="td-panel so-side-card" aria-label="Más en ATAK.GG">
+            <SectionHead title="Más en ATAK.GG" />
+            <ul className="so-links">
+              <SideLink to="/stats" icon={<BarChart3 size={20} color="var(--td-text-2)" aria-hidden />}>Buscar invocador</SideLink>
+              <SideLink to="/meta" icon={<Flame size={20} color="var(--td-text-2)" aria-hidden />}>Meta del parche</SideLink>
+              {isAuth && (
+                <SideLink to="/dashboard" icon={<LayoutDashboard size={20} color="var(--td-text-2)" aria-hidden />}>Mi panel</SideLink>
+              )}
+            </ul>
+          </nav>
+        </aside>
       </div>
-    </div>
+    </ArenaPage>
   );
 }

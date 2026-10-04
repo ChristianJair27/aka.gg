@@ -1,8 +1,21 @@
-// src/pages/TournamentLivePage.tsx — Cinematic live broadcast viewer
+// src/pages/TournamentLivePage.tsx — Torneo en vivo: cada serie como un marcador de retransmisión
+// (sistema "Arena": design-system/atak-gg/MASTER.md · src/styles/pages/match.css).
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
+import { motion, AnimatePresence } from 'framer-motion';
+import { axiosInstance } from '@/lib/axios';
+import {
+  ArrowLeft, Wifi, WifiOff, RefreshCw, Trophy,
+  Clock, Swords, Crown, AlertCircle,
+  Flame, ChevronRight, Copy, Check, Zap, BarChart3,
+} from 'lucide-react';
+import { ArenaPage, SplashBackdrop, ChampIcon, RoleIcon, StatIcon, UiIcon } from '@/components/arena/primitives';
+import { Button, StatusChip, SectionHead, ProgressBar, TeamBadge } from '@/components/tournament/ui';
+import { BanTile, Slot, Kda } from '@/components/match/parts';
+import { lol } from '@/lib/lolAssets';
+import '@/styles/pages/match.css';
 
 /** Fase del torneo en español (el payload la trae en inglés). */
 const PHASE_ES: Record<string, string> = {
@@ -12,14 +25,6 @@ const PHASE_ES: Record<string, string> = {
   complete: 'Finalizado',
   cancelled: 'Cancelado',
 };
-import { motion, AnimatePresence } from 'framer-motion';
-import gsap from 'gsap';
-import { axiosInstance } from '@/lib/axios';
-import {
-  ArrowLeft, Wifi, WifiOff, RefreshCw, Trophy,
-  Clock, Shield, Swords, Crown, AlertCircle,
-  Flame, ChevronRight, Copy, Check, Zap, BarChart3,
-} from 'lucide-react';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const FALLBACK_VER = '14.24.1';
@@ -62,9 +67,6 @@ interface LiveData {
 function champIcon(name: string, ver: string) {
   return `https://ddragon.leagueoflegends.com/cdn/${ver}/img/champion/${name}.png`;
 }
-function champLoading(name: string) {
-  return `https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${name}_0.jpg`;
-}
 function spellIcon(id: number, ver: string) {
   const key = SPELL_KEYS[id] ?? 'SummonerFlash';
   return `https://ddragon.leagueoflegends.com/cdn/${ver}/img/spell/${key}.png`;
@@ -76,7 +78,7 @@ function fmtTime(s: number) {
 }
 function roundLabel(round: number, total: number) {
   const d = total - round;
-  if (d === 0) return 'Grand Final';
+  if (d === 0) return 'Gran final';
   if (d === 1) return 'Semifinal';
   if (d === 2) return 'Cuartos';
   return `Ronda ${round}`;
@@ -89,12 +91,12 @@ function LiveTimer({ initial }: { initial: number }) {
     const id = setInterval(() => setSecs(s => s + 1), 1000);
     return () => clearInterval(id);
   }, []);
-  return <span className="font-mono font-black tabular-nums">{fmtTime(secs)}</span>;
+  return <span>{fmtTime(secs)}</span>;
 }
 
-// ─── Champion portrait (cinematic tall card) ──────────────────────────────────
+// ─── Campeón elegido (arte vertical, cinco por lado) ──────────────────────────
 function ChampCard({
-  participant, champMap, version, side,
+  participant, champMap, version,
 }: {
   participant: LiveParticipant;
   champMap: Map<number, string>;
@@ -104,76 +106,45 @@ function ChampCard({
   const champName = champMap.get(participant.championId);
   const [imgErr, setImgErr] = useState(false);
 
-  const blueGrad = 'linear-gradient(to top, rgba(10,20,60,0.95) 0%, rgba(10,20,60,0.5) 40%, transparent 80%)';
-  const redGrad  = 'linear-gradient(to top, rgba(60,10,10,0.95) 0%, rgba(60,10,10,0.5) 40%, transparent 80%)';
-
   return (
-    <div className="relative flex-1 overflow-hidden" style={{ minWidth: 0 }}>
-      {/* Loading art background */}
+    <div className="mx-pick" title={champName ? `${participant.summonerName} · ${champName}` : participant.summonerName}>
       {champName && !imgErr ? (
         <img
-          src={champLoading(champName)}
+          className="mx-pick-art"
+          src={lol.loading(champName)}
           alt={champName}
           onError={() => setImgErr(true)}
-          className="absolute inset-0 w-full h-full object-cover object-top"
           loading="lazy"
+          decoding="async"
         />
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-b from-gray-900 to-black flex items-center justify-center">
-          <span className="text-4xl text-gray-700 font-black">{participant.championId}</span>
-        </div>
+        <span className="mx-pick-none" aria-hidden>?</span>
       )}
 
-      {/* Gradient overlay */}
-      <div className="absolute inset-0" style={{ background: side === 'blue' ? blueGrad : redGrad }} />
-
-      {/* Top: small square icon + spells */}
-      <div className={`absolute top-2 flex items-center gap-1 px-2 ${side === 'blue' ? 'left-0' : 'right-0 flex-row-reverse'}`}>
-        {champName && (
-          <img src={champIcon(champName, version)} alt={champName}
-            className="w-6 h-6 rounded-sm border border-white/20 flex-shrink-0" />
-        )}
-        <div className="flex gap-0.5">
-          {[participant.spell1Id, participant.spell2Id].map((sid, i) => (
-            <img key={i} src={spellIcon(sid, version)} alt=""
-              className="w-4 h-4 rounded-sm opacity-80"
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-          ))}
-        </div>
+      {/* Arriba: hechizos de invocador */}
+      <div className="mx-pick-top">
+        {[participant.spell1Id, participant.spell2Id].map((sid, i) => (
+          <img key={i} src={spellIcon(sid, version)} alt="" loading="lazy"
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        ))}
       </div>
 
-      {/* Bottom: player name */}
-      <div className={`absolute bottom-0 left-0 right-0 p-2 ${side === 'blue' ? 'text-left' : 'text-right'}`}>
-        <div className="text-[11px] font-bold text-white truncate leading-tight drop-shadow-lg">
-          {participant.summonerName}
-        </div>
-        {champName && (
-          <div className="text-[9px] text-white/50 truncate leading-none">{champName}</div>
-        )}
+      {/* Abajo: jugador y campeón */}
+      <div className="mx-pick-bottom">
+        <div className="mx-pick-name">{participant.summonerName}</div>
+        {champName && <div className="mx-pick-champ">{champName}</div>}
       </div>
     </div>
   );
 }
 
-// ─── Ban chip ─────────────────────────────────────────────────────────────────
+// ─── Bloqueo ──────────────────────────────────────────────────────────────────
 function BanChip({ championId, champMap, version }: { championId: number; champMap: Map<number,string>; version: string }) {
   const name = champMap.get(championId);
-  return (
-    <div className="relative w-7 h-7 rounded-md overflow-hidden flex-shrink-0 opacity-80">
-      {name ? (
-        <img src={champIcon(name, version)} alt={name} className="w-full h-full object-cover grayscale" />
-      ) : (
-        <div className="w-full h-full bg-gray-800 flex items-center justify-center text-[9px] text-gray-500">{championId}</div>
-      )}
-      {/* Red X */}
-      <div className="absolute inset-0 flex items-center justify-center bg-red-900/60">
-        <span className="text-red-400 text-[10px] font-black">✕</span>
-      </div>
-    </div>
-  );
+  return <BanTile src={name ? champIcon(name, version) : null} name={name} />;
 }
 
-// ─── Code copy button ─────────────────────────────────────────────────────────
+// ─── Copiar código de torneo ──────────────────────────────────────────────────
 function CopyCode({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
@@ -182,11 +153,9 @@ function CopyCode({ code }: { code: string }) {
     });
   };
   return (
-    <button onClick={copy}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.1]
-        text-xs font-mono text-gray-400 hover:text-white hover:border-red-500/40 transition-all group">
-      {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
-      <span className="truncate max-w-[160px]">{code}</span>
+    <button type="button" onClick={copy} className="mx-code" title="Copiar código de torneo">
+      {copied ? <Check size={14} style={{ color: 'var(--td-green)' }} /> : <Copy size={14} />}
+      <span>{code}</span>
     </button>
   );
 }
@@ -214,137 +183,131 @@ function fmtNum(n: number) {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 }
 
-function StatRow({ p, version, side }: { p: StatPlayer; version: string; side: 'blue' | 'red' }) {
+function StatRow({ p, version, maxDmg, side }: { p: StatPlayer; version: string; maxDmg: number; side: 'blue' | 'red' }) {
   const champImg = `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${p.championName}.png`;
   const itemImg  = (id: number) => `https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${id}.png`;
+  const position = (p as any).teamPosition as string | undefined;
 
   return (
-    <div className={`flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/[0.02] transition-colors ${p.firstBloodKill ? 'border-l-2 border-red-500/40' : 'border-l-2 border-transparent'}`}>
-      {/* Champion */}
-      <div className="relative flex-shrink-0">
-        <img src={champImg} alt={p.championName} className="w-8 h-8 rounded-lg object-cover"
-          onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
-        <span className="absolute -bottom-1 -right-1 text-[9px] font-black bg-black/80 rounded px-0.5 text-white/60">{p.champLevel}</span>
-      </div>
-
-      {/* Name */}
-      <div className="w-28 min-w-0">
-        <p className="truncate font-medium text-white/80">{p.summonerName}</p>
-        {p.pentaKills > 0 && <span className="text-[9px] text-yellow-400 font-black">PENTA</span>}
-        {!p.pentaKills && p.quadraKills > 0 && <span className="text-[9px] text-orange-400 font-black">QUADRA</span>}
-        {!p.pentaKills && !p.quadraKills && p.tripleKills > 0 && <span className="text-[9px] text-white/40 font-black">TRIPLE</span>}
-      </div>
-
+    <tr data-fb={p.firstBloodKill ? 'true' : undefined}>
+      {/* Jugador */}
+      <td>
+        <div className="mx-player">
+          <span className="mx-champ">
+            <ChampIcon src={champImg} name={p.championName} size={36} />
+            <span className="mx-lvl">{p.champLevel}</span>
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div className="mx-pname">
+              <b title={p.summonerName}>{p.summonerName}</b>
+              {p.pentaKills > 0 && <StatusChip kind="gold" dot={false}>Penta</StatusChip>}
+              {!p.pentaKills && p.quadraKills > 0 && <StatusChip kind="gold" dot={false}>Quadra</StatusChip>}
+              {!p.pentaKills && !p.quadraKills && p.tripleKills > 0 && <StatusChip kind="dim" dot={false}>Triple</StatusChip>}
+            </div>
+            <div className="mx-psub">
+              {position && <RoleIcon lane={position} size={13} />}
+              <span>{p.championName}{p.firstBloodKill ? ' · 1.ª sangre' : ''}</span>
+            </div>
+          </div>
+        </div>
+      </td>
       {/* KDA */}
-      <div className="w-20 text-center tabular-nums flex-shrink-0">
-        <span className={p.deaths === 0 ? 'text-yellow-400 font-black' : 'text-white/70'}>
-          {p.kills}<span className="text-white/25 mx-0.5">/</span>
-          <span className="text-red-400/80">{p.deaths}</span>
-          <span className="text-white/25 mx-0.5">/</span>{p.assists}
-        </span>
-        <p className="text-[9px] text-white/30">{p.kda.toFixed(2)} KDA</p>
-      </div>
-
-      {/* Damage */}
-      <div className="w-14 text-center tabular-nums flex-shrink-0">
-        <p className="text-white/60">{fmtNum(p.totalDamageDealt)}</p>
-        <p className="text-[9px] text-white/25">dmg</p>
-      </div>
-
+      <td className="mx-c">
+        <Kda k={p.kills} d={p.deaths} a={p.assists} />
+        <span className="mx-sub">{p.kda.toFixed(2)} KDA</span>
+      </td>
+      {/* Daño */}
+      <td>
+        <div className="mx-dmg" style={{ minWidth: 0 }}>
+          <span className="mx-dmg-num">{fmtNum(p.totalDamageDealt)}</span>
+          <ProgressBar pct={maxDmg > 0 ? (p.totalDamageDealt / maxDmg) * 100 : 0}
+            kind={side === 'blue' ? 'var(--td-live, #3b82f6)' : 'red'} height={5} />
+        </div>
+      </td>
       {/* CS */}
-      <div className="w-14 text-center tabular-nums flex-shrink-0">
-        <p className="text-white/60">{p.cs}</p>
-        <p className="text-[9px] text-white/25">{p.csPerMin}/min</p>
-      </div>
-
-      {/* Gold */}
-      <div className="w-12 text-center tabular-nums flex-shrink-0">
-        <p className="text-yellow-400/70">{fmtNum(p.goldEarned)}</p>
-        <p className="text-[9px] text-white/25">oro</p>
-      </div>
-
-      {/* Items */}
-      <div className="flex gap-0.5 flex-wrap flex-shrink-0">
-        {Array.from({ length: 7 }, (_, i) => p.items[i] || 0).map((itemId, i) => (
-          itemId > 0
-            ? <img key={i} src={itemImg(itemId)} alt="" className="w-5 h-5 rounded object-cover"
-                onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
-            : <div key={i} className="w-5 h-5 rounded bg-white/[0.03] border border-white/[0.05]" />
-        ))}
-      </div>
-    </div>
+      <td className="mx-c">
+        <span className="td-num" style={{ fontWeight: 700 }}>{p.cs}</span>
+        <span className="mx-sub">{p.csPerMin}/min</span>
+      </td>
+      {/* Oro */}
+      <td className="mx-c"><span className="mx-gold">{fmtNum(p.goldEarned)}</span></td>
+      {/* Objetos */}
+      <td>
+        <div className="mx-items">
+          {Array.from({ length: 7 }, (_, i) => p.items[i] || 0).map((itemId, i) => (
+            <Slot key={i} src={itemId > 0 ? itemImg(itemId) : ''} size={26} />
+          ))}
+        </div>
+      </td>
+    </tr>
   );
 }
 
 function PostGameStats({ stats, version }: { stats: MatchStats; version: string }) {
   const blueWon = stats.winner === 'blue';
+  const maxDmg = Math.max(...[...stats.blueTeam, ...stats.redTeam].map(p => p.totalDamageDealt), 1);
+
+  const teamBlock = (players: StatPlayer[], side: 'blue' | 'red', won: boolean) => (
+    <div className="mx-post-team" data-side={side}>
+      <div className="mx-team-head">
+        <span className="mx-team-name">{side === 'blue' ? 'Lado azul' : 'Lado rojo'}</span>
+        {won
+          ? <StatusChip kind="pos" dot={false}><Trophy size={12} aria-hidden /> Victoria</StatusChip>
+          : <StatusChip kind="warn" dot={false}>Derrota</StatusChip>}
+        <div className="mx-team-totals">
+          <span title="Asesinatos del equipo"><UiIcon name="score" size={18} />{players.reduce((a, p) => a + p.kills, 0)}</span>
+          <span title="Oro del equipo"><UiIcon name="gold" size={18} />{fmtNum(players.reduce((a, p) => a + p.goldEarned, 0))}</span>
+        </div>
+      </div>
+      <div className="ax-table-scroll">
+        <table className="ax-table mx-table">
+          <colgroup>
+            <col className="mx-col-player" /><col style={{ width: 116 }} /><col /><col style={{ width: 92 }} />
+            <col style={{ width: 84 }} /><col style={{ width: 232 }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th><span>Jugador</span></th>
+              <th style={{ textAlign: 'center' }}><span><UiIcon name="score" size={16} />K / D / A</span></th>
+              <th><span><StatIcon stat="attack_damage" size={13} />Daño</span></th>
+              <th style={{ textAlign: 'center' }}><span><UiIcon name="minion" size={16} />CS</span></th>
+              <th style={{ textAlign: 'center' }}><span><UiIcon name="gold" size={16} />Oro</span></th>
+              <th><span><UiIcon name="items" size={16} />Objetos</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {players.map((p, i) => <StatRow key={i} p={p} version={version} maxDmg={maxDmg} side={side} />)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="border-t border-white/[0.06] bg-black/60">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.05]">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="h-3.5 w-3.5 text-white/30" />
-          <span className="text-[10px] font-mono uppercase tracking-widest text-white/30">Stats Finales</span>
-        </div>
-        <div className="flex items-center gap-3 text-[10px] text-white/25">
-          <span className="font-mono">{fmtDuration(stats.gameDuration)}</span>
-          <span>{stats.gameMode}</span>
-          <span className="font-mono text-white/15">{stats.matchId}</span>
-        </div>
+    <div className="mx-post">
+      <div className="mx-series-row" style={{ borderTop: 'none' }}>
+        <span className="td-over" style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+          <BarChart3 size={13} aria-hidden /> Stats finales
+        </span>
+        <span className="mx-series-tools">
+          <span className="mx-bug-fact"><Clock size={14} aria-hidden /><b>{fmtDuration(stats.gameDuration)}</b></span>
+          <span className="mx-bug-fact">{stats.gameMode}</span>
+          <span className="mx-mono">{stats.matchId}</span>
+        </span>
       </div>
-
-      {/* Column headers */}
-      <div className="flex items-center gap-2 px-3 py-1.5 text-[9px] font-mono uppercase tracking-wider text-white/20 border-b border-white/[0.04]">
-        <div className="w-8 flex-shrink-0" />
-        <div className="w-28">Jugador</div>
-        <div className="w-20 text-center">K / D / A</div>
-        <div className="w-14 text-center">Daño</div>
-        <div className="w-14 text-center">CS</div>
-        <div className="w-12 text-center">Oro</div>
-        <div>Items</div>
-      </div>
-
-      {/* Blue team */}
-      <div className={`rounded-lg ${blueWon ? 'bg-blue-500/[0.05] ring-1 ring-inset ring-blue-400/25' : 'ring-1 ring-inset ring-blue-400/10'}`}>
-        <div className="px-3 py-1.5 flex items-center gap-2">
-          <Shield className="h-3 w-3 text-blue-400" />
-          <span className={`text-[10px] font-black uppercase tracking-wider ${blueWon ? 'text-blue-300' : 'text-blue-900'}`}>
-            {blueWon ? 'VICTORIA' : 'DERROTA'}
-          </span>
-        </div>
-        {stats.blueTeam.map((p, i) => <StatRow key={i} p={p} version={version} side="blue" />)}
-      </div>
-
-      {/* Divider */}
-      <div className="h-px bg-white/[0.04] mx-3" />
-
-      {/* Red team */}
-      <div className={`rounded-lg ${!blueWon ? 'bg-red-500/[0.05] ring-1 ring-inset ring-red-400/25' : 'ring-1 ring-inset ring-red-400/10'}`}>
-        <div className="px-3 py-1.5 flex items-center gap-2">
-          <Swords className="h-3 w-3 text-red-400" />
-          <span className={`text-[10px] font-black uppercase tracking-wider ${!blueWon ? 'text-red-300' : 'text-red-900'}`}>
-            {!blueWon ? 'VICTORIA' : 'DERROTA'}
-          </span>
-        </div>
-        {stats.redTeam.map((p, i) => <StatRow key={i} p={p} version={version} side="red" />)}
-      </div>
+      {teamBlock(stats.blueTeam, 'blue', blueWon)}
+      {teamBlock(stats.redTeam, 'red', !blueWon)}
     </div>
   );
 }
 
-// ─── Main match card — cinematic broadcast layout ─────────────────────────────
+// ─── Tarjeta de serie — marcador de retransmisión ─────────────────────────────
 function MatchCard({
   match, champMap, version, totalRounds, tournamentId, canViewCodes,
 }: {
   match: LiveMatch; champMap: Map<number, string>; version: string; totalRounds: number; tournamentId: string;
   canViewCodes: boolean;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!ref.current) return;
-    gsap.fromTo(ref.current, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.7, ease: 'power2.out' });
-  }, []);
-
   const [stats,           setStats]           = useState<MatchStats | null>(null);
   const [statsLoading,    setStatsLoading]    = useState(false);
   const [statsError,      setStatsError]      = useState('');
@@ -430,90 +393,67 @@ function MatchCard({
   const blueBans = match.bannedChampions.filter(b => b.teamId === 100);
   const redBans  = match.bannedChampions.filter(b => b.teamId === 200);
   const hasGame  = match.blueTeam.length > 0 || match.redTeam.length > 0;
+  const statsRow = !match.isLive && (match.matchStatus === 'active' || match.matchStatus === 'complete');
 
   return (
     // data-live-match: ancla del enlace `?match=` que llega desde el dashboard.
-    <div ref={ref} data-live-match={match.matchId}
-      className="relative rounded-2xl overflow-hidden border border-white/[0.07] bg-black">
+    <article data-live-match={match.matchId} className="mx-bug ax-rise" data-live={match.isLive ? 'true' : undefined}
+      aria-label={`${match.team1 ?? 'Por definir'} contra ${match.team2 ?? 'Por definir'}`}>
 
-      {/* LIVE top shimmer */}
-      {match.isLive && (
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-red-500 to-transparent animate-pulse z-10" />
-      )}
-
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="relative flex items-center justify-between px-5 py-3 bg-gradient-to-r from-blue-900/20 via-black/80 to-red-900/20 border-b border-white/[0.06]">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-            {roundLabel(match.round, totalRounds)} · P{match.matchNumber}
+      {/* ── Cabecera: ronda, estado, reloj y código ─────────────────────────── */}
+      <div className="mx-bug-top">
+        <span className="td-over">{roundLabel(match.round, totalRounds)} · P{match.matchNumber}</span>
+        {match.isLive && <StatusChip kind="live">En vivo</StatusChip>}
+        {match.matchStatus === 'ready' && !match.isLive && (
+          <StatusChip kind="gold" dot={false}><Zap size={12} aria-hidden /> Código listo</StatusChip>
+        )}
+        {match.matchStatus === 'active' && !match.isLive && <StatusChip kind="registration">Serie en curso</StatusChip>}
+        {match.matchStatus === 'complete' && !match.isLive && <StatusChip kind="finished" dot={false}>Finalizada</StatusChip>}
+        <span className="mx-spacer" />
+        {match.isLive && (
+          <span className="mx-timer" title="Tiempo de partida">
+            <Clock size={16} aria-hidden />
+            <LiveTimer initial={match.gameLength} />
           </span>
-          {match.isLive && (
-            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase
-              bg-red-500/20 border border-red-500/40 text-red-400 tracking-wider">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-              EN VIVO
-            </span>
-          )}
-          {match.matchStatus === 'ready' && !match.isLive && (
-            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold
-              bg-yellow-500/10 border border-yellow-500/30 text-yellow-400">
-              <Zap className="h-2.5 w-2.5" />Código listo
-            </span>
-          )}
-        </div>
+        )}
+        {canViewCodes && match.code && <CopyCode code={match.code} />}
+      </div>
 
-        <div className="flex items-center gap-3">
-          {match.isLive && (
-            <div className="flex items-center gap-1.5 text-green-400">
-              <Clock className="h-3.5 w-3.5" />
-              <LiveTimer initial={match.gameLength} />
-            </div>
-          )}
-          {canViewCodes && match.code && <CopyCode code={match.code} />}
+      {/* ── Marcador de la serie ────────────────────────────────────────────── */}
+      <div className="mx-bug-main">
+        <div className="mx-side" data-side="blue">
+          <span className="td-over mx-side-tag">Lado azul</span>
+          <span className="mx-side-team">
+            <TeamBadge name={match.team1 ?? undefined} size={40} />
+            <span className="mx-side-name">{match.team1 ?? 'Por definir'}</span>
+          </span>
+        </div>
+        <div className="mx-score">
+          <div className="mx-score-nums" data-size="md" aria-label={`Marcador de la serie: ${match.score1} a ${match.score2}`}>
+            <span>{match.score1}</span>
+            <span className="mx-score-sep" aria-hidden />
+            <span>{match.score2}</span>
+          </div>
+        </div>
+        <div className="mx-side" data-side="red">
+          <span className="td-over mx-side-tag">Lado rojo</span>
+          <span className="mx-side-team">
+            <TeamBadge name={match.team2 ?? undefined} size={40} />
+            <span className="mx-side-name">{match.team2 ?? 'Por definir'}</span>
+          </span>
         </div>
       </div>
 
-      {/* ── Score bar ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 items-center bg-black/60">
-        {/* Blue team name */}
-        <div className="flex items-center gap-2 px-5 py-3">
-          <Shield className="h-4 w-4 text-blue-400 flex-shrink-0" />
-          <span className="font-black text-blue-200 text-sm truncate">{match.team1 ?? 'TBD'}</span>
-        </div>
-
-        {/* Score */}
-        <div className="flex items-center justify-center gap-3 py-3">
-          <span className="text-3xl font-black text-blue-300 tabular-nums w-10 text-right">{match.score1}</span>
-          <span className="text-gray-600 font-bold text-sm">VS</span>
-          <span className="text-3xl font-black text-red-300 tabular-nums w-10 text-left">{match.score2}</span>
-        </div>
-
-        {/* Red team name */}
-        <div className="flex items-center justify-end gap-2 px-5 py-3">
-          <span className="font-black text-red-200 text-sm truncate text-right">{match.team2 ?? 'TBD'}</span>
-          <Swords className="h-4 w-4 text-red-400 flex-shrink-0" />
-        </div>
-      </div>
-
-      {/* ── Cinematic champion display ──────────────────────────────────────── */}
+      {/* ── Composiciones ───────────────────────────────────────────────────── */}
       {hasGame ? (
-        <div className="relative flex" style={{ height: '300px' }}>
-          {/* Blue side — left 5 champions */}
-          <div className="flex flex-1" style={{ borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+        <div className="mx-draft">
+          <div className="mx-draft-side" data-side="blue">
             {match.blueTeam.slice(0, 5).map((p, i) => (
               <ChampCard key={i} participant={p} champMap={champMap} version={version} side="blue" />
             ))}
           </div>
-
-          {/* Center: VS divider */}
-          <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center justify-center gap-1 pointer-events-none">
-            <div className="w-px flex-1 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
-            <div className="px-2.5 py-1.5 rounded-lg bg-black/90 border border-white/10 text-gray-600 font-black text-xs">VS</div>
-            <div className="w-px flex-1 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
-          </div>
-
-          {/* Red side — right 5 champions */}
-          <div className="flex flex-1 flex-row-reverse">
+          <span className="mx-draft-vs" aria-hidden>VS</span>
+          <div className="mx-draft-side" data-side="red">
             {match.redTeam.slice(0, 5).map((p, i) => (
               <ChampCard key={i} participant={p} champMap={champMap} version={version} side="red" />
             ))}
@@ -521,140 +461,121 @@ function MatchCard({
         </div>
       ) : (
         /* Sin datos de spectator: se explica el porqué, sin spinner eterno */
-        <div className="flex items-center justify-center py-8 px-5 bg-black/40">
-          <div className="text-center">
-            <Swords className="h-8 w-8 text-gray-700 mx-auto mb-2" />
-            <p className="text-sm font-semibold text-white/70">
-              {match.matchStatus === 'ready'
-                ? 'Partida lista — esperando el lobby'
-                : match.matchStatus === 'active'
-                ? 'Ronda activa — spectator pendiente'
-                : 'Esperando que empiece la partida…'}
+        <div className="mx-state" style={{ borderTop: '1px solid var(--td-border)', padding: '34px 20px' }}>
+          <Swords size={32} aria-hidden />
+          <h3>
+            {match.matchStatus === 'ready'
+              ? 'Partida lista — esperando el lobby'
+              : match.matchStatus === 'active'
+              ? 'Ronda activa — spectator pendiente'
+              : 'Esperando que empiece la partida…'}
+          </h3>
+          {match.matchStatus === 'active' && (
+            <p>
+              La serie está en curso. El marcador en vivo aparecerá cuando el Spectator Companion
+              esté conectado.
             </p>
-            {match.matchStatus === 'active' && (
-              <p className="mt-1 text-xs text-white/40 max-w-sm mx-auto leading-relaxed">
-                La serie está en curso. El marcador en vivo aparecerá cuando el Spectator Companion
-                esté conectado.
-              </p>
-            )}
-            {canViewCodes && match.code && (
-              <p className="text-xs text-gray-700 mt-1">Código: <span className="font-mono text-gray-500">{match.code}</span></p>
-            )}
-            {!canViewCodes && (match.matchStatus === 'ready' || match.matchStatus === 'active') && (
-              <p className="text-xs text-gray-600 mt-1">Código disponible solo para jugadores inscritos</p>
-            )}
-          </div>
+          )}
+          {canViewCodes && match.code && (
+            <p className="mx-mono" style={{ marginTop: 8 }}>Código: <span style={{ color: 'var(--td-text-2)' }}>{match.code}</span></p>
+          )}
+          {!canViewCodes && (match.matchStatus === 'ready' || match.matchStatus === 'active') && (
+            <p style={{ marginTop: 8, fontSize: 13.5, color: 'var(--td-muted)' }}>Código disponible solo para jugadores inscritos</p>
+          )}
         </div>
       )}
 
-      {/* ── Bans ─────────────────────────────────────────────────────────────── */}
+      {/* ── Bloqueos ────────────────────────────────────────────────────────── */}
       {(blueBans.length > 0 || redBans.length > 0) && (
-        <div className="flex items-center justify-between px-5 py-3 bg-black/60 border-t border-white/[0.04]">
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] font-mono text-gray-700 uppercase tracking-wider">Bans</span>
-            <div className="flex gap-1">
+        <div className="mx-series-row">
+          <div className="mx-bans">
+            <span className="td-over">Bloqueos</span>
+            <div className="mx-bans-list">
               {blueBans.map((b, i) => (
                 <BanChip key={i} championId={b.championId} champMap={champMap} version={version} />
               ))}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex gap-1 flex-row-reverse">
+          <div className="mx-bans">
+            <div className="mx-bans-list">
               {redBans.map((b, i) => (
                 <BanChip key={i} championId={b.championId} champMap={champMap} version={version} />
               ))}
             </div>
-            <span className="text-[9px] font-mono text-gray-700 uppercase tracking-wider">Bans</span>
+            <span className="td-over">Bloqueos</span>
           </div>
         </div>
       )}
 
-      {/* ── Spectator / stats footer ────────────────────────────────────────── */}
-      <div className="border-t border-white/[0.05]">
-        {match.isLive && match.gameId && (
-          <div className="px-5 py-2.5 bg-red-950/20 flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2 text-xs text-red-400/70">
-              <Flame className="h-3.5 w-3.5" />
-              <span>Game ID: <span className="font-mono">{match.gameId}</span></span>
-            </div>
-            <code className="text-[10px] px-2 py-0.5 bg-black/60 rounded font-mono text-gray-600">
-              spectator.leagueoflegends.com/{match.gameId}
-            </code>
-          </div>
-        )}
+      {/* ── Espectador / stats ──────────────────────────────────────────────── */}
+      {match.isLive && match.gameId && (
+        <div className="mx-series-row" data-tone="live">
+          <span className="mx-bug-fact">
+            <Flame size={14} aria-hidden style={{ color: 'var(--td-red-hover)' }} />
+            Game ID <b>{match.gameId}</b>
+          </span>
+          <code className="mx-mono">spectator.leagueoflegends.com/{match.gameId}</code>
+        </div>
+      )}
 
-        {/* Stats button row — shown for active/complete matches when not live */}
-        {!match.isLive && (match.matchStatus === 'active' || match.matchStatus === 'complete') && (
-          <div className="px-4 py-2.5 bg-white/[0.01] space-y-2">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={stats ? () => setStatsOpen(o => !o) : detectAndLoadStats}
-                  disabled={statsLoading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold
-                    bg-white/[0.06] border border-white/10 text-white/70
-                    hover:bg-white/10 hover:text-white transition-all disabled:opacity-40"
-                >
-                  {statsLoading
-                    ? <><RefreshCw className="h-3 w-3 animate-spin" />Buscando…</>
-                    : stats
-                    ? <><BarChart3 className="h-3 w-3" />{statsOpen ? 'Ocultar' : 'Ver'} Stats</>
-                    : <><BarChart3 className="h-3 w-3" />Detectar Stats</>
-                  }
+      {/* Fila de stats — series activas o terminadas que no están en vivo */}
+      {statsRow && (
+        <div className="mx-series-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+          <div className="mx-series-tools" style={{ justifyContent: 'space-between' }}>
+            <div className="mx-series-tools">
+              <Button
+                variant="secondary"
+                onClick={stats ? () => setStatsOpen(o => !o) : detectAndLoadStats}
+                disabled={statsLoading}
+                icon={statsLoading ? <RefreshCw size={15} className="mx-spin" /> : <BarChart3 size={15} />}
+              >
+                {statsLoading ? 'Buscando…' : stats ? `${statsOpen ? 'Ocultar' : 'Ver'} stats` : 'Detectar stats'}
+              </Button>
+              {match.gameId && <span className="mx-mono">ID {match.gameId}</span>}
+              {!match.gameId && !showGameIdInput && (
+                <button type="button" onClick={() => setShowGameIdInput(true)} className="mx-textbtn" data-underline="true">
+                  Ingresar Game ID
                 </button>
-                {match.gameId && (
-                  <span className="text-[10px] text-white/20 font-mono">ID {match.gameId}</span>
-                )}
-                {!match.gameId && !showGameIdInput && (
-                  <button
-                    onClick={() => setShowGameIdInput(true)}
-                    className="text-[10px] text-white/25 hover:text-white/50 underline transition-colors"
-                  >
-                    Ingresar Game ID
-                  </button>
-                )}
-              </div>
-              {statsError && !showGameIdInput && (
-                <span className="text-[10px] text-red-400/60 max-w-xs truncate">{statsError}</span>
               )}
             </div>
-
-            {/* Manual Game ID input */}
-            {showGameIdInput && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <input
-                  type="text"
-                  placeholder="Game ID del cliente LoL (ej: 1723716463)"
-                  value={manualGameId}
-                  onChange={e => setManualGameId(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && linkManualGameId()}
-                  className="px-2.5 py-1.5 text-xs bg-black/60 border border-white/[0.1] rounded-lg
-                    text-white/70 w-52 outline-none focus:border-white/30 font-mono"
-                />
-                <button
-                  onClick={linkManualGameId}
-                  disabled={statsLoading || !manualGameId.trim()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg
-                    bg-white/[0.06] border border-white/10 text-white/60 hover:text-white
-                    hover:bg-white/10 transition-all disabled:opacity-40"
-                >
-                  {statsLoading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <BarChart3 className="h-3 w-3" />}
-                  Vincular
-                </button>
-                <button onClick={() => setShowGameIdInput(false)}
-                  className="text-[10px] text-white/20 hover:text-white/40 transition-colors">
-                  Cancelar
-                </button>
-                {statsError && (
-                  <span className="text-[10px] text-red-400/60">{statsError}</span>
-                )}
-              </div>
+            {statsError && !showGameIdInput && (
+              <span className="td-error" role="alert">{statsError}</span>
             )}
           </div>
-        )}
-      </div>
 
-      {/* ── Post-game stats panel ───────────────────────────────────────────── */}
+          {/* Game ID manual */}
+          {showGameIdInput && (
+            <div className="mx-series-tools">
+              <input
+                type="text"
+                inputMode="numeric"
+                aria-label="Game ID del cliente de LoL"
+                placeholder="Game ID del cliente LoL (ej: 1723716463)"
+                value={manualGameId}
+                onChange={e => setManualGameId(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && linkManualGameId()}
+                className="td-input"
+              />
+              <Button
+                variant="secondary"
+                onClick={linkManualGameId}
+                disabled={statsLoading || !manualGameId.trim()}
+                icon={statsLoading ? <RefreshCw size={15} className="mx-spin" /> : <BarChart3 size={15} />}
+              >
+                Vincular
+              </Button>
+              <button type="button" onClick={() => setShowGameIdInput(false)} className="mx-textbtn">
+                Cancelar
+              </button>
+              {statsError && (
+                <span className="td-error" role="alert">{statsError}</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Stats de fin de partida ─────────────────────────────────────────── */}
       <AnimatePresence>
         {statsOpen && stats && (
           <motion.div
@@ -668,37 +589,28 @@ function MatchCard({
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </article>
   );
 }
 
-// ─── Bracket sidebar mini ─────────────────────────────────────────────────────
+// ─── Bracket (lateral) ────────────────────────────────────────────────────────
 function BracketSidebar({ matches, total }: { matches: LiveMatch[]; total: number }) {
   const rounds = [...new Set(matches.map(m => m.round))].sort((a, b) => a - b);
   return (
-    <div className="space-y-5">
+    <div>
       {rounds.map(r => (
-        <div key={r}>
-          <p className="text-[10px] text-gray-700 uppercase tracking-widest mb-2 px-1">{roundLabel(r, total)}</p>
-          <div className="space-y-1.5">
-            {matches.filter(m => m.round === r).map(m => (
-              <div key={m.matchId} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs border transition-colors ${
-                m.isLive
-                  ? 'border-red-500/30 bg-red-500/5 text-red-300'
-                  : m.matchStatus === 'complete'
-                  ? 'border-white/[0.04] bg-white/[0.01] text-gray-600'
-                  : 'border-white/[0.06] bg-white/[0.02] text-gray-500'
-              }`}>
-                {m.isLive && <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse flex-shrink-0" />}
-                <span className="truncate">{m.team1 ?? 'TBD'}</span>
-                <span className="text-gray-700 flex-shrink-0 text-[9px]">vs</span>
-                <span className="truncate">{m.team2 ?? 'TBD'}</span>
-                {(m.score1 > 0 || m.score2 > 0) && (
-                  <span className="ml-auto flex-shrink-0 font-mono text-gray-600">{m.score1}–{m.score2}</span>
-                )}
-              </div>
-            ))}
-          </div>
+        <div key={r} className="mx-bround">
+          <span className="td-over">{roundLabel(r, total)}</span>
+          {matches.filter(m => m.round === r).map(m => (
+            <div key={m.matchId} className="mx-brow"
+              data-state={m.isLive ? 'live' : m.matchStatus === 'complete' ? 'complete' : undefined}>
+              {m.isLive && <span className="mx-dot td-dot-pulse" style={{ ['--c' as string]: 'var(--td-red)' }} aria-hidden />}
+              <span>{m.team1 ?? 'Por definir'}</span>
+              <i>vs</i>
+              <span>{m.team2 ?? 'Por definir'}</span>
+              {(m.score1 > 0 || m.score2 > 0) && <b>{m.score1}–{m.score2}</b>}
+            </div>
+          ))}
         </div>
       ))}
     </div>
@@ -717,7 +629,6 @@ export default function TournamentLivePage() {
   const [ddVersion, setDdVersion] = useState(FALLBACK_VER);
   const [champMap, setChampMap]   = useState<Map<number, string>>(new Map());
 
-  const headerRef = useRef<HTMLDivElement>(null);
   const esRef     = useRef<EventSource | null>(null);
 
   // ── Fetch DDragon version + champion map ────────────────────────────────────
@@ -808,14 +719,6 @@ export default function TournamentLivePage() {
     return () => clearInterval(tick);
   }, []);
 
-  // ── GSAP header entrance ────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!headerRef.current || !data) return;
-    gsap.fromTo(headerRef.current.querySelectorAll('[data-h]'),
-      { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, stagger: 0.08, ease: 'power2.out' }
-    );
-  }, [data]);
-
   const liveMatches    = (data?.matches ?? []).filter(m => m.isLive);
   const pendingMatches = (data?.matches ?? []).filter(m => !m.isLive);
   const totalRounds    = data?.matches?.length ? Math.max(...data.matches.map(m => m.round)) : 1;
@@ -839,212 +742,209 @@ export default function TournamentLivePage() {
     window.setTimeout(() => el.classList.remove('td-pulse-hint'), 1200);
   }, [focusMatch, data]);
 
+  // Título del cartel: la última palabra va en crimson (igual que el héroe del torneo).
+  const nameWords = (data?.tournamentName ?? '').trim().split(/\s+/).filter(Boolean);
+  const nameLead = nameWords.slice(0, -1).join(' ');
+  const nameTail = nameWords[nameWords.length - 1] ?? '';
+
   return (
-    <div className="min-h-screen text-white bg-[#080808] relative overflow-x-hidden">
+    <ArenaPage
+      width="wide"
+      backdrop={<SplashBackdrop src={data?.bannerUrl || undefined} map="summoners-rift" opacity={data?.bannerUrl ? 0.4 : 0.9} position="50% 40%" />}
+    >
+      {/* ── Volver ─────────────────────────────────────────────────────────── */}
+      <Link to={`/tournaments/${id}`} className="mx-back">
+        <ArrowLeft size={16} aria-hidden /> Volver al torneo
+      </Link>
 
-      {/* Ambient background */}
-      <div className="fixed inset-0 -z-10 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse at 50% 0%,rgba(127,29,29,0.18) 0%,transparent 60%)' }} />
-
-      {/* ── Back nav ───────────────────────────────────────────────────────── */}
-      <div className="px-6 pt-20 pb-0">
-        <Link to={`/tournaments/${id}`}
-          className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors group">
-          <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-          Volver al torneo
-        </Link>
-      </div>
-
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {/* ── Cabecera ───────────────────────────────────────────────────────── */}
       {data && (
-        <header ref={headerRef} className="relative px-6 pt-6 pb-6 overflow-hidden">
-          {data.bannerUrl && (
-            <div className="absolute inset-0 -z-10">
-              <img src={data.bannerUrl} alt="" className="w-full h-full object-cover opacity-10" />
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#080808]" />
-            </div>
-          )}
+        <header className="ax-hero mx-thero ax-rise" style={{ marginTop: 6 }}>
+          <div className="ax-hero-art" aria-hidden>
+            <div className="ax-hero-slab" />
+            <div className="ax-hero-hatch" />
+            <div className="ax-sweep" />
+          </div>
 
-          <div className="max-w-7xl mx-auto flex items-center gap-5 flex-wrap">
-            {/* Logo */}
-            <div data-h className="flex-shrink-0">
-              {data.logoUrl ? (
-                <img src={data.logoUrl} alt="logo"
-                  className="w-16 h-16 rounded-xl object-contain border border-white/[0.08] bg-white/[0.03] p-1.5" />
-              ) : (
-                <div className="w-16 h-16 rounded-xl border border-red-900/30 bg-red-500/5 flex items-center justify-center">
-                  <Trophy className="h-7 w-7 text-red-400" />
+          <div className="ax-hero-body">
+            <div className="ax-hero-main">
+              <div className="mx-thero-id">
+                <div className="mx-thero-logo">
+                  {data.logoUrl
+                    ? <img src={data.logoUrl} alt="" />
+                    : <Trophy size={30} aria-hidden />}
                 </div>
-              )}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div data-h className="flex items-center gap-3 mb-1 flex-wrap">
-                {/* Connection status */}
-                <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${
-                  connected
-                    ? 'bg-red-500/20 border-red-500/30 text-red-400'
-                    : 'bg-gray-800/50 border-gray-700/50 text-gray-500'
-                }`}>
-                  {connected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-                  {connected ? 'Transmisión en Vivo' : 'Modo Polling'}
-                </span>
-                <span className="text-xs text-gray-600 uppercase tracking-widest">{data.region.toUpperCase()}</span>
-                <span className="text-xs text-gray-600">{PHASE_ES[data.phase] ?? data.phase}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div className="ax-eyebrow">
+                    {/* Estado de la conexión */}
+                    {connected
+                      ? <StatusChip kind="live"><Wifi size={12} aria-hidden /> Transmisión en vivo</StatusChip>
+                      : <StatusChip kind="dim" dot={false}><WifiOff size={12} aria-hidden /> Modo polling</StatusChip>}
+                    <span className="td-over">{data.region.toUpperCase()}</span>
+                    <span className="td-over">{PHASE_ES[data.phase] ?? data.phase}</span>
+                  </div>
+                  <h1 className="ax-title">{nameLead && `${nameLead} `}<em>{nameTail}</em></h1>
+                  <p className="ax-meta">
+                    {liveMatches.length} partida{liveMatches.length !== 1 ? 's' : ''} en vivo
+                    <i aria-hidden>/</i>
+                    <span className="td-num">Actualización en {countdown}s</span>
+                  </p>
+                </div>
               </div>
-              <h1 data-h className="text-2xl md:text-3xl font-black text-white truncate">
-                {data.tournamentName}
-              </h1>
-              <p data-h className="text-sm text-gray-500 mt-1">
-                {liveMatches.length} partida{liveMatches.length !== 1 ? 's' : ''} en vivo ·
-                Actualización en {countdown}s
-              </p>
             </div>
 
-            {/* Refresh */}
-            <div data-h className="flex items-center gap-2 flex-shrink-0">
-              <button
-                onClick={() => { setLoading(true); fetchFallback(); }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/[0.08]
-                  bg-white/[0.03] text-sm text-gray-400 hover:text-white transition-all">
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            <div className="ax-hero-actions">
+              <Button variant="secondary" full onClick={() => { setLoading(true); fetchFallback(); }}
+                icon={<RefreshCw size={15} className={loading ? 'mx-spin' : undefined} />}>
                 Actualizar
-              </button>
+              </Button>
             </div>
           </div>
+
+          <dl className="ax-bug" style={{ ['--cols' as string]: 4, margin: 0 }}>
+            <div className="ax-bug-cell" data-accent={liveMatches.length > 0 ? 'red' : undefined}>
+              <dt className="td-over">En vivo</dt>
+              <dd className="ax-bug-value" style={{ marginLeft: 0 }}>{liveMatches.length}</dd>
+            </div>
+            <div className="ax-bug-cell">
+              <dt className="td-over">Próximas</dt>
+              <dd className="ax-bug-value" style={{ marginLeft: 0 }}>{pendingMatches.length}</dd>
+            </div>
+            <div className="ax-bug-cell">
+              <dt className="td-over">Fase</dt>
+              <dd className="ax-bug-value" style={{ marginLeft: 0 }}>{PHASE_ES[data.phase] ?? data.phase}</dd>
+            </div>
+            <div className="ax-bug-cell">
+              <dt className="td-over">Última actualización</dt>
+              <dd className="ax-bug-value" style={{ marginLeft: 0 }}>{new Date(lastRefresh).toLocaleTimeString()}</dd>
+            </div>
+          </dl>
         </header>
       )}
 
-      {/* ── States ─────────────────────────────────────────────────────────── */}
+      {/* ── Estados ────────────────────────────────────────────────────────── */}
       {/* Esqueleto con la forma de las tarjetas de partida: la página no salta
           al llegar los datos (CONVENTIONS: nada de spinner a nivel de panel). */}
       {loading && !data && (
-        <main className="max-w-7xl mx-auto px-6 pb-24" aria-busy="true" aria-label="Cargando partidas">
-          <div className="space-y-5 mt-2">
-            {[0, 1].map((i) => (
-              <div key={i} className="rounded-2xl border border-white/[0.07] bg-black overflow-hidden">
-                <div className="flex items-center justify-between gap-4 px-5 py-4 border-b border-white/[0.05]">
-                  <Skeleton variant="line" width={130} height={13} />
-                  <Skeleton variant="line" width={70} height={11} />
-                </div>
-                <div className="flex items-center gap-3 px-5 py-6">
-                  {Array.from({ length: 5 }).map((_, k) => (
-                    <Skeleton key={`b${k}`} variant="block" width={58} height={72} style={{ borderRadius: 12 }} />
-                  ))}
-                  <Skeleton variant="line" width={28} height={22} />
-                  {Array.from({ length: 5 }).map((_, k) => (
-                    <Skeleton key={`r${k}`} variant="block" width={58} height={72} style={{ borderRadius: 12 }} />
-                  ))}
-                </div>
+        <div className="mx-series-list" style={{ marginTop: 18 }} aria-busy="true" aria-label="Cargando partidas">
+          {[0, 1].map((i) => (
+            <div key={i} className="td-panel mx-skel">
+              <div className="mx-skel-row">
+                <Skeleton variant="line" width={130} height={13} />
+                <Skeleton variant="line" width={70} height={11} />
               </div>
-            ))}
-          </div>
-        </main>
-      )}
-
-      {error && !data && (
-        <div className="flex flex-col items-center justify-center py-40 gap-3 text-center px-6">
-          <AlertCircle className="h-12 w-12 text-red-500/50" />
-          <p className="text-gray-400">{error}</p>
-          <button onClick={fetchFallback}
-            className="mt-2 px-6 py-2.5 rounded-xl text-white text-sm font-bold"
-            style={{ background: 'linear-gradient(135deg,#ef4444,#b91c1c)' }}>
-            Reintentar
-          </button>
+              <div className="mx-skel-picks">
+                {Array.from({ length: 5 }).map((_, k) => (
+                  <Skeleton key={`b${k}`} variant="block" width={58} height={72} style={{ borderRadius: 6, flexShrink: 0 }} />
+                ))}
+                <Skeleton variant="line" width={28} height={22} style={{ flexShrink: 0 }} />
+                {Array.from({ length: 5 }).map((_, k) => (
+                  <Skeleton key={`r${k}`} variant="block" width={58} height={72} style={{ borderRadius: 6, flexShrink: 0 }} />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* ── Main content ───────────────────────────────────────────────────── */}
+      {error && !data && (
+        <div className="ax-empty" style={{ marginTop: 18 }} role="alert">
+          <AlertCircle size={44} aria-hidden style={{ color: 'var(--td-neg)' }} />
+          <h3>No se pudo cargar el torneo en vivo</h3>
+          <p style={{ margin: 0 }}>{error}</p>
+          <div className="mx-empty-actions">
+            <Button variant="primary" icon={<RefreshCw size={15} />} onClick={fetchFallback}>Reintentar</Button>
+            <Link to={`/tournaments/${id}`} className="td-btn td-btn--secondary">Volver al torneo</Link>
+          </div>
+        </div>
+      )}
+
+      {/* ── Contenido ──────────────────────────────────────────────────────── */}
       {data && (
-        <main className="max-w-7xl mx-auto px-6 pb-24">
-          <div className="flex gap-6 mt-2">
+        <div className="mx-live-layout">
 
-            {/* Left: match cards */}
-            <div className="flex-1 min-w-0 space-y-6">
+          {/* Series */}
+          <main className="mx-live-main">
 
-              {/* Live matches */}
-              {liveMatches.length > 0 && (
-                <section>
-                  <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-red-400 mb-4">
-                    <Flame className="h-4 w-4" />
-                    Partidas en Vivo ({liveMatches.length})
-                  </h2>
-                  <div className="space-y-5">
-                    {liveMatches.map(m => (
-                      <MatchCard key={m.matchId} match={m} champMap={champMap} version={ddVersion} totalRounds={totalRounds} tournamentId={id ?? ''} canViewCodes={canViewCodes} />
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* Pending/upcoming */}
-              {pendingMatches.length > 0 && (
-                <section>
-                  <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-gray-500 mb-4">
-                    <ChevronRight className="h-4 w-4" />
-                    Próximas Partidas ({pendingMatches.length})
-                  </h2>
-                  <div className="space-y-3">
-                    {pendingMatches.map(m => (
-                      <MatchCard key={m.matchId} match={m} champMap={champMap} version={ddVersion} totalRounds={totalRounds} tournamentId={id ?? ''} canViewCodes={canViewCodes} />
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {liveMatches.length === 0 && pendingMatches.length === 0 && (
-                <div className="text-center py-32 text-gray-700">
-                  <Swords className="h-14 w-14 mx-auto mb-4 opacity-20" />
-                  <p className="text-lg font-bold mb-1">No hay partidas activas</p>
-                  <p className="text-sm">
-                    {data.phase === 'registration' && 'El torneo aún está en fase de registro.'}
-                    {data.phase === 'checkin'      && 'En fase de check-in.'}
-                    {data.phase === 'complete'     && 'El torneo ha finalizado.'}
-                    {data.phase === 'active'       && 'Esperando inicio de partidas…'}
-                  </p>
+            {/* En vivo */}
+            {liveMatches.length > 0 && (
+              <section>
+                <SectionHead size="lg" icon={<Flame size={18} />} title={`Partidas en vivo (${liveMatches.length})`} />
+                <div className="mx-series-list">
+                  {liveMatches.map(m => (
+                    <MatchCard key={m.matchId} match={m} champMap={champMap} version={ddVersion} totalRounds={totalRounds} tournamentId={id ?? ''} canViewCodes={canViewCodes} />
+                  ))}
                 </div>
-              )}
-            </div>
+              </section>
+            )}
 
-            {/* Right: sidebar */}
-            <aside className="hidden lg:flex flex-col gap-5 w-64 flex-shrink-0">
-
-              {/* Bracket overview */}
-              <div className="p-4 rounded-2xl border border-white/[0.07] bg-white/[0.02]">
-                <div className="flex items-center gap-2 mb-4">
-                  <Crown className="h-4 w-4 text-yellow-500" />
-                  <h3 className="text-sm font-bold text-white">Bracket</h3>
+            {/* Próximas */}
+            {pendingMatches.length > 0 && (
+              <section>
+                <SectionHead icon={<ChevronRight size={16} />} title={`Próximas partidas (${pendingMatches.length})`} />
+                <div className="mx-series-list">
+                  {pendingMatches.map(m => (
+                    <MatchCard key={m.matchId} match={m} champMap={champMap} version={ddVersion} totalRounds={totalRounds} tournamentId={id ?? ''} canViewCodes={canViewCodes} />
+                  ))}
                 </div>
+              </section>
+            )}
+
+            {liveMatches.length === 0 && pendingMatches.length === 0 && (
+              <div className="ax-empty">
+                <Swords size={44} aria-hidden style={{ color: 'var(--td-muted)' }} />
+                <h3>No hay partidas activas</h3>
+                <p style={{ margin: 0 }}>
+                  {data.phase === 'registration' && 'El torneo aún está en fase de registro.'}
+                  {data.phase === 'checkin'      && 'En fase de check-in.'}
+                  {data.phase === 'complete'     && 'El torneo ha finalizado.'}
+                  {data.phase === 'active'       && 'Esperando inicio de partidas…'}
+                </p>
+                <div className="mx-empty-actions">
+                  <Link to={`/tournaments/${id}`} className="td-btn td-btn--secondary">
+                    <ArrowLeft size={15} aria-hidden /> Volver al torneo
+                  </Link>
+                </div>
+              </div>
+            )}
+          </main>
+
+          {/* Lateral */}
+          <aside className="mx-live-side">
+
+            {/* Bracket */}
+            {data.matches.length > 0 && (
+              <div className="td-panel" style={{ padding: 16 }}>
+                <SectionHead icon={<Crown size={15} />} title="Bracket" />
                 <BracketSidebar matches={data.matches} total={totalRounds} />
               </div>
+            )}
 
-              {/* Legend */}
-              <div className="p-4 rounded-2xl border border-white/[0.07] bg-white/[0.02] space-y-2">
-                <p className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-widest">Estado</p>
+            {/* Leyenda */}
+            <div className="td-panel" style={{ padding: 16 }}>
+              <SectionHead title="Estado" />
+              <ul className="mx-legend-list">
                 {[
-                  { dot: 'bg-red-400',    label: 'En vivo — partida activa' },
-                  { dot: 'bg-yellow-400', label: 'Lista — código asignado' },
-                  { dot: 'bg-gray-600',   label: 'Pendiente' },
-                ].map(({ dot, label }) => (
-                  <div key={label} className="flex items-center gap-2 text-xs text-gray-600">
-                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
+                  { c: 'var(--td-red)',   label: 'En vivo — partida activa' },
+                  { c: 'var(--td-gold)',  label: 'Lista — código asignado' },
+                  { c: 'var(--td-muted)', label: 'Pendiente' },
+                ].map(({ c, label }) => (
+                  <li key={label}>
+                    <span className="mx-dot" style={{ ['--c' as string]: c }} aria-hidden />
                     {label}
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
+            </div>
 
-              {/* Last refresh info */}
-              <div className="px-3 text-center">
-                <p className="text-[10px] text-gray-700 leading-relaxed">
-                  Última actualización<br />
-                  {new Date(lastRefresh).toLocaleTimeString()}<br />
-                  <span className="text-gray-800">Spectator API · 15s refresh</span>
-                </p>
-              </div>
-            </aside>
-          </div>
-        </main>
+            {/* Última actualización */}
+            <p className="mx-note" style={{ margin: 0, textAlign: 'center' }}>
+              Última actualización · <span className="td-num">{new Date(lastRefresh).toLocaleTimeString()}</span><br />
+              Spectator API · se actualiza cada 15 s
+            </p>
+          </aside>
+        </div>
       )}
-    </div>
+    </ArenaPage>
   );
 }

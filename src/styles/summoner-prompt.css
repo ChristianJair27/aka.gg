@@ -1,0 +1,86 @@
+/* Barra de búsqueda de invocador (SummonerPrompt) — tema "Arena".
+   Vive siempre dentro de una página .td-root (portada y /stats). */
+.td-root .sp-root { position: relative; width: 100%; max-width: 672px; margin: 0 auto; }
+.td-root .hm-search .sp-root { margin: 0; max-width: none; }
+
+.td-root .sp-box {
+  position: relative; background: rgba(18, 18, 22, 0.94); border: 1px solid var(--td-border-hov); border-radius: var(--td-r-panel);
+  box-shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.95);
+  transition: border-color var(--td-dur) var(--td-ease), box-shadow var(--td-dur) var(--td-ease);
+}
+.td-root .sp-box[data-focused='true'] { border-color: var(--td-red); box-shadow: 0 0 0 3px var(--td-red-wash), 0 24px 48px -28px rgba(0, 0, 0, 0.95); }
+.td-root .sp-input {
+  width: 100%; padding: 20px 20px 12px; background: transparent; border: none; outline: none; box-shadow: none;
+  font-family: var(--td-font-ui); font-size: 19px; color: var(--td-text);
+}
+.td-root .sp-input:focus-visible { outline: none; }
+.td-root .sp-input::placeholder { color: var(--td-muted); }
+.td-root .sp-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 0 12px 12px; }
+
+.td-root .sp-chip {
+  display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 12px; cursor: pointer; white-space: nowrap;
+  border: 1px solid var(--td-border); border-radius: var(--td-r-ctl); background: var(--td-strip); color: var(--td-text-2);
+  font-family: var(--td-font-mono); font-size: 14px; font-weight: 600; letter-spacing: 0.3px;
+  transition: border-color var(--td-dur) var(--td-ease), color var(--td-dur) var(--td-ease), background var(--td-dur) var(--td-ease);
+}
+.td-root .sp-chip:hover { color: #fff; border-color: var(--td-border-hov); }
+.td-root .sp-chip[data-active='true'] { color: #fff; border-color: var(--td-red); background: var(--td-red-wash); }
+.td-root .sp-chip[data-active='true'] svg { color: var(--td-red-hover); }
+
+.td-root .sp-go {
+  margin-left: auto; display: inline-grid; place-items: center; width: 46px; height: 46px; border: none; cursor: pointer; color: #fff;
+  background: var(--td-red); border-radius: var(--td-r-ctl) var(--td-r-ctl) 0 var(--td-r-ctl);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+  transition: background var(--td-dur) var(--td-ease), transform var(--td-dur) var(--td-ease);
+}
+.td-root .sp-go:hover:not(:disabled) { background: var(--td-red-hover); }
+.td-root .sp-go:active:not(:disabled) { transform: translateY(1px); }
+.td-root .sp-go:disabled { opacity: 0.6; cursor: wait; }
+
+/* Desplegables (región y sugerencias) */
+.td-root .sp-drop { background: var(--td-card); border: 1px solid var(--td-border-hov); border-radius: var(--td-r-panel);
+  box-shadow: 0 28px 60px -20px rgba(0, 0, 0, 0.95); overflow: hidden; }
+.td-root .sp-drop--regions { position: absolute; bottom: 100%; left: 0; z-index: 50; width: 240px; max-height: 288px; margin-bottom: 8px; padding: 4px 0; overflow-y: auto; }
+.td-root .sp-drop--list { position: absolute; left: 0; right: 0; top: 100%; z-index: 40; margin-top: 8px; padding-bottom: 6px; }
+.td-root .sp-group { display: flex; align-items: center; gap: 7px; padding: 12px 16px 6px; }
+.td-root .sp-opt {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 46px; padding: 6px 16px; border: none; background: transparent;
+  text-align: left; cursor: pointer; color: var(--td-text-2); font-family: var(--td-font-ui);
+  transition: background var(--td-dur) var(--td-ease), color var(--td-dur) var(--td-ease);
+}
+.td-root .sp-opt:hover, .td-root .sp-opt[aria-selected='true'] { background: rgba(255, 255, 255, 0.06); color: var(--td-text); }
+.td-root .sp-opt--row { cursor: default; }
+.td-root .sp-opt-btn { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; min-height: 34px; border: none; background: none; cursor: pointer; text-align: left; color: inherit; font: inherit; }
+.td-root .sp-opt-main { font-size: 15px; font-weight: 600; color: var(--td-text); }
+.td-root .sp-opt-sub { font-size: 12.5px; font-weight: 500; color: var(--td-muted); }
+.td-root .sp-opt-tag { margin-left: auto; flex-shrink: 0; font-family: var(--td-font-mono); font-size: 11.5px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--td-gold); }
+.td-root .sp-opt-img { width: 34px; height: 34px; flex-shrink: 0; object-fit: cover; border-radius: var(--td-r-ctl); background: var(--td-sunken); }
+.td-root .sp-opt-img--mono { display: inline-grid; place-items: center; font-family: var(--td-font-display); font-size: 17px; font-weight: 700; color: var(--td-text-2); }
+.td-root .sp-opt-x { display: inline-grid; place-items: center; width: 32px; height: 32px; border: none; border-radius: var(--td-r-chip); background: none; cursor: pointer; color: var(--td-muted);
+  transition: color var(--td-dur) var(--td-ease), background var(--td-dur) var(--td-ease); }
+.td-root .sp-opt-x:hover { color: var(--td-neg); background: rgba(255, 255, 255, 0.06); }
+
+.td-root .sp-error { margin: 10px 2px 0; }
+.td-root .sp-quick { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; margin-top: 14px; }
+.td-root .sp-root:not(.hm-search .sp-root) .sp-quick { justify-content: center; }
+.td-root .hm-search .sp-quick { justify-content: flex-start; }
+.td-root .sp-quick-btn { min-height: 32px; padding: 0 2px; border: none; background: none; cursor: pointer;
+  font-family: var(--td-font-mono); font-size: 14px; font-weight: 600; color: var(--td-text-2);
+  text-decoration: underline; text-decoration-color: var(--td-border-hov); text-underline-offset: 4px;
+  transition: color var(--td-dur) var(--td-ease); }
+.td-root .sp-quick-btn:hover { color: #fff; text-decoration-color: var(--td-red); }
+.td-root .sp-caption { margin: 10px 0 0; text-align: center; }
+.td-root .hm-search .sp-caption { text-align: left; }
+
+@media (prefers-reduced-motion: reduce) {
+  .td-root .sp-box, .td-root .sp-chip, .td-root .sp-go, .td-root .sp-opt { transition: none; }
+}
+
+/* Móvil: los cuatro controles caben en una fila (el botón no salta de línea). */
+@media (max-width: 440px) {
+  .td-root .sp-bar { flex-wrap: nowrap; gap: 6px; padding: 0 10px 10px; }
+  .td-root .sp-chip { height: 40px; padding: 0 9px; font-size: 13.5px; gap: 5px; }
+  .td-root .sp-chip > svg:first-child { display: none; }
+  .td-root .sp-go { flex-shrink: 0; }
+  .td-root .sp-input { font-size: 17px; padding: 16px 16px 10px; }
+}

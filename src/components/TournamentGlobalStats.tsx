@@ -204,7 +204,7 @@ function SortableTable({ players, marked, onMark, onPick, iconOf }: {
   // (.td-stats-scroll en tournament-dashboard.css). Sin virtualización: 100-200
   // filas de texto plano no la necesitan.
   return (
-    <ScrollArea className="td-stats-scroll rounded-2xl">
+    <ScrollArea className="td-stats-scroll rounded-md">
       <table className="w-full text-left">
         <thead>
           <tr className="border-b border-white/[0.08]">
@@ -213,10 +213,10 @@ function SortableTable({ players, marked, onMark, onPick, iconOf }: {
                 key={col.key}
                 onClick={col.sortable ? () => onSort(col.key as TableSortKey) : undefined}
                 className={cn(
-                  'px-3 py-2.5 text-[10px] uppercase tracking-wider whitespace-nowrap select-none',
+                  'td-over px-3 py-2.5 whitespace-nowrap select-none',
                   col.key === 'player' ? 'text-left' : 'text-center',
                   col.sortable ? 'cursor-pointer hover:text-white transition-colors' : '',
-                  sortKey === col.key ? 'text-white' : 'text-white/25',
+                  sortKey === col.key ? '!text-white' : '',
                 )}
               >
                 <Tip label={col.tip ?? col.label}>
@@ -263,8 +263,8 @@ function SortableTable({ players, marked, onMark, onPick, iconOf }: {
                   <div className="flex items-center gap-2">
                     <PlayerAvatar riotId={riotIdOf(p)} profileIconId={iconOf?.(p)} mostPlayedChamp={p.mostPlayedChamp} size={32} />
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-white truncate max-w-[110px]">{p.summonerName}</p>
-                      <p className="text-[9px] text-white/25 truncate max-w-[110px]">
+                      <p className="text-[13.5px] font-semibold text-white truncate max-w-[130px]">{p.summonerName}</p>
+                      <p className="text-[11px] text-white/45 truncate max-w-[130px]">
                         {p.championPool.slice(0, 4).join(' · ')}
                       </p>
                     </div>
@@ -342,16 +342,14 @@ function TopPlayersChart({ players, avatarUrl }: { players: PlayerAggregate[]; a
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <p className="text-xs text-white/40 uppercase tracking-widest">Top 8 Jugadores</p>
-        <div className="flex gap-1">
+        <h3 className="td-sechead-title" style={{ margin: 0 }}>Top 8 jugadores</h3>
+        <div className="td-seg" role="group" aria-label="Métrica">
           {(Object.entries(CHART_LABELS) as [ChartMetric, typeof CHART_LABELS[ChartMetric]][]).map(([k, v]) => (
             <button
               key={k}
+              type="button"
               onClick={() => setMetric(k)}
-              className={cn(
-                'px-2 py-1 rounded-lg text-[10px] font-semibold transition-all',
-                metric === k ? 'bg-white text-black' : 'bg-white/[0.04] text-white/40 hover:bg-white/[0.08] hover:text-white/70',
-              )}
+              className="td-seg-item" data-active={metric === k} aria-pressed={metric === k}
             >
               {v.label}
             </button>
@@ -498,43 +496,35 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
 
       {/* Summary cards — patrón vision: cuadrado de icono con degradado */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="td-panel p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: 'linear-gradient(135deg, #c8aa6e, #785a28)', boxShadow: '0 8px 22px rgba(200,170,110,0.28)' }}>
-            <Trophy className="h-4 w-4 text-white" />
-          </div>
-          <div>
-            <p className="text-[10px] text-white/30 uppercase tracking-wider">Partidas</p>
-            <p className="text-xl font-black text-white">{matchesCompleted}</p>
+        <div className="td-panel td-tile">
+          <span className="td-ico" style={{ color: 'var(--td-gold-bright)' }}><Trophy className="h-4 w-4" /></span>
+          <div className="min-w-0">
+            <p className="td-over" style={{ margin: 0 }}>Partidas</p>
+            <p className="td-tile-value" style={{ margin: 0 }}>{matchesCompleted}</p>
           </div>
         </div>
-        <div className="td-panel p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: 'linear-gradient(135deg, #e1242e, #7d1017)', boxShadow: '0 8px 22px rgba(225,36,46,0.35)' }}>
-            <Users className="h-4 w-4 text-white" />
-          </div>
-          <div>
-            <p className="text-[10px] text-white/30 uppercase tracking-wider">Jugadores</p>
-            <p className="text-xl font-black text-white">
+        <div className="td-panel td-tile">
+          <span className="td-ico" style={{ color: 'var(--td-red-hover)' }}><Users className="h-4 w-4" /></span>
+          <div className="min-w-0">
+            <p className="td-over" style={{ margin: 0 }}>Jugadores</p>
+            <p className="td-tile-value" style={{ margin: 0 }}>
               {players.length}
-              {hasFilters && <span className="text-xs font-semibold text-white/30"> / {allPlayers.length}</span>}
+              {hasFilters && <span style={{ fontSize: '0.6em', fontWeight: 600, color: 'var(--td-muted)' }}> / {allPlayers.length}</span>}
             </p>
           </div>
         </div>
-        <div className="td-panel p-4 flex items-center gap-3">
+        <div className="td-panel td-tile">
           {mostPlayedChamp && (
-            <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-white/10">
+            <div className="w-10 h-10 rounded-md overflow-hidden shrink-0 border border-white/10">
               <ImgSlot src={dd.champion(mostPlayedChamp)} alt={mostPlayedChamp} className="w-10 h-10" />
             </div>
           )}
           {!mostPlayedChamp && (
-            <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 shrink-0">
-              <Star className="h-4 w-4 text-purple-400" />
-            </div>
+            <span className="td-ico"><Star className="h-4 w-4" /></span>
           )}
           <div className="min-w-0">
-            <p className="text-[10px] text-white/30 uppercase tracking-wider">Más jugado</p>
-            <p className="text-sm font-bold text-white truncate">{mostPlayedChamp ?? '—'}</p>
+            <p className="td-over" style={{ margin: 0 }}>Más jugado</p>
+            <p className="td-tile-value" style={{ margin: 0 }}>{mostPlayedChamp ?? '—'}</p>
           </div>
         </div>
       </div>
@@ -625,9 +615,9 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
       {/* Podium */}
       {players.length > 0 && <div className="td-panel p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <p className="text-xs text-white/40 uppercase tracking-widest font-bold">
-            <span className="inline-flex items-center gap-1.5"><Trophy className="h-4 w-4" aria-hidden />Top 3 — {PODIUM_CATS.find(c => c.key === podiumCat)?.label}</span>
-          </p>
+          <h3 className="td-sechead-title" style={{ margin: 0 }}>
+            <span className="inline-flex items-center gap-2"><Trophy className="h-4 w-4" aria-hidden style={{ color: 'var(--td-gold)' }} />Top 3 · {PODIUM_CATS.find(c => c.key === podiumCat)?.label}</span>
+          </h3>
           <SharePodiumButton data={{
             tournamentId: data.tournamentId,
             tournamentName: tournamentName ?? data.tournamentId.toUpperCase(),
@@ -648,17 +638,13 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
                 })) as PodiumEntry[];
             })(),
           }} />
-          <div className="flex flex-wrap gap-1">
+          <div className="td-seg" role="group" aria-label="Categoría del podio">
             {PODIUM_CATS.map(cat => (
               <button
                 key={cat.key}
+                type="button"
                 onClick={() => setPodiumCat(cat.key)}
-                className={cn(
-                  'flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold transition-all',
-                  podiumCat === cat.key
-                    ? 'bg-white text-black'
-                    : 'bg-white/[0.04] text-white/40 hover:bg-white/[0.08] hover:text-white/70',
-                )}
+                className="td-seg-item" data-active={podiumCat === cat.key} aria-pressed={podiumCat === cat.key}
               >
                 {cat.icon}{cat.label}
               </button>
@@ -685,7 +671,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
       {/* Sortable table */}
       {players.length > 0 && <div className="td-panel p-5">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/[0.05]">
-          <p className="text-xs text-white/50 uppercase tracking-widest font-bold">Tabla completa</p>
+          <h3 className="td-sechead-title" style={{ margin: 0 }}>Tabla completa</h3>
           {onRefresh && (
             <button
               onClick={onRefresh}
@@ -703,7 +689,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
       {/* Más gráficos: agregados del torneo (campeones, WR, equipos, multikills) */}
       {players.length > 0 && (
         <div>
-          <div className="td-over" style={{ margin: '4px 2px 10px', letterSpacing: '2px' }}>MÁS GRÁFICOS</div>
+          <h3 className="td-sechead-title" style={{ margin: '8px 2px 12px' }}>Más gráficos</h3>
           <StatsCharts
             players={players}
             standings={standings}

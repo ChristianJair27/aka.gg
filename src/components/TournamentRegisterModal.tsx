@@ -1,11 +1,11 @@
 // Tournament team registration — linked LoL account auto-fill + email invitations
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 import {
-  AtakModal, AtakModalBody, AtakModalContent, AtakModalFooter, AtakModalHeader,
+  AtakModal, AtakModalBody, AtakModalContent, AtakModalFooter,
 } from '@/components/ui/atak-modal';
-import { Callout, Field, fieldCls } from '@/components/ui/form-bits';
+import { Button, StatusChip } from '@/components/tournament/ui';
+import { ARENA_MODAL, Field, ModalHead, Notice, Seg } from '@/components/tournament/forms';
 import { axiosInstance } from '@/lib/axios';
 import { toast } from '@/components/ui/sonner';
 import { useOverview } from '@/hooks/queries/players';
@@ -155,132 +155,140 @@ export const TournamentRegisterModal = ({
 
   return (
     <AtakModal open={open} onOpenChange={(o) => { if (!loading) onOpenChange(o); }}>
-      <AtakModalContent size="lg" closeDisabled={loading}>
-        <AtakModalHeader
-          icon={<Users className="h-5 w-5" />}
-          eyebrow="Inscripción"
-          title="Inscribir equipo"
+      <AtakModalContent size="lg" closeDisabled={loading} className={ARENA_MODAL}>
+        <ModalHead
+          kicker="Inscripción"
+          title={<>Inscribir <em>equipo</em></>}
           description={<>{tournamentName} · tu Riot ID sale de tu perfil vinculado. A los compañeros los invitas por correo ATAK.GG.</>}
         />
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <AtakModalBody className="space-y-5">
+          <AtakModalBody>
+            <div className="tf-form">
 
             {!isAuthenticated && (
-              <Callout tone="warn" icon={<Link2 />} title="Sin sesión">
-                <Link to="/login" className="font-semibold underline">Inicia sesión</Link> para inscribir tu equipo.
-              </Callout>
+              <Notice tone="warn" icon={<Link2 size={18} />} title="Sin sesión">
+                <Link to="/login">Inicia sesión</Link> para inscribir tu equipo.
+              </Notice>
             )}
 
             {isAuthenticated && !linkedRiotId && (
-              <Callout tone="warn" icon={<Link2 />} title="Cuenta de LoL no vinculada">
-                Ve a tu <Link to="/dashboard" className="underline">Dashboard</Link> y conecta tu Riot ID
+              <Notice tone="warn" icon={<Link2 size={18} />} title="Cuenta de LoL no vinculada">
+                Ve a tu <Link to="/dashboard">Dashboard</Link> y conecta tu Riot ID
                 antes de inscribirte.
-              </Callout>
+              </Notice>
             )}
 
             {linkedRiotId && (
-              <div className="flex items-center gap-3 rounded-2xl border border-green-500/25 bg-green-500/10 p-3">
-                <Shield className="h-5 w-5 flex-shrink-0 text-green-400" />
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-green-400/80">Tu cuenta (capitán)</p>
-                  <p className="truncate font-mono text-sm text-green-200">{linkedRiotId}</p>
-                </div>
-              </div>
+              <Notice tone="ok" icon={<Shield size={20} />}>
+                <span className="td-over">Tu cuenta (capitán)</span>
+                <p className="tf-account-id">{linkedRiotId}</p>
+              </Notice>
             )}
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label="Nombre del equipo" required>
-                <input value={teamName} onChange={e => setTeamName(e.target.value)} required
-                  placeholder="Ej: Dragones QRO" className={fieldCls} />
+            <div className="tf-grid-2">
+              <Field label="Nombre del equipo" required htmlFor="trm-team">
+                <input id="trm-team" value={teamName} onChange={e => setTeamName(e.target.value)} required
+                  placeholder="Ej: Dragones QRO" className="td-input" autoComplete="off" />
               </Field>
-              <Field label="Contacto" hint="Discord o correo">
-                <input value={contact} onChange={e => setContact(e.target.value)}
-                  placeholder="discord: player#1234" className={fieldCls} />
+              <Field label="Contacto" hint="Discord o correo" htmlFor="trm-contact">
+                <input id="trm-contact" value={contact} onChange={e => setContact(e.target.value)}
+                  placeholder="discord: player#1234" className="td-input" autoComplete="off" />
               </Field>
             </div>
 
-            <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] font-medium text-gray-400">
-                Roster ({players.length}/{maxPlayers}) · {minPlayers === 1 ? 'formato 1v1' : `mínimo ${minPlayers}`}
-              </span>
-              <Button type="button" size="sm" variant="outline"
-                onClick={addPlayer} disabled={players.length >= maxPlayers}
-                className="h-8 text-xs border-white/10 bg-white/[0.04] hover:bg-white/[0.08]">
-                <Plus className="h-3.5 w-3.5 mr-1.5" /> Suplente
-              </Button>
-            </div>
+            <div>
+              <div className="td-sechead tf-sechead">
+                <span className="td-sechead-ico" aria-hidden><Users size={16} /></span>
+                <h3 className="td-sechead-title" style={{ margin: 0 }}>
+                  Roster <span className="td-num" style={{ color: 'var(--td-muted)' }}>({players.length}/{maxPlayers})</span>
+                </h3>
+                <span className="td-help">{minPlayers === 1 ? 'formato 1v1' : `mínimo ${minPlayers}`}</span>
+                <span className="td-sechead-right">
+                  <Button variant="secondary" icon={<Plus size={15} aria-hidden />}
+                    onClick={addPlayer} disabled={players.length >= maxPlayers}>
+                    Suplente
+                  </Button>
+                </span>
+              </div>
 
-            <div className="space-y-3">
-              {players.map((player, i) => (
-                <div key={i} className="p-3 rounded-xl border border-white/[0.06] bg-white/[0.02] space-y-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs font-bold text-gray-400">
-                      {i + 1}
-                    </span>
-                    {i === 0 && (
-                      <span className="text-xs text-yellow-400 flex items-center gap-1">
-                        <Crown className="h-3 w-3" /> Capitán
-                      </span>
-                    )}
-                    {i > 0 && (
-                      <div className="flex gap-1 ml-auto">
-                        <button type="button" onClick={() => setPlayerMode(i, 'riot')}
-                          className={`text-[10px] px-2 py-1 rounded-lg border transition ${
-                            player.mode === 'riot' ? 'bg-white/10 border-white/20 text-white' : 'border-white/5 text-gray-600'
-                          }`}>
-                          Riot ID
-                        </button>
-                        <button type="button" onClick={() => setPlayerMode(i, 'invite')}
-                          className={`text-[10px] px-2 py-1 rounded-lg border transition flex items-center gap-1 ${
-                            player.mode === 'invite' ? 'bg-purple-500/20 border-purple-500/30 text-purple-200' : 'border-white/5 text-gray-600'
-                          }`}>
-                          <Mail className="h-3 w-3" /> Invitar
+              <div className="tf-roster">
+                {players.map((player, i) => (
+                  <div key={i} className="td-sub tf-player">
+                    <div className="tf-player-head">
+                      <span className="ax-pos" aria-hidden>{i + 1}</span>
+                      {i === 0 ? (
+                        <StatusChip kind="gold" dot={false}><Crown size={12} aria-hidden /> Capitán</StatusChip>
+                      ) : (
+                        <span className="td-over">{i < minPlayers ? `Jugador ${i + 1}` : 'Suplente'}</span>
+                      )}
+                      {i > 0 && (
+                        <Seg
+                          fit
+                          ariaLabel={`Cómo añadir al jugador ${i + 1}`}
+                          value={player.mode}
+                          options={[
+                            { value: 'riot', label: 'Riot ID' },
+                            { value: 'invite', label: <><Mail size={14} aria-hidden /> Invitar</> },
+                          ]}
+                          onChange={(mode) => setPlayerMode(i, mode)}
+                        />
+                      )}
+                    </div>
+
+                    <div className="tf-grid-2">
+                      <Field label="Nombre" htmlFor={`trm-p${i}-name`}>
+                        <input id={`trm-p${i}-name`} placeholder={`Nombre del jugador ${i + 1}`} value={player.name}
+                          onChange={e => handlePlayerChange(i, 'name', e.target.value)} required
+                          className="td-input" autoComplete="off" />
+                      </Field>
+
+                      {i === 0 ? (
+                        <Field label="Riot ID" htmlFor="trm-p0-riot">
+                          <input id="trm-p0-riot" value={linkedRiotId || player.riotId} readOnly disabled
+                            className="td-input tf-mono" />
+                        </Field>
+                      ) : player.mode === 'invite' ? (
+                        <Field label="Correo de su cuenta ATAK.GG" htmlFor={`trm-p${i}-mail`}>
+                          <input id={`trm-p${i}-mail`} placeholder="correo@ejemplo.com (cuenta ATAK.GG)" value={player.inviteEmail}
+                            onChange={e => handlePlayerChange(i, 'inviteEmail', e.target.value)} required
+                            type="email" className="td-input" autoComplete="off" />
+                        </Field>
+                      ) : (
+                        <Field label="Riot ID" htmlFor={`trm-p${i}-riot`}>
+                          <input id={`trm-p${i}-riot`} placeholder="Riot ID (Nombre#TAG)" value={player.riotId}
+                            onChange={e => handlePlayerChange(i, 'riotId', e.target.value)} required
+                            className="td-input tf-mono" autoComplete="off" />
+                        </Field>
+                      )}
+                    </div>
+
+                    {/* Con el roster en el mínimo el botón estaría desactivado en cada fila: se oculta. */}
+                    {i > 0 && players.length > minPlayers && (
+                      <div className="tf-player-foot">
+                        <button type="button" onClick={() => removePlayer(i)} disabled={players.length <= minPlayers}
+                          className="tf-linkbtn" data-tone="danger">
+                          <X size={15} aria-hidden /> Quitar suplente
                         </button>
                       </div>
                     )}
                   </div>
-
-                  <input placeholder={`Nombre del jugador ${i + 1}`} value={player.name}
-                    onChange={e => handlePlayerChange(i, 'name', e.target.value)} required
-                    className={fieldCls} />
-
-                  {i === 0 ? (
-                    <input value={linkedRiotId || player.riotId} readOnly disabled
-                      className={`${fieldCls} font-mono opacity-60 cursor-not-allowed`} />
-                  ) : player.mode === 'invite' ? (
-                    <input placeholder="correo@ejemplo.com (cuenta ATAK.GG)" value={player.inviteEmail}
-                      onChange={e => handlePlayerChange(i, 'inviteEmail', e.target.value)} required
-                      type="email" className={fieldCls} />
-                  ) : (
-                    <input placeholder="Riot ID (Nombre#TAG)" value={player.riotId}
-                      onChange={e => handlePlayerChange(i, 'riotId', e.target.value)} required
-                      className={`${fieldCls} font-mono`} />
-                  )}
-
-                  {i > 0 && (
-                    <button type="button" onClick={() => removePlayer(i)} disabled={players.length <= minPlayers}
-                      className="text-xs text-gray-600 hover:text-red-400 transition disabled:opacity-20 flex items-center gap-1">
-                      <X className="h-3 w-3" /> Quitar suplente
-                    </button>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
 
+            </div>
           </AtakModalBody>
 
           <AtakModalFooter>
-            <div className="flex items-center justify-between gap-3">
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={loading}
-                className="text-gray-400 hover:text-white">
+            <div className="tf-foot-row">
+              <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={loading}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={loading || !isAuthenticated || !linkedRiotId}
-                className="gradient-red min-w-36 border-0 hover:opacity-90">
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+              <Button type="submit" variant="primary" disabled={loading || !isAuthenticated || !linkedRiotId}
+                icon={loading
+                  ? <Loader2 size={16} className="tf-spin" aria-hidden />
+                  : <Check size={16} aria-hidden />}>
                 {loading ? 'Enviando…' : 'Inscribirse'}
               </Button>
             </div>

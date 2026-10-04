@@ -6,7 +6,7 @@ import { CSSProperties, ReactNode, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  X, Users, Swords, BarChart3, ArrowUpRight, Crown, Eye, Coins, Target, Flame, Zap } from 'lucide-react';
+  X, Users, Swords, BarChart3, ArrowUpRight, Crown, Eye, Target, Flame, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBracket, type BracketMatch, type Registration } from '@/hooks/queries/tournaments';
 import { discoveryToast } from '@/hooks/useTournamentDiscovery';
@@ -16,8 +16,9 @@ import type { PlayerAggregate } from '@/types/tournament-global-stats';
 import { StatusChip, TeamBadge, ProgressBar } from '@/components/tournament/ui';
 import { useProfileIcons, iconFor } from '@/hooks/useProfileIcons';
 import { dd } from '@/lib/dataDragon';
-
-const RED = 'var(--td-red)';
+// De primitives y no del barril: el barril arrastra Champion3D (three.js).
+import { StatIcon, UiIcon } from '@/components/arena/primitives';
+import '@/styles/pages/tournament-forms.css';
 
 const norm = (s: string) => (s || '').toLowerCase().replace(/\s+/g, '');
 
@@ -51,11 +52,11 @@ function Kpi({ label, value, sub, color = '#fff', icon }: {
 }) {
   return (
     <div className="td-sub" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
-      {icon && <span className="td-ico" style={{ width: 30, height: 30, borderRadius: 9 }}>{icon}</span>}
+      {icon && <span className="td-ico" style={{ width: 32, height: 32 }}>{icon}</span>}
       <div style={{ minWidth: 0 }}>
         <div className="td-over" style={{ marginBottom: 3 }}>{label}</div>
-        <div className="td-num" style={{ fontSize: 18, fontWeight: 700, color, lineHeight: 1.1, whiteSpace: 'nowrap' }}>{value}</div>
-        {sub && <div style={{ fontSize: 10.5, color: 'var(--td-muted)', marginTop: 2 }}>{sub}</div>}
+        <div className="td-tile-value" style={{ color }}>{value}</div>
+        {sub && <div style={{ fontSize: 12.5, color: 'var(--td-text-2)', marginTop: 2 }}>{sub}</div>}
       </div>
     </div>
   );
@@ -63,14 +64,14 @@ function Kpi({ label, value, sub, color = '#fff', icon }: {
 
 function MiniStat({ label, value, color = 'var(--td-text)' }: { label: string; value: ReactNode; color?: string }) {
   return (
-    <div className="td-sub" style={{ padding: '9px 11px' }}>
-      <div className="td-over" style={{ fontSize: 8.5, marginBottom: 3 }}>{label}</div>
-      <div className="td-num" style={{ fontSize: 14.5, fontWeight: 700, color }}>{value}</div>
+    <div className="td-sub" style={{ padding: '10px 12px', minWidth: 0 }}>
+      <div className="td-over" style={{ marginBottom: 3 }}>{label}</div>
+      <div className="td-num" style={{ fontSize: 16, fontWeight: 700, color }}>{value}</div>
     </div>
   );
 }
 
-const kdaColor = (k: number) => (k >= 4 ? '#fde047' : k >= 2.5 ? 'var(--td-green)' : 'var(--td-text)');
+const kdaColor = (k: number) => (k >= 4 ? 'var(--td-gold-bright)' : k >= 2.5 ? 'var(--td-green)' : 'var(--td-text)');
 
 // ── Modal ────────────────────────────────────────────────────────────────────
 export function TournamentTeamModal({ tournamentId, region, reg, standing, onClose }: TournamentTeamModalProps) {
@@ -208,9 +209,9 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
             <TeamBadge name={reg.teamName} size={42} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--td-text)' }}>{reg.teamName}</span>
+                <h2 className="ax-h3" style={{ color: 'var(--td-text)', overflowWrap: 'anywhere' }}>{reg.teamName}</h2>
                 {standing && (
-                  <span className="td-num" style={{ fontSize: 12, fontWeight: 700, color: standing.position === 1 ? '#fde047' : 'var(--td-text-2)' }}>
+                  <span className="td-num" style={{ fontSize: 14, fontWeight: 700, color: standing.position === 1 ? 'var(--td-gold-bright)' : 'var(--td-text-2)' }}>
                     #{standing.position} · {standing.points} pts
                   </span>
                 )}
@@ -218,17 +219,16 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
                   ? <StatusChip kind="pos" dot={false}>LISTO</StatusChip>
                   : <StatusChip kind="dim" dot={false}>SIN CHECK-IN</StatusChip>}
               </div>
-              <div style={{ fontSize: 11.5, color: 'var(--td-muted)', marginTop: 2 }}>
+              <div style={{ fontSize: 13.5, color: 'var(--td-text-2)', marginTop: 3 }}>
                 Capitán · {reg.captainRiotId || '—'}
               </div>
             </div>
             <button
               onClick={onClose}
               aria-label="Cerrar"
-              className="td-ico"
-              style={{ cursor: 'pointer', border: 'none', color: 'var(--td-text-2)' }}
+              className="tf-iconbtn"
             >
-              <X size={16} />
+              <X size={18} />
             </button>
           </div>
 
@@ -237,27 +237,27 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
             <div className="td-team-kpis">
               <Kpi
                 label="WINRATE JUNTOS"
-                icon={<Target size={15} />}
+                icon={<Target size={16} />}
                 value={wrTogether != null ? `${wrTogether}%` : '—'}
                 color={wrTogether == null ? 'var(--td-muted)' : wrTogether >= 50 ? 'var(--td-green)' : 'var(--td-neg)'}
                 sub={done.length ? `${seriesWins}W – ${done.length - seriesWins}L en series` : 'sin partidas aún'}
               />
               <Kpi
                 label="MAPAS"
-                icon={<Swords size={15} />}
+                icon={<Swords size={16} />}
                 value={done.length ? `${mapsFor} – ${mapsAgainst}` : '—'}
                 sub="ganados – perdidos"
               />
               <Kpi
                 label="KDA EQUIPO"
-                icon={<BarChart3 size={15} />}
+                icon={<BarChart3 size={16} />}
                 value={teamAgg ? teamAgg.kda.toFixed(2) : '—'}
                 color={teamAgg ? kdaColor(teamAgg.kda) : 'var(--td-muted)'}
                 sub={teamAgg ? `${teamAgg.kills} kills totales` : 'sin datos'}
               />
               <Kpi
                 label="RACHA"
-                icon={<Flame size={15} />}
+                icon={<Flame size={16} />}
                 value={standing?.streak ? `${standing.streak.count}${standing.streak.type}` : '—'}
                 color={standing?.streak?.type === 'W' ? 'var(--td-green)' : standing?.streak?.type === 'L' ? 'var(--td-neg)' : 'var(--td-muted)'}
                 sub={standing?.streak?.type === 'W' ? 'victorias seguidas' : standing?.streak?.type === 'L' ? 'derrotas seguidas' : 'sin racha'}
@@ -266,37 +266,38 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
 
             {/* ── Análisis del equipo ── */}
             {teamAgg && (
-              <div className="td-sub" style={{ padding: '13px 15px' }}>
-                <div className="td-over" style={{ marginBottom: 9 }}>ANÁLISIS DEL EQUIPO</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--td-text-2)' }}>
-                    <Crown size={13} color="#fde047" />
+              <div className="td-sub" style={{ padding: '14px 16px' }}>
+                <div className="td-over" style={{ marginBottom: 10 }}>ANÁLISIS DEL EQUIPO</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px', alignItems: 'center' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 14, color: 'var(--td-text-2)' }}>
+                    <Crown size={15} color="var(--td-gold-bright)" aria-hidden />
                     Carry: <strong style={{ color: 'var(--td-text)' }}>{teamAgg.best.summonerName}</strong>
                     <span className="td-num" style={{ color: kdaColor(teamAgg.best.avgKda) }}>{teamAgg.best.avgKda.toFixed(2)} KDA</span>
                   </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--td-text-2)' }}>
-                    <Flame size={13} color={RED as string} /> {teamAgg.dpm} daño/min medio
+                  {/* Iconos del propio juego para daño y oro: son los que el jugador ya conoce. */}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 14, color: 'var(--td-text-2)' }}>
+                    <StatIcon stat="attack_damage" size={16} /> {teamAgg.dpm} daño/min medio
                   </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--td-text-2)' }}>
-                    <Coins size={13} color="#fde047" /> {teamAgg.gpm} oro/min
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 14, color: 'var(--td-text-2)' }}>
+                    <UiIcon name="gold" size={16} /> {teamAgg.gpm} oro/min
                   </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--td-text-2)' }}>
-                    <Eye size={13} color="#60a5fa" /> {teamAgg.vpm} visión/min
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 14, color: 'var(--td-text-2)' }}>
+                    <Eye size={15} color="var(--td-muted)" aria-hidden /> {teamAgg.vpm} visión/min
                   </span>
                   {teamAgg.multikills > 0 && (
-                    <span style={{ fontSize: 12.5, color: 'var(--td-text-2)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Zap size={12} aria-hidden />{teamAgg.multikills} multikills</span>
+                    <span style={{ fontSize: 14, color: 'var(--td-text-2)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Zap size={15} color="var(--td-muted)" aria-hidden />{teamAgg.multikills} multikills</span>
                   )}
                 </div>
                 {teamAgg.pool.length > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 11, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
                     <span className="td-over" style={{ marginRight: 3 }}>POOL</span>
                     {teamAgg.pool.slice(0, 12).map((c) => (
-                      <img key={c} src={dd.champion(c)} alt={c} title={c} loading="lazy"
-                        style={{ width: 26, height: 26, borderRadius: 7, objectFit: 'cover' }}
+                      <img key={c} src={dd.champion(c)} alt={c} title={c} loading="lazy" width={28} height={28}
+                        style={{ width: 28, height: 28, borderRadius: 'var(--td-r-chip)', objectFit: 'cover' }}
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                     ))}
                     {teamAgg.pool.length > 12 && (
-                      <span style={{ fontSize: 11, color: 'var(--td-muted)' }}>+{teamAgg.pool.length - 12}</span>
+                      <span className="td-num" style={{ fontSize: 13, color: 'var(--td-text-2)' }}>+{teamAgg.pool.length - 12}</span>
                     )}
                   </div>
                 )}
@@ -304,10 +305,10 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
             )}
 
             {/* ── Roster + detalle del jugador ── */}
-            <div className="td-team-cols">
+            <div className="td-team-cols tf-team-cols">
               <div>
-                <div className="td-over" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Users size={11} /> ROSTER · CLIC PARA ANALIZAR
+                <div className="td-over" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <Users size={14} aria-hidden /> ROSTER · CLIC PARA ANALIZAR
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {roster.map((r, i) => {
@@ -316,12 +317,13 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
                       <button
                         key={r.key || i}
                         onClick={() => setSelected(r.key)}
+                        aria-pressed={active}
                         className="td-sub"
                         style={{
-                          display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
+                          display: 'flex', alignItems: 'center', gap: 11, padding: '8px 12px', minHeight: 52,
                           cursor: 'pointer', textAlign: 'left', width: '100%',
-                          borderColor: active ? 'var(--td-red-glow)' : undefined,
-                          background: active ? 'rgba(232,50,60,0.07)' : undefined,
+                          borderColor: active ? 'var(--td-red)' : undefined,
+                          background: active ? 'var(--td-red-wash)' : undefined,
                           transition: 'border-color .15s, background .15s',
                         }}
                       >
@@ -331,35 +333,35 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
                           if (pIcon) {
                             return (
                               <img src={dd.profileIcon(pIcon)} alt="" loading="lazy"
-                                style={{ width: 30, height: 30, borderRadius: 8, objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 0 1px var(--td-border-hov)' }}
+                                style={{ width: 34, height: 34, borderRadius: 'var(--td-r-ctl)', objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 0 1px var(--td-border-hov)' }}
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
                             );
                           }
                           if (r.agg?.mostPlayedChamp) {
                             return (
                               <img src={dd.champion(r.agg.mostPlayedChamp)} alt="" loading="lazy"
-                                style={{ width: 30, height: 30, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
+                                style={{ width: 34, height: 34, borderRadius: 'var(--td-r-ctl)', objectFit: 'cover', flexShrink: 0 }}
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
                             );
                           }
-                          return <TeamBadge name={r.display} size={30} />;
+                          return <TeamBadge name={r.display} size={34} />;
                         })()}
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{
-                            fontSize: 12.5, fontWeight: 600,
+                            fontSize: 14.5, fontWeight: 600,
                             color: r.pending ? 'var(--td-muted)' : 'var(--td-text)',
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           }}>
                             {r.display}
                           </div>
-                          <div style={{ fontSize: 10.5, color: 'var(--td-muted)' }}>
+                          <div style={{ fontSize: 12.5, color: 'var(--td-text-2)' }}>
                             {r.agg
                               ? `${r.agg.gamesPlayed} PJ · ${r.agg.winrate}% WR`
                               : r.pending ? 'invitación pendiente' : 'sin partidas en el torneo'}
                           </div>
                         </div>
                         {r.agg && (
-                          <span className="td-num" style={{ fontSize: 12.5, fontWeight: 700, color: kdaColor(r.agg.avgKda), flexShrink: 0 }}>
+                          <span className="td-num" style={{ fontSize: 15, fontWeight: 700, color: kdaColor(r.agg.avgKda), flexShrink: 0 }}>
                             {r.agg.avgKda.toFixed(2)}
                           </span>
                         )}
@@ -367,7 +369,7 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
                     );
                   })}
                   {!roster.length && (
-                    <div style={{ padding: 16, fontSize: 12.5, color: 'var(--td-muted)', textAlign: 'center' }}>
+                    <div style={{ padding: 16, fontSize: 14, color: 'var(--td-text-2)', textAlign: 'center' }}>
                       Sin jugadores registrados
                     </div>
                   )}
@@ -378,20 +380,20 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
               <div>
                 <div className="td-over" style={{ marginBottom: 8 }}>ANÁLISIS DEL JUGADOR</div>
                 {sel && selAgg ? (
-                  <div className="td-sub" style={{ padding: 15 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 13 }}>
-                      <img src={dd.champion(selAgg.mostPlayedChamp || 'Garen')} alt="" loading="lazy"
-                        style={{ width: 44, height: 44, borderRadius: 11, objectFit: 'cover' }}
+                  <div className="td-sub" style={{ padding: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                      <img src={dd.champion(selAgg.mostPlayedChamp || 'Garen')} alt="" loading="lazy" width={46} height={46}
+                        style={{ width: 46, height: 46, borderRadius: 'var(--td-r-ctl)', objectFit: 'cover' }}
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {sel.display}
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--td-muted)' }}>
+                        <div style={{ fontSize: 13, color: 'var(--td-text-2)' }}>
                           {selAgg.gamesPlayed} partidas · main {selAgg.mostPlayedChamp}
                         </div>
                       </div>
-                      <span className="td-num" style={{ fontSize: 21, fontWeight: 800, color: kdaColor(selAgg.avgKda) }}>
+                      <span title="KDA" style={{ fontFamily: 'var(--td-font-display)', fontSize: 30, fontWeight: 700, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: kdaColor(selAgg.avgKda) }}>
                         {selAgg.avgKda.toFixed(2)}
                       </span>
                     </div>
@@ -399,9 +401,9 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
                     {/* Winrate */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 13 }}>
                       <span className="td-over" style={{ flexShrink: 0 }}>WR</span>
-                      <div style={{ flex: 1 }}><ProgressBar kind="wr" pct={selAgg.winrate} height={5} /></div>
+                      <div style={{ flex: 1 }}><ProgressBar kind="wr" pct={selAgg.winrate} height={6} /></div>
                       <span className="td-num" style={{
-                        fontSize: 12.5, fontWeight: 700, flexShrink: 0,
+                        fontSize: 14, fontWeight: 700, flexShrink: 0,
                         color: selAgg.winrate >= 50 ? 'var(--td-green)' : 'var(--td-neg)',
                       }}>
                         {selAgg.winrate}% · {selAgg.wins}W {selAgg.losses}L
@@ -410,10 +412,10 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
 
                     <div className="td-team-ministats">
                       <MiniStat label="K / D / A" value={`${selAgg.totalKills} / ${selAgg.totalDeaths} / ${selAgg.totalAssists}`} />
-                      <MiniStat label="DAÑO/MIN" value={Math.round(selAgg.avgDamagePerMin)} color="#f87171" />
-                      <MiniStat label="ORO/MIN" value={Math.round(selAgg.avgGoldPerMin)} color="#fde047" />
+                      <MiniStat label="DAÑO/MIN" value={Math.round(selAgg.avgDamagePerMin)} />
+                      <MiniStat label="ORO/MIN" value={Math.round(selAgg.avgGoldPerMin)} />
                       <MiniStat label="CS/MIN" value={selAgg.avgCsPerMin.toFixed(1)} />
-                      <MiniStat label="VISIÓN/MIN" value={selAgg.avgVisionPerMin.toFixed(2)} color="#60a5fa" />
+                      <MiniStat label="VISIÓN/MIN" value={selAgg.avgVisionPerMin.toFixed(2)} />
                       <MiniStat
                         label="MULTIKILLS"
                         value={
@@ -422,16 +424,16 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
                           selAgg.tripleKills > 0 ? `${selAgg.tripleKills} TRIPLE` :
                           selAgg.doubleKills > 0 ? `${selAgg.doubleKills} DOBLE` : '—'
                         }
-                        color={selAgg.pentaKills > 0 ? '#fde047' : 'var(--td-text)'}
+                        color={selAgg.pentaKills > 0 ? 'var(--td-gold-bright)' : 'var(--td-text)'}
                       />
                     </div>
 
                     {selAgg.championPool.length > 0 && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 13, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
                         <span className="td-over" style={{ marginRight: 3 }}>CAMPEONES</span>
                         {selAgg.championPool.slice(0, 8).map((c) => (
-                          <img key={c} src={dd.champion(c)} alt={c} title={c} loading="lazy"
-                            style={{ width: 26, height: 26, borderRadius: 7, objectFit: 'cover' }}
+                          <img key={c} src={dd.champion(c)} alt={c} title={c} loading="lazy" width={28} height={28}
+                            style={{ width: 28, height: 28, borderRadius: 'var(--td-r-chip)', objectFit: 'cover' }}
                             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                         ))}
                       </div>
@@ -441,17 +443,15 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
                       <a
                         href={profileHref}
                         target="_blank" rel="noopener noreferrer"
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 14,
-                          fontSize: 12.5, fontWeight: 700, color: RED as string, textDecoration: 'none',
-                        }}
+                        className="ax-link"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, minHeight: 44, fontSize: 14.5 }}
                       >
-                        Perfil completo en ATAK <ArrowUpRight size={14} />
+                        Perfil completo en ATAK <ArrowUpRight size={16} aria-hidden />
                       </a>
                     )}
                   </div>
                 ) : (
-                  <div className="td-sub" style={{ padding: 22, textAlign: 'center', fontSize: 12.5, color: 'var(--td-muted)' }}>
+                  <div className="td-sub" style={{ padding: 22, textAlign: 'center', fontSize: 14, color: 'var(--td-text-2)' }}>
                     {sel
                       ? gs
                         ? 'Sin stats de torneo'
@@ -473,11 +473,11 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
 
             {/* ── Historial de partidas del equipo ── */}
             <div>
-              <div className="td-over" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Swords size={11} /> PARTIDAS DEL EQUIPO
+              <div className="td-over" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 7 }}>
+                <Swords size={14} aria-hidden /> PARTIDAS DEL EQUIPO
               </div>
               {!teamMatches.length ? (
-                <div className="td-sub" style={{ padding: 18, textAlign: 'center', fontSize: 12.5, color: 'var(--td-muted)' }}>
+                <div className="td-sub" style={{ padding: 18, textAlign: 'center', fontSize: 14, color: 'var(--td-text-2)' }}>
                   Aún no tiene partidas asignadas — aparecen al generarse el bracket
                 </div>
               ) : (
@@ -489,22 +489,20 @@ export function TournamentTeamModal({ tournamentId, region, reg, standing, onClo
                     const won = m.matchStatus === 'complete' && m.winner === reg.teamName;
                     const lost = m.matchStatus === 'complete' && !!m.winner && m.winner !== reg.teamName;
                     return (
-                      <div key={m.id} className="td-sub" style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 13px' }}>
-                        <span className="td-num" style={{
-                          width: 26, height: 26, borderRadius: 8, flexShrink: 0,
-                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 11.5, fontWeight: 800,
-                          background: won ? 'rgba(74,222,128,0.13)' : lost ? 'rgba(232,50,60,0.13)' : 'var(--td-sunken)',
+                      <div key={m.id} className="td-sub" style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '8px 13px', minHeight: 46 }}>
+                        <span className="ax-pos" style={{
+                          flexShrink: 0,
+                          background: won ? 'color-mix(in srgb, var(--td-green) 16%, transparent)' : lost ? 'color-mix(in srgb, var(--td-neg) 16%, transparent)' : 'var(--td-sunken)',
                           color: won ? 'var(--td-green)' : lost ? 'var(--td-neg)' : 'var(--td-muted)',
                         }}>
                           {won ? 'W' : lost ? 'L' : '·'}
                         </span>
-                        <TeamBadge name={rivalName ?? undefined} size={24} />
-                        <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <TeamBadge name={rivalName ?? undefined} size={26} />
+                        <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 600, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           vs {rivalName ?? 'Por definir'}
                         </span>
-                        <span style={{ fontSize: 10.5, color: 'var(--td-muted)', flexShrink: 0 }}>{rlabel(m)}</span>
-                        <span className="td-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--td-text)', flexShrink: 0, minWidth: 44, textAlign: 'right' }}>
+                        <span style={{ fontSize: 12.5, color: 'var(--td-text-2)', flexShrink: 0 }}>{rlabel(m)}</span>
+                        <span className="td-num" style={{ fontSize: 15, fontWeight: 700, color: 'var(--td-text)', flexShrink: 0, minWidth: 48, textAlign: 'right' }}>
                           {m.matchStatus === 'complete' ? `${myScore ?? 0} – ${theirScore ?? 0}`
                             : m.matchStatus === 'active' ? 'JUGANDO' : '—'}
                         </span>

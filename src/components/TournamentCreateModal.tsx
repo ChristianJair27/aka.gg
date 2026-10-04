@@ -14,18 +14,17 @@
 // ladder por ventana de tiempo, y por eso oculta bracket, series y códigos.
 import { useEffect, useMemo, useState } from 'react';
 import {
-  CalendarClock, Check, ChevronLeft, ChevronRight, Globe, Loader2, Lock,
-  Mountain, Shuffle, Snowflake, Swords, Trophy, Users, Zap,
+  CalendarClock, ChevronLeft, ChevronRight, Globe, Loader2, Lock,
+  Shuffle, Swords, Trophy, Users, Zap,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import {
-  AtakModal, AtakModalBody, AtakModalContent, AtakModalFooter, AtakModalHeader,
+  AtakModal, AtakModalBody, AtakModalContent, AtakModalFooter,
 } from '@/components/ui/atak-modal';
-import { Callout, Field, OptionCard, PillGroup, fieldCls } from '@/components/ui/form-bits';
+import { Button } from '@/components/tournament/ui';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+  ARENA_MODAL, Field, MapPicker, ModalHead, Notice, OptionTile, Seg,
+  type GameMap, type MapOption,
+} from '@/components/tournament/forms';
 import { StepRail, type Step } from '@/components/tournament/create/StepRail';
 import { TournamentPreviewCard } from '@/components/tournament/create/TournamentPreviewCard';
 import { CodesPanel } from '@/components/tournament/create/CodesPanel';
@@ -45,12 +44,23 @@ interface TournamentCreateModalProps {
   }>;
 }
 
-type GameMap = 'SR' | 'ARAM' | 'ARENA';
+// El arte de cada tarjeta sale del propio mapa (ver MapPicker → lol.map).
+const MAPS: MapOption[] = [
+  { key: 'SR', label: 'La Grieta', sub: 'Códigos oficiales de Riot' },
+  { key: 'ARAM', label: 'ARAM', sub: 'Abismo de los Lamentos' },
+  { key: 'ARENA', label: 'Arena', sub: 'Ladder 2v2 por puntos' },
+];
 
-const MAPS: Array<{ key: GameMap; label: string; sub: string; Icon: typeof Mountain }> = [
-  { key: 'SR', label: 'La Grieta', sub: 'Códigos oficiales de Riot', Icon: Mountain },
-  { key: 'ARAM', label: 'ARAM', sub: 'Abismo de los Lamentos', Icon: Snowflake },
-  { key: 'ARENA', label: 'Arena', sub: 'Ladder 2v2 por puntos', Icon: Swords },
+const BRACKETS = [
+  { value: 'single_elim', label: 'Eliminación directa' },
+  { value: 'round_robin', label: 'Liga (round robin)' },
+  { value: 'swiss', label: 'Suizo' },
+];
+
+const SERIES = [
+  { value: '1', label: 'Bo1' },
+  { value: '2', label: 'Bo3' },
+  { value: '2f3', label: 'Bo3 · Final Bo5' },
 ];
 
 // 'auto' deja que el backend elija: ARAM → ALL_RANDOM, 5v5 → TOURNAMENT_DRAFT,
@@ -196,12 +206,13 @@ export const TournamentCreateModal = ({ open, onOpenChange, onCreated, initial }
 
   return (
     <AtakModal open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
-      <AtakModalContent size={result ? 'md' : 'xl'} tone={result ? 'green' : 'red'} closeDisabled={loading}>
-        <AtakModalHeader
-          tone={result ? 'green' : 'red'}
-          icon={result ? <Check className="h-5 w-5" /> : <Trophy className="h-5 w-5" />}
-          eyebrow={result ? 'Listo' : `Paso ${step + 1} de ${STEPS.length}`}
-          title={result ? 'Torneo creado' : 'Crear nuevo torneo'}
+      <AtakModalContent
+        size={result ? 'md' : 'xl'} tone={result ? 'green' : 'red'} closeDisabled={loading}
+        className={ARENA_MODAL}
+      >
+        <ModalHead
+          kicker={result ? 'Listo' : `Paso ${step + 1} de ${STEPS.length}`}
+          title={result ? <>Torneo <em>creado</em></> : <>Crear nuevo <em>torneo</em></>}
           description={
             result
               ? 'Reparte los códigos y abre las inscripciones.'
@@ -211,7 +222,7 @@ export const TournamentCreateModal = ({ open, onOpenChange, onCreated, initial }
           {!result && (
             <StepRail steps={STEPS} current={step} maxReached={maxReached} onJump={goTo} />
           )}
-        </AtakModalHeader>
+        </ModalHead>
 
         {result ? (
           <>
@@ -224,62 +235,65 @@ export const TournamentCreateModal = ({ open, onOpenChange, onCreated, initial }
               />
             </AtakModalBody>
             <AtakModalFooter>
-              <Button onClick={handleClose} className="gradient-red w-full border-0 hover:opacity-90">
-                Cerrar
-              </Button>
+              <Button variant="primary" full onClick={handleClose}>Cerrar</Button>
             </AtakModalFooter>
           </>
         ) : (
           <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
             <AtakModalBody>
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
-                <div className="min-w-0 space-y-5">
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+                <div className="tf-form">
                   {/* ───────────── Paso 1 · Identidad ───────────── */}
                   {step === 0 && (
                     <>
-                      <Field label="Nombre del torneo" required error={nameError}>
+                      <Field label="Nombre del torneo" required error={nameError} htmlFor="tcm-name">
                         <input
+                          id="tcm-name"
                           autoFocus
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           placeholder="Ej: LQC Split Verano 2026"
-                          className={fieldCls}
+                          className="td-input"
+                          aria-invalid={nameError ? true : undefined}
+                          autoComplete="off"
                         />
                       </Field>
 
-                      <Field label="Premio" hint="Opcional">
+                      <Field label="Premio" hint="Opcional" htmlFor="tcm-prize">
                         <input
+                          id="tcm-prize"
                           value={prize}
                           onChange={(e) => setPrize(e.target.value)}
                           placeholder="Ej: $10,000 MXN"
-                          className={fieldCls}
+                          className="td-input"
+                          autoComplete="off"
                         />
                       </Field>
 
-                      <Field label="Descripción" hint="Aparece en la ficha del torneo">
-                        <Textarea
+                      <Field label="Descripción" hint="Aparece en la ficha del torneo" htmlFor="tcm-desc">
+                        <textarea
+                          id="tcm-desc"
                           value={description}
                           onChange={(e) => setDescription(e.target.value)}
                           placeholder="Reglas rápidas, sede, horarios, contacto…"
                           rows={3}
-                          className="resize-none rounded-xl border-white/[0.08] bg-white/[0.05] focus-visible:border-red-500/50"
+                          className="td-textarea"
                         />
                       </Field>
 
                       <Field label="Visibilidad">
-                        <div className="grid grid-cols-2 gap-2">
-                          <OptionCard
-                            icon={<Globe />}
+                        <div className="tf-opts" role="group" aria-label="Visibilidad">
+                          <OptionTile
+                            icon={<Globe size={18} />}
                             title="Público"
                             sub="Visible en la lista — cualquiera se inscribe"
                             active={!isPrivate}
                             onClick={() => setIsPrivate(false)}
                           />
-                          <OptionCard
-                            icon={<Lock />}
+                          <OptionTile
+                            icon={<Lock size={18} />}
                             title="Privado"
                             sub="Solo por invitación — tú invitas por correo"
-                            tone="gold"
                             active={isPrivate}
                             onClick={() => setIsPrivate(true)}
                           />
@@ -292,25 +306,15 @@ export const TournamentCreateModal = ({ open, onOpenChange, onCreated, initial }
                   {step === 1 && (
                     <>
                       <Field label="Mapa y modo">
-                        <div className="grid grid-cols-3 gap-2">
-                          {MAPS.map(({ key, label, sub, Icon }) => (
-                            <OptionCard
-                              key={key}
-                              icon={<Icon />}
-                              title={label}
-                              sub={sub}
-                              active={gameMap === key}
-                              onClick={() => setGameMap(key)}
-                            />
-                          ))}
-                        </div>
+                        <MapPicker value={gameMap} onChange={setGameMap} options={MAPS} size="lg" />
                       </Field>
 
                       <Field
                         label="Tamaño de equipo"
                         hint={isArena ? 'Arena siempre es en duplas' : undefined}
                       >
-                        <PillGroup
+                        <Seg
+                          ariaLabel="Tamaño de equipo"
                           value={effTeamSize}
                           options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: `${n}v${n}` }))}
                           disabledOf={(n) => isArena && n !== 2}
@@ -320,101 +324,84 @@ export const TournamentCreateModal = ({ open, onOpenChange, onCreated, initial }
 
                       {isArena ? (
                         <>
-                          <Field label="Duración de la ventana" hint="Desde la hora de inicio">
-                            <Select value={durationHours} onValueChange={setDurationHours}>
-                              <SelectTrigger className="h-[42px] rounded-xl border-white/[0.08] bg-white/[0.05]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {[2, 3, 4, 6, 12, 24].map((h) => (
-                                  <SelectItem key={h} value={String(h)}>{h} horas</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                          <Field label="Duración de la ventana" hint="Desde la hora de inicio" htmlFor="tcm-duration">
+                            <select
+                              id="tcm-duration"
+                              value={durationHours}
+                              onChange={(e) => setDurationHours(e.target.value)}
+                              className="td-select tf-select"
+                            >
+                              {[2, 3, 4, 6, 12, 24].map((h) => (
+                                <option key={h} value={String(h)}>{h} horas</option>
+                              ))}
+                            </select>
                           </Field>
 
-                          <Callout tone="warn" icon={<Swords />} title="Modo ladder (sin códigos)">
+                          <Notice tone="warn" icon={<Swords size={18} />} title="Modo ladder (sin códigos)">
                             Arena no permite lobbies personalizados. Las duplas inscritas juegan
                             Arena normal durante la ventana y el sistema puntúa sus placements
                             automáticamente: cuentan sus 5 mejores partidas.
-                          </Callout>
+                          </Notice>
                         </>
                       ) : (
                         <>
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <Field label="Bracket">
-                              <Select value={bracketType} onValueChange={setBracketType}>
-                                <SelectTrigger className="h-[42px] rounded-xl border-white/[0.08] bg-white/[0.05]">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="single_elim">Eliminación directa</SelectItem>
-                                  <SelectItem value="round_robin">Liga (round robin)</SelectItem>
-                                  <SelectItem value="swiss">Suizo</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </Field>
+                          <Field label="Bracket">
+                            <Seg<string>
+                              ariaLabel="Bracket"
+                              value={bracketType}
+                              options={BRACKETS}
+                              onChange={setBracketType}
+                            />
+                          </Field>
 
-                            <Field label="Series">
-                              <Select value={seriesTo} onValueChange={setSeriesTo}>
-                                <SelectTrigger className="h-[42px] rounded-xl border-white/[0.08] bg-white/[0.05]">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="1">Bo1</SelectItem>
-                                  <SelectItem value="2">Bo3</SelectItem>
-                                  <SelectItem value="2f3">Bo3 · Final Bo5</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </Field>
+                          <Field label="Series">
+                            <Seg<string>
+                              ariaLabel="Series por enfrentamiento"
+                              value={seriesTo}
+                              options={SERIES}
+                              onChange={setSeriesTo}
+                            />
+                          </Field>
 
-                            {bracketType === 'swiss' && (
-                              <Field
-                                label="Piloto automático"
-                                hint="Rondas suizas"
-                                className="sm:col-span-2"
+                          {bracketType === 'swiss' && (
+                            <Field label="Piloto automático" hint="Rondas suizas" htmlFor="tcm-swiss">
+                              <select
+                                id="tcm-swiss"
+                                value={swissRounds}
+                                onChange={(e) => setSwissRounds(e.target.value)}
+                                className="td-select tf-select"
                               >
-                                <Select value={swissRounds} onValueChange={setSwissRounds}>
-                                  <SelectTrigger className="h-[42px] rounded-xl border-white/[0.08] bg-white/[0.05]">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="0">Manual (botón siguiente ronda)</SelectItem>
-                                    {[3, 4, 5].map((n) => (
-                                      <SelectItem key={n} value={String(n)}>
-                                        {n} rondas · avance automático
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </Field>
-                            )}
+                                <option value="0">Manual (botón siguiente ronda)</option>
+                                {[3, 4, 5].map((n) => (
+                                  <option key={n} value={String(n)}>
+                                    {n} rondas · avance automático
+                                  </option>
+                                ))}
+                              </select>
+                            </Field>
+                          )}
 
-                            <Field
-                              label="Selección de campeones"
-                              hint={gameMap === 'ARAM' ? 'ARAM siempre es aleatorio' : undefined}
-                              className="sm:col-span-2"
+                          <Field
+                            label="Selección de campeones"
+                            hint={gameMap === 'ARAM' ? 'ARAM siempre es aleatorio' : undefined}
+                            htmlFor="tcm-pick"
+                          >
+                            <select
+                              id="tcm-pick"
+                              value={gameMap === 'ARAM' ? 'auto' : pickType}
+                              onChange={(e) => setPickType(e.target.value)}
+                              disabled={gameMap === 'ARAM'}
+                              className="td-select tf-select"
                             >
-                              <Select
-                                value={gameMap === 'ARAM' ? 'auto' : pickType}
-                                onValueChange={setPickType}
-                                disabled={gameMap === 'ARAM'}
-                              >
-                                <SelectTrigger className="h-[42px] rounded-xl border-white/[0.08] bg-white/[0.05]">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {PICK_TYPES.map((p) => (
-                                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </Field>
-                          </div>
+                              {PICK_TYPES.map((p) => (
+                                <option key={p.value} value={p.value}>{p.label}</option>
+                              ))}
+                            </select>
+                          </Field>
 
-                          <Callout
-                            tone={wantsCodes ? 'violet' : 'info'}
-                            icon={wantsCodes ? <Zap /> : <Shuffle />}
+                          <Notice
+                            tone={wantsCodes ? 'gold' : 'info'}
+                            icon={wantsCodes ? <Zap size={18} /> : <Shuffle size={18} />}
                             title={wantsCodes ? 'Torneo oficial de Riot' : 'Sin códigos de Riot'}
                           >
                             {wantsCodes ? (
@@ -429,7 +416,7 @@ export const TournamentCreateModal = ({ open, onOpenChange, onCreated, initial }
                                 detectan por el roster, o los reporta el organizador a mano.
                               </>
                             )}
-                          </Callout>
+                          </Notice>
                         </>
                       )}
                     </>
@@ -438,63 +425,57 @@ export const TournamentCreateModal = ({ open, onOpenChange, onCreated, initial }
                   {/* ───────────── Paso 3 · Agenda ───────────── */}
                   {step === 2 && (
                     <>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <Field label="Fecha de inicio" required error={dateError}>
+                      <div className="tf-grid-2">
+                        <Field label="Fecha de inicio" required error={dateError} htmlFor="tcm-start">
                           <input
+                            id="tcm-start"
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className={`${fieldCls} [color-scheme:dark]`}
+                            className="td-input tf-date"
+                            aria-invalid={dateError ? true : undefined}
                           />
                         </Field>
 
-                        <Field label="Máx. equipos">
-                          <Select value={maxParticipants} onValueChange={setMaxParticipants}>
-                            <SelectTrigger className="h-[42px] rounded-xl border-white/[0.08] bg-white/[0.05]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {[4, 8, 16, 32, 64].map((n) => (
-                                <SelectItem key={n} value={String(n)}>{n} equipos</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </Field>
-
-                        <Field
-                          label="Cierre de check-in"
-                          hint="Opcional"
-                          className="sm:col-span-2"
-                        >
+                        <Field label="Cierre de check-in" hint="Opcional" htmlFor="tcm-checkin">
                           <input
+                            id="tcm-checkin"
                             type="datetime-local"
                             value={checkinDeadline}
                             onChange={(e) => setCheckinDeadline(e.target.value)}
-                            className={`${fieldCls} [color-scheme:dark]`}
+                            className="td-input tf-date"
                           />
                         </Field>
                       </div>
 
-                      <Callout icon={<CalendarClock />} title="Cómo funciona el check-in">
+                      <Field label="Máx. equipos">
+                        <Seg<string>
+                          ariaLabel="Máximo de equipos"
+                          value={maxParticipants}
+                          options={[4, 8, 16, 32, 64].map((n) => ({ value: String(n), label: String(n) }))}
+                          onChange={setMaxParticipants}
+                        />
+                      </Field>
+
+                      <Notice icon={<CalendarClock size={18} />} title="Cómo funciona el check-in">
                         Si pones fecha límite, los equipos tienen que confirmar antes de esa hora o
                         quedan fuera del bracket. Déjalo vacío si vas a confirmar tú a mano.
-                      </Callout>
+                      </Notice>
 
                       {!isArena && (
                         <Field label="Códigos oficiales de Riot">
-                          <div className="grid grid-cols-2 gap-2">
-                            <OptionCard
-                              icon={<Zap />}
+                          <div className="tf-opts" role="group" aria-label="Códigos oficiales de Riot">
+                            <OptionTile
+                              icon={<Zap size={18} />}
                               title="Generar códigos"
                               sub="Lobbies oficiales y resultados automáticos"
                               active={createRiot}
                               onClick={() => setCreateRiot(true)}
                             />
-                            <OptionCard
-                              icon={<Users />}
+                            <OptionTile
+                              icon={<Users size={18} />}
                               title="Sin códigos"
                               sub="Los equipos arman sus partidas"
-                              tone="gold"
                               active={!createRiot}
                               onClick={() => setCreateRiot(false)}
                             />
@@ -506,46 +487,37 @@ export const TournamentCreateModal = ({ open, onOpenChange, onCreated, initial }
                 </div>
 
                 {/* Vista previa pegajosa — en móvil cae debajo del formulario. */}
-                <aside className="lg:sticky lg:top-0 lg:self-start">
+                <aside className="min-w-0 lg:sticky lg:top-0 lg:self-start">
                   <TournamentPreviewCard input={preview} />
                 </aside>
               </div>
             </AtakModalBody>
 
             <AtakModalFooter>
-              <div className="flex items-center justify-between gap-3">
+              <div className="tf-foot-row">
                 <Button
-                  type="button"
-                  variant="ghost"
+                  variant="secondary"
                   onClick={() => (step === 0 ? handleClose() : goTo(step - 1))}
                   disabled={loading}
-                  className="text-gray-400 hover:text-white"
+                  icon={step === 0 ? undefined : <ChevronLeft size={16} aria-hidden />}
                 >
-                  {step === 0 ? 'Cancelar' : <><ChevronLeft className="mr-1 h-4 w-4" /> Atrás</>}
+                  {step === 0 ? 'Cancelar' : 'Atrás'}
                 </Button>
 
                 {step < STEPS.length - 1 ? (
-                  <Button
-                    type="button"
-                    onClick={next}
-                    className="gradient-red min-w-32 border-0 hover:opacity-90"
-                  >
-                    Siguiente <ChevronRight className="ml-1 h-4 w-4" />
+                  <Button variant="primary" onClick={next}>
+                    Siguiente <ChevronRight size={16} aria-hidden />
                   </Button>
                 ) : (
                   <Button
                     type="submit"
+                    variant="primary"
                     disabled={loading}
-                    className="gradient-red min-w-44 border-0 hover:opacity-90"
+                    icon={loading
+                      ? <Loader2 size={16} className="tf-spin" aria-hidden />
+                      : <Trophy size={16} aria-hidden />}
                   >
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {wantsCodes ? 'Creando en Riot…' : 'Creando…'}
-                      </>
-                    ) : (
-                      <><Trophy className="mr-2 h-4 w-4" /> Crear torneo</>
-                    )}
+                    {loading ? (wantsCodes ? 'Creando en Riot…' : 'Creando…') : 'Crear torneo'}
                   </Button>
                 )}
               </div>

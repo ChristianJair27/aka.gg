@@ -11,9 +11,12 @@ import { axiosInstance } from '@/lib/axios';
 import { useChampions, useStaticData } from '@/hooks/use-ddragon';
 import { useResolveRiotId } from '@/hooks/queries/stats';
 import LiveGameVisualizer from '@/components/LiveGameVisualizer';
-import { ScrollVideoBg } from '@/components/ScrollVideoBg';
 import { KataLoaderOverlay } from '@/components/KataLoader';
-import { Radio, ArrowLeft, Link2, Check } from 'lucide-react';
+import { ArenaPage, SplashBackdrop, stagger } from '@/components/arena/primitives';
+import { Button, StatusChip } from '@/components/tournament/ui';
+import type { MapArt } from '@/lib/lolAssets';
+import { Radio, ArrowLeft, ArrowRight, Link2, Check, SearchX, Clock } from 'lucide-react';
+import '@/styles/pages/match.css';
 
 type Platform = 'la1'|'la2'|'na1'|'br1'|'oc1'|'euw1'|'eun1'|'tr1'|'ru'|'jp1'|'kr';
 
@@ -44,8 +47,6 @@ const splitNameTag = (raw?: string) => {
   }
   return { gameName: s, tagLine: '' };
 };
-
-const FONT_COND = "'Saira Condensed', 'Saira', sans-serif";
 
 export default function LiveSpectatePage() {
   const { region, name } = useParams<{ region: string; name: string }>();
@@ -97,83 +98,92 @@ export default function LiveSpectatePage() {
   const forbidden = payload?.forbidden === true;
   const live = payload && !forbidden ? payload : null;
 
+  // Arte de fondo: el mapa de la partida (o la Grieta mientras no hay partida).
+  const mapArt: MapArt = !live ? 'summoners-rift'
+    : (live.gameMode === 'ARAM' || live.gameMode === 'KIWI' || live.queueId === 450 || live.queueId === 2400) ? 'howling-abyss'
+    : (live.gameMode === 'CHERRY' || live.queueId === 1700 || live.queueId === 1710) ? 'shadow-isles'
+    : 'summoners-rift';
+
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0c', color: '#e8e8ea', fontFamily: FONT_COND }}>
-      <ScrollVideoBg />
+    <ArenaPage width="wide" backdrop={<SplashBackdrop map={mapArt} opacity={0.9} position="50% 40%" />}>
       {loading && <KataLoaderOverlay show label="Buscando la partida" />}
 
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: 1180, margin: '0 auto', padding: '92px 18px 80px' }}>
+      <Link to={profileHref} className="mx-back">
+        <ArrowLeft size={16} aria-hidden /> Perfil
+      </Link>
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 26 }}>
-          <Link to={profileHref} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: 'rgba(255,255,255,0.55)', textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>
-            <ArrowLeft size={16} /> Perfil
-          </Link>
-          <h1 style={{ margin: 0, fontSize: 30, fontWeight: 800, color: '#fff' }}>
-            {gameName}
-            <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600, fontSize: 20 }}> #{tagLine}</span>
-          </h1>
-          {live && (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 999,
-              background: 'rgba(225,36,46,0.15)', color: '#ff6b73', fontWeight: 700, fontSize: 13, letterSpacing: 0.6,
-            }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#e1242e', boxShadow: '0 0 10px #e1242e', animation: 'atak-live-dot 1.4s ease-in-out infinite' }} />
-              EN VIVO
-            </span>
-          )}
-          <div style={{ flex: 1 }} />
-          <button onClick={copyLink} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 999,
-            background: 'rgba(255,255,255,0.07)', color: copied ? '#0bc4e3' : 'rgba(255,255,255,0.8)',
-            border: 'none', cursor: 'pointer', fontFamily: FONT_COND, fontWeight: 700, fontSize: 13,
-          }}>
-            {copied ? <Check size={15} /> : <Link2 size={15} />}
-            {copied ? 'Link copiado' : 'Compartir partida'}
-          </button>
-        </div>
-
-        <style>{`@keyframes atak-live-dot { 0%,100%{opacity:1} 50%{opacity:.35} }`}</style>
-
-        {/* Contenido */}
-        {!loading && !live && (
-          <div style={{ textAlign: 'center', padding: '90px 20px' }}>
-            <Radio size={44} style={{ color: 'rgba(255,255,255,0.18)', marginBottom: 18 }} />
-            <div style={{ fontSize: 22, fontWeight: 700, color: 'rgba(255,255,255,0.85)', marginBottom: 8 }}>
-              {resolveQ.isError ? 'No se encontró al invocador'
-                : forbidden ? 'El espectador en vivo llegará muy pronto'
-                : 'No está en partida ahora mismo'}
-            </div>
-            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', marginBottom: 26 }}>
-              {resolveQ.isError
-                ? 'Verifica el Riot ID y la región del link.'
-                : forbidden
-                ? 'Estamos habilitando el acceso al modo espectador con Riot. Mientras tanto puedes ver el perfil completo.'
-                : 'Esta página se actualiza sola cada 30 segundos: déjala abierta y la partida aparecerá al empezar.'}
-            </div>
-            <Link to={profileHref} style={{
-              display: 'inline-block', padding: '11px 22px', borderRadius: 12, background: 'rgba(255,255,255,0.08)',
-              color: '#fff', textDecoration: 'none', fontWeight: 700, fontSize: 14,
-            }}>
-              Ver perfil completo
-            </Link>
+      {/* Cabecera */}
+      <header className="mx-head" data-solo="true">
+        <div style={{ minWidth: 0 }}>
+          <div className="mx-head-row ax-rise">
+            <span className="td-over ax-kicker">Espectador en vivo · {platform.toUpperCase()}</span>
+            {live && <StatusChip kind="live">En vivo</StatusChip>}
           </div>
-        )}
+          <div className="mx-head-row" style={{ justifyContent: 'space-between', alignItems: 'flex-end', gap: '16px 24px' }}>
+            <h1 className="ax-pagehero-title ax-rise" data-size="md" style={stagger(1)}>
+              {gameName}
+              {tagLine && <span className="mx-tag"> #{tagLine}</span>}
+            </h1>
+            <div className="ax-rise" style={stagger(2)}>
+              <Button variant="secondary" onClick={copyLink}
+                icon={copied ? <Check size={15} style={{ color: 'var(--td-green)' }} /> : <Link2 size={15} />}>
+                {copied ? 'Link copiado' : 'Compartir partida'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
 
-        {live && (
-          <LiveGameVisualizer
-            liveGame={live}
-            champs={champs}
-            version={version}
-            runes={staticData.runes}
-            spells={staticData.spells}
-            myRiotId={`${gameName}#${tagLine}`}
-            platform={platform}
-            onRefresh={() => liveQ.refetch()}
-            isRefreshing={liveQ.isFetching}
-          />
-        )}
-      </div>
-    </div>
+      {/* Sin partida: estado claro con salida al perfil */}
+      {!loading && !live && (
+        <div className="ax-empty ax-rise" role="status">
+          {resolveQ.isError
+            ? <SearchX size={44} aria-hidden style={{ color: 'var(--td-muted)' }} />
+            : <Radio size={44} aria-hidden style={{ color: 'var(--td-muted)' }} />}
+          <h3>
+            {resolveQ.isError ? 'No se encontró al invocador'
+              : forbidden ? 'El espectador en vivo llegará muy pronto'
+              : 'No está en partida ahora mismo'}
+          </h3>
+          <p style={{ margin: '0 auto', maxWidth: '56ch' }}>
+            {resolveQ.isError
+              ? 'Verifica el Riot ID y la región del link.'
+              : forbidden
+              ? 'Estamos habilitando el acceso al modo espectador con Riot. Mientras tanto puedes ver el perfil completo.'
+              : 'Esta página se actualiza sola cada 30 segundos: déjala abierta y la partida aparecerá al empezar.'}
+          </p>
+          {!resolveQ.isError && !forbidden && (
+            <div>
+              <span className="mx-empty-note">
+                <span className="mx-dot td-dot-pulse" style={{ ['--c' as string]: 'var(--td-red)' }} aria-hidden />
+                <Clock size={13} aria-hidden /> Buscando partida cada 30 s
+              </span>
+            </div>
+          )}
+          <div className="mx-empty-actions">
+            <Link to={profileHref} className="td-btn td-btn--primary">
+              Ver perfil completo <ArrowRight size={15} aria-hidden />
+            </Link>
+            {resolveQ.isError && (
+              <Link to="/stats" className="td-btn td-btn--secondary">Buscar otro invocador</Link>
+            )}
+          </div>
+        </div>
+      )}
+
+      {live && (
+        <LiveGameVisualizer
+          liveGame={live}
+          champs={champs}
+          version={version}
+          runes={staticData.runes}
+          spells={staticData.spells}
+          myRiotId={`${gameName}#${tagLine}`}
+          platform={platform}
+          onRefresh={() => liveQ.refetch()}
+          isRefreshing={liveQ.isFetching}
+        />
+      )}
+    </ArenaPage>
   );
 }

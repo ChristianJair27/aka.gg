@@ -1,0 +1,249 @@
+/* ============================================================================
+   /dashboard — panel del usuario (sistema "Arena").
+   Piezas propias de la página y de sus paneles (TournamentDashboardPanel,
+   DailySchedulesAdmin). Tokens y primitivas en arena.css.
+   ========================================================================== */
+
+/* ── Héroe ─────────────────────────────────────────────────────────────────── */
+.td-root .db-stage { height: clamp(300px, 30vw, 400px); }
+/* En móvil el modelo no se monta: el splash de fondo ya pone al campeón. */
+@media (max-width: 900px) { .td-root.db-page .ax-pagehero-aside { display: none; } }
+.td-root.db-page a.td-btn { text-decoration: none; }
+
+/* Tira de métricas (ax-bug dentro de un panel) */
+.td-root .db-bug { margin: clamp(24px, 3vw, 36px) 0 0; overflow: hidden; background: var(--td-card); }
+.td-root .db-bug .ax-bug-cell { cursor: default; }
+.td-root .db-bug .ax-bug-value small[data-tone='pos'] { color: var(--td-green); }
+.td-root .db-bug .ax-bug-value small[data-tone='neg'] { color: var(--td-neg); }
+.td-root .db-bug .ax-bug-value small[data-tone='gold'] { color: var(--td-gold); }
+
+/* Pestañas */
+.td-root .db-tabs { margin-top: 16px; }
+@media (max-width: 520px) {
+  .td-root .db-tabs .ax-tab { padding: 0 12px; font-size: 15px; letter-spacing: 0.8px; }
+  .td-root .db-tabs .ax-tab svg { display: none; }
+}
+
+/* Rejilla de 12 columnas de cada sección */
+.td-root .db-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
+.td-root .db-grid > * { min-width: 0; }
+.td-root .db-c4 { grid-column: span 4; }
+.td-root .db-c5 { grid-column: span 5; }
+.td-root .db-c7 { grid-column: span 7; }
+.td-root .db-c8 { grid-column: span 8; }
+.td-root .db-c12 { grid-column: span 12; }
+@media (max-width: 1100px) {
+  .td-root .db-c4, .td-root .db-c5, .td-root .db-c7, .td-root .db-c8 { grid-column: span 12; }
+}
+.td-root .db-card { padding: 20px; }
+@media (max-width: 480px) { .td-root .db-card { padding: 16px; } }
+.td-root .db-muted { margin: 0; font-size: 14.5px; color: var(--td-text-2); }
+
+/* ── Forma reciente ────────────────────────────────────────────────────────── */
+.td-root .db-wr { display: flex; align-items: flex-end; gap: 12px 24px; flex-wrap: wrap; }
+.td-root .db-wr-num {
+  font-family: var(--td-font-display); font-size: clamp(60px, 7vw, 92px); font-weight: 800; font-style: italic;
+  line-height: 0.86; font-variant-numeric: tabular-nums; color: var(--td-text);
+}
+.td-root .db-wr-num small { font-size: 0.42em; font-weight: 700; color: var(--td-muted); margin-left: 2px; }
+.td-root .db-wr-side { flex: 1 1 220px; min-width: 0; padding-bottom: 4px; }
+.td-root .db-wr-scale { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12.5px; color: var(--td-muted); }
+.td-root .db-form { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--td-border-soft); }
+.td-root .db-form-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
+.td-root .db-form-chip { --rail: var(--td-muted); position: relative; overflow: hidden; border-radius: var(--td-r-ctl); line-height: 0; }
+.td-root .db-form-chip::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--rail); }
+.td-root .db-form-chip[data-win='true'] { --rail: var(--td-green); }
+.td-root .db-form-chip[data-win='false'] { --rail: var(--td-neg); }
+.td-root .db-form-blank { display: grid; place-items: center; width: 44px; height: 44px; background: var(--td-sunken); color: var(--td-muted); }
+
+/* ── Mi perfil ─────────────────────────────────────────────────────────────── */
+.td-root .db-me { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.td-root .db-me-icon {
+  width: 64px; height: 64px; flex-shrink: 0; border-radius: var(--td-r-ctl); object-fit: cover;
+  background: var(--td-sunken); box-shadow: 0 0 0 1px var(--td-border-hov);
+}
+.td-root span.db-me-icon {
+  display: grid; place-items: center; background: var(--td-red-deep); color: #fff;
+  font-family: var(--td-font-display); font-size: 30px; font-weight: 800;
+}
+.td-root .db-me-name {
+  margin: 0; font-family: var(--td-font-display); font-size: 24px; font-weight: 700; line-height: 1.05;
+  letter-spacing: 0.4px; text-transform: uppercase; overflow-wrap: anywhere;
+}
+.td-root .db-me-mail { margin: 3px 0 0; font-size: 14px; color: var(--td-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .db-me-riot { margin: 3px 0 0; font-family: var(--td-font-mono); font-size: 14px; font-weight: 600; color: var(--td-gold); }
+.td-root .db-dl { margin: 0 0 16px; }
+.td-root .db-dl > div {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 46px;
+  border-top: 1px solid var(--td-border-soft); font-size: 14.5px;
+}
+.td-root .db-dl dt { color: var(--td-text-2); }
+.td-root .db-dl dd { margin: 0; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--td-text); text-align: right; }
+
+/* ── Listas de enlaces / partidas ──────────────────────────────────────────── */
+.td-root .db-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.td-root .db-links a {
+  display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 8px 14px 8px 10px;
+  border-radius: 8px; background: var(--td-subcard); border: 1px solid var(--td-border-soft);
+  color: var(--td-text); text-decoration: none; cursor: pointer;
+  transition: border-color var(--td-dur) var(--td-ease), transform var(--td-dur) var(--td-ease);
+}
+.td-root .db-links a:hover { border-color: var(--td-red); transform: translateX(3px); }
+.td-root .db-links a > svg:last-child { margin-left: auto; flex-shrink: 0; color: var(--td-muted); }
+.td-root .db-links a:hover > svg:last-child { color: var(--td-red-hover); }
+.td-root .db-link-title { display: block; font-family: var(--td-font-display); font-size: 19px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; line-height: 1.1; }
+.td-root .db-link-desc { display: block; margin-top: 2px; font-size: 13.5px; color: var(--td-muted); }
+.td-root .db-ico { width: 40px; height: 40px; }
+.td-root .db-ico[data-tone='gold'] { color: var(--td-gold-bright); }
+.td-root .db-ico[data-tone='red'] { color: var(--td-red-hover); background: var(--td-red-wash); }
+
+.td-root .db-matches { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+/* Fila de partida: carril de color por resultado (verde victoria / rojo derrota) */
+.td-root .db-match {
+  --rail: var(--td-muted);
+  position: relative; display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 10px 16px 10px 20px;
+  border-radius: 8px; background: var(--td-subcard); border: 1px solid var(--td-border-soft);
+}
+.td-root .db-match::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--rail); }
+.td-root .db-match[data-win='true'] { --rail: var(--td-green); }
+.td-root .db-match[data-win='false'] { --rail: var(--td-neg); }
+.td-root .db-match-main { flex: 1; min-width: 0; }
+.td-root .db-match-name { margin: 0; font-size: 16px; font-weight: 600; color: var(--td-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .db-match-sub { margin: 1px 0 0; font-size: 14px; color: var(--td-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .db-match-end { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.td-root .db-match-time { font-size: 14.5px; font-weight: 600; color: var(--td-text-2); white-space: nowrap; }
+@media (max-width: 480px) {
+  .td-root .db-match { gap: 12px; padding: 10px 12px 10px 16px; }
+  .td-root .db-match-end { flex-direction: column; align-items: flex-end; gap: 4px; }
+}
+
+/* ── Próximo torneo (tarjeta con el arte del mapa) ─────────────────────────── */
+.td-root .db-next { min-height: 240px; }
+.td-root .db-next-name { margin: 8px 0 10px; font-family: var(--td-font-display); font-size: 30px; font-weight: 800; font-style: italic; line-height: 0.98; text-transform: uppercase; overflow-wrap: anywhere; }
+.td-root .db-next-facts { display: flex; flex-direction: column; gap: 6px; font-family: var(--td-font-mono); font-size: 14.5px; color: var(--td-text-2); }
+.td-root .db-next-facts span { display: inline-flex; align-items: center; gap: 8px; }
+.td-root .db-next-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 16px; }
+.td-root .db-go { display: inline-flex; align-items: center; gap: 7px; font-family: var(--td-font-mono); font-size: 13.5px; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase; color: var(--td-red-hover); }
+
+/* ── Vincular cuenta (formulario) ──────────────────────────────────────────── */
+.td-root .db-linkform { display: grid; gap: 18px; padding: clamp(20px, 3vw, 28px); margin-top: clamp(24px, 4vw, 40px); }
+.td-root.db-page .td-select { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 40px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--td-text-2) 50%), linear-gradient(135deg, var(--td-text-2) 50%, transparent 50%);
+  background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%; background-size: 6px 6px, 6px 6px; background-repeat: no-repeat; }
+.td-root.db-page .td-select option { background: var(--td-card); color: var(--td-text); }
+
+/* ── Panel "Mis torneos" ───────────────────────────────────────────────────── */
+.td-root .db-count {
+  display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: var(--td-r-chip);
+  background: var(--td-sunken-2); font-family: var(--td-font-mono); font-size: 12.5px; font-weight: 700; color: var(--td-text-2);
+  font-variant-numeric: tabular-nums;
+}
+.td-root .db-block + .db-block { margin-top: 26px; }
+.td-root .db-block-sub { margin: -6px 0 12px; font-size: 14px; color: var(--td-muted); }
+.td-root .db-stack { display: flex; flex-direction: column; gap: 8px; }
+
+/* Invitación: fila con carril crimson (pide una acción) */
+.td-root .db-inv {
+  position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 14px; padding: 12px 14px 12px 18px;
+  border-radius: 8px; background: var(--td-subcard); border: 1px solid rgba(232, 50, 60, 0.3);
+}
+.td-root .db-inv::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--td-red); }
+.td-root .db-inv-main { flex: 1 1 200px; min-width: 0; }
+.td-root .db-inv-name { margin: 0; font-size: 16px; font-weight: 600; color: var(--td-text); overflow-wrap: anywhere; }
+.td-root .db-inv-sub { margin: 2px 0 0; font-size: 14px; color: var(--td-text-2); }
+.td-root .db-inv-sub b { color: var(--td-text); font-weight: 600; }
+.td-root .db-inv-warn { display: flex; align-items: center; gap: 6px; margin: 5px 0 0; font-size: 13.5px; color: var(--td-amber); }
+.td-root .db-inv-actions { display: flex; gap: 8px; flex-shrink: 0; }
+@media (max-width: 480px) {
+  .td-root .db-inv-actions { width: 100%; }
+  .td-root .db-inv-actions > .td-btn { flex: 1; }
+}
+
+/* Mis equipos */
+.td-root .db-teams { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.td-root .db-team { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.td-root .db-team-head { display: flex; align-items: flex-start; gap: 12px; }
+.td-root .db-team-name { margin: 0; font-family: var(--td-font-display); font-size: 22px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; line-height: 1.05;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .db-team-tour { margin: 2px 0 0; font-size: 14px; color: var(--td-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .db-team-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.td-root .db-code { padding: 12px; border-radius: var(--td-r-ctl); background: var(--td-strip); border: 1px solid var(--td-border-soft); }
+.td-root .db-code .td-over { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; color: var(--td-red-hover); }
+.td-root .db-copy {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 40px; padding: 0 12px;
+  border-radius: var(--td-r-ctl); border: 1px solid var(--td-border-hov); background: rgba(255, 255, 255, 0.03);
+  color: var(--td-text); font-family: var(--td-font-mono); font-size: 14px; font-weight: 600; letter-spacing: 0.4px; cursor: pointer;
+  transition: border-color var(--td-dur) var(--td-ease), background var(--td-dur) var(--td-ease);
+}
+.td-root .db-copy:hover { border-color: var(--td-red); background: var(--td-red-wash); }
+.td-root .db-copy > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .db-copy[data-ok='true'] { border-color: var(--td-green); color: var(--td-green); }
+@media (pointer: coarse) { .td-root .db-copy { min-height: 44px; } }
+.td-root .db-team-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--td-border-soft); min-height: 44px; }
+.td-root .db-team-foot .ax-link, .td-root .db-admin-go { display: inline-flex; align-items: center; gap: 6px; font-family: var(--td-font-mono); font-size: 13.5px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; }
+.td-root .db-team-foot .db-link-dim { font-family: var(--td-font-mono); font-size: 13.5px; color: var(--td-text-2); text-decoration: none; cursor: pointer; transition: color var(--td-dur) var(--td-ease); }
+.td-root .db-team-foot .db-link-dim:hover { color: #fff; }
+
+/* Torneos que administro */
+.td-root .db-admin {
+  display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 12px 14px;
+  border-radius: 8px; background: var(--td-subcard); border: 1px solid var(--td-border-soft);
+  color: var(--td-text); text-decoration: none; cursor: pointer;
+  transition: border-color var(--td-dur) var(--td-ease), transform var(--td-dur) var(--td-ease);
+}
+.td-root .db-admin:hover { border-color: var(--td-gold); transform: translateX(3px); }
+.td-root .db-admin-main { flex: 1; min-width: 0; }
+.td-root .db-admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.td-root .db-admin-name { margin: 0; font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.td-root .db-admin-cap { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.td-root .db-admin-cap > .td-bar { flex: 1; max-width: 240px; }
+.td-root .db-admin-cap > span { font-size: 13.5px; color: var(--td-text-2); white-space: nowrap; }
+.td-root .db-admin-go { color: var(--td-gold-bright); white-space: nowrap; flex-shrink: 0; }
+@media (max-width: 560px) {
+  .td-root .db-admin { flex-wrap: wrap; }
+  .td-root .db-admin-go { width: 100%; padding-left: 54px; }
+  .td-root .db-admin-cap { flex-wrap: wrap; gap: 6px 12px; }
+  .td-root .db-admin-cap > .td-bar { flex-basis: 100%; max-width: none; }
+}
+
+/* ── Torneos diarios (admin) ───────────────────────────────────────────────── */
+.td-root .db-sched-form { display: grid; gap: 16px; padding: 18px; margin-bottom: 18px; }
+.td-root .db-sched-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.td-root .db-sched-grid--wide { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.td-root .db-opts { display: flex; gap: 6px; }
+.td-root .db-opt {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 46px; min-width: 0; padding: 0 8px;
+  border-radius: var(--td-r-ctl); border: 1px solid var(--td-border); background: var(--td-strip); color: var(--td-text-2);
+  font-family: var(--td-font-mono); font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  transition: border-color var(--td-dur) var(--td-ease), background var(--td-dur) var(--td-ease), color var(--td-dur) var(--td-ease);
+}
+.td-root .db-opt:hover:not(:disabled) { border-color: var(--td-border-hov); color: var(--td-text); }
+.td-root .db-opt[data-active='true'] { background: var(--td-text); border-color: var(--td-text); color: #0a0a0c; }
+.td-root .db-opt:disabled { opacity: 0.35; cursor: not-allowed; }
+.td-root .db-opt--day { flex: 0 0 44px; width: 44px; height: 44px; padding: 0; }
+.td-root .db-time { display: flex; align-items: center; gap: 6px; }
+.td-root .db-time .td-select { flex: 1; min-width: 0; }
+.td-root .db-check { display: inline-flex; align-items: center; gap: 10px; min-height: 46px; font-size: 14.5px; color: var(--td-text-2); cursor: pointer; }
+.td-root .db-check input { width: 18px; height: 18px; accent-color: var(--td-red); cursor: pointer; }
+.td-root .db-sched-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.td-root .db-sched { display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 10px 12px 10px 14px;
+  border-radius: 8px; background: var(--td-subcard); border: 1px solid var(--td-border-soft); }
+.td-root .db-sched[data-off='true'] { opacity: 0.55; }
+.td-root .db-sched-main { flex: 1; min-width: 0; }
+.td-root .db-sched-name { margin: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 16px; font-weight: 600; color: var(--td-text); }
+.td-root .db-sched-sub { margin: 3px 0 0; font-size: 14px; color: var(--td-muted); }
+.td-root .db-iconbtn {
+  display: inline-grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; cursor: pointer;
+  border-radius: var(--td-r-ctl); border: 1px solid var(--td-border); background: var(--td-strip); color: var(--td-text-2);
+  transition: border-color var(--td-dur) var(--td-ease), color var(--td-dur) var(--td-ease);
+}
+.td-root .db-iconbtn:hover { border-color: var(--td-border-hov); color: var(--td-text); }
+.td-root .db-iconbtn[data-on='true'] { color: var(--td-green); }
+.td-root .db-iconbtn[data-danger='true'] { color: var(--td-neg); }
+.td-root .db-iconbtn[data-danger='true']:hover { border-color: var(--td-neg); }
+@media (pointer: coarse) { .td-root .db-iconbtn { width: 44px; height: 44px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .td-root .db-links a, .td-root .db-admin, .td-root .db-copy, .td-root .db-opt, .td-root .db-iconbtn { transition: none; }
+  .td-root .db-links a:hover, .td-root .db-admin:hover { transform: none; }
+}

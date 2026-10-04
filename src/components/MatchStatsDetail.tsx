@@ -1,223 +1,141 @@
-// src/components/MatchStatsDetail.tsx — Full tournament match stats view
-import { useState, useEffect, useRef } from 'react';
+// src/components/MatchStatsDetail.tsx — Vista completa de las estadísticas de una partida.
+// Marcador de retransmisión (azul vs rojo) + scoreboard por equipo + pestañas de
+// daño / oro / objetivos + destacados. Sistema "Arena": ver
+// design-system/atak-gg/MASTER.md y src/styles/pages/match.css.
+import { useState, useEffect, useRef, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip,
-  ResponsiveContainer, PieChart, Pie, Cell, Legend,
-} from 'recharts';
-import { Sword, Shield, Eye, Coins, Clock, Trophy, Zap, Skull, Star } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Clock, Swords, Eye, AlertTriangle, Hexagon, Loader2, Zap, Trophy } from 'lucide-react';
 import { dd, spellIcon, keystoneIcon, runePathIcon, fmtDuration, fmtNumber } from '@/lib/dataDragon';
+import { lol, LANE_LABELS, normalizeLane } from '@/lib/lolAssets';
+import { ChampIcon, RoleIcon, DragonIcon, StatIcon, UiIcon, stagger } from '@/components/arena/primitives';
+import { StatusChip, ProgressBar, FilterPills, SectionHead } from '@/components/tournament/ui';
+import { Slot, Kda, InlineState } from '@/components/match/parts';
 import type { MatchStatsResponse, ParticipantStats, TeamObjectives } from '@/types/riot-match';
+import '@/styles/pages/match.css';
 
-// ─── Confetti ─────────────────────────────────────────────────────────────────
+type Side = 'blue' | 'red';
+const SIDE_COLOR: Record<Side, string> = { blue: 'var(--td-live, #3b82f6)', red: 'var(--td-red)' };
+const DMG_COLORS = { physical: 'var(--td-amber)', magic: 'var(--td-live, #3b82f6)', true: '#f5f5f6' };
+
+// ─── Confeti de fin de partida (colores de marca) ─────────────────────────────
 
 function Confetti() {
-  const colors = ['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899','#ffffff'];
-  const pieces = Array.from({ length: 60 }, (_, i) => ({
-    id: i,
-    color: colors[i % colors.length],
-    left: `${Math.random() * 100}%`,
-    delay: `${Math.random() * 2}s`,
-    duration: `${2 + Math.random() * 2}s`,
-    size: `${6 + Math.random() * 8}px`,
-    rotate: `${Math.random() * 720}deg`,
-  }));
+  const pieces = useMemo(() => {
+    const colors = ['#e8323c', '#ff4b57', '#c8aa6e', '#f0d891', '#f5f5f6'];
+    return Array.from({ length: 48 }, (_, i) => ({
+      id: i,
+      color: colors[i % colors.length],
+      left: `${Math.random() * 100}%`,
+      delay: `${Math.random() * 2}s`,
+      duration: `${2 + Math.random() * 2}s`,
+      size: 6 + Math.random() * 8,
+      round: Math.random() > 0.5,
+    }));
+  }, []);
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
-      {pieces.map(p => (
-        <div
-          key={p.id}
-          className="absolute top-0"
-          style={{
-            left: p.left,
-            width: p.size,
-            height: p.size,
-            backgroundColor: p.color,
-            borderRadius: Math.random() > 0.5 ? '50%' : '2px',
-            animation: `confettiFall ${p.duration} ${p.delay} ease-in forwards`,
-          }}
-        />
+    <div className="mx-confetti" aria-hidden>
+      {pieces.map((p) => (
+        <i key={p.id} style={{
+          left: p.left, width: p.size, height: p.size, backgroundColor: p.color,
+          borderRadius: p.round ? '50%' : 2, animationDuration: p.duration, animationDelay: p.delay,
+        }} />
       ))}
-      <style>{`
-        @keyframes confettiFall {
-          0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
-          100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-        }
-      `}</style>
     </div>
   );
 }
 
-// ─── Icon slots ───────────────────────────────────────────────────────────────
-
-function ImgSlot({
-  src, alt, className, fallback,
-}: { src: string; alt: string; className?: string; fallback?: string }) {
-  const [err, setErr] = useState(false);
-  if (err || !src) {
-    return (
-      <div className={cn('bg-white/5 border border-white/10 flex items-center justify-center', className)}>
-        <span className="text-[8px] text-white/20">{fallback ?? '?'}</span>
-      </div>
-    );
-  }
-  return (
-    <img
-      src={src}
-      alt={alt}
-      className={className}
-      onError={() => setErr(true)}
-      loading="lazy"
-    />
-  );
-}
-
-function ChampIcon({ name, level, size = 'md' }: { name: string; level?: number; size?: 'sm' | 'md' | 'lg' }) {
-  const cls = { sm: 'w-7 h-7 rounded-lg', md: 'w-10 h-10 rounded-xl', lg: 'w-14 h-14 rounded-2xl' }[size];
-  return (
-    <div className="relative shrink-0">
-      <ImgSlot src={dd.champion(name)} alt={name} className={cn(cls, 'object-cover border border-white/10')} fallback={name[0]} />
-      {level != null && (
-        <span className="absolute -bottom-1 -right-1 text-[9px] font-black text-white bg-black/80 px-1 rounded border border-white/10">
-          {level}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function ItemSlot({ id }: { id: number }) {
-  if (!id) return <div className="w-7 h-7 rounded-lg bg-white/[0.04] border border-dashed border-white/10" />;
-  return <ImgSlot src={dd.item(id)} alt={`Item ${id}`} className="w-7 h-7 rounded-lg object-cover border border-white/10" fallback="?" />;
-}
-
-function SpellSlot({ id }: { id: number }) {
-  return <ImgSlot src={spellIcon(id)} alt={`Spell ${id}`} className="w-6 h-6 rounded" fallback="?" />;
-}
-
-function RuneSlot({ keystoneId, secondaryStyleId }: { keystoneId: number; secondaryStyleId: number }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <ImgSlot src={keystoneIcon(keystoneId)} alt="Keystone" className="w-6 h-6 rounded-full" fallback="K" />
-      <ImgSlot src={runePathIcon(secondaryStyleId)} alt="Secondary" className="w-5 h-5 rounded-full mx-auto" fallback="S" />
-    </div>
-  );
-}
-
-// ─── KDA label ────────────────────────────────────────────────────────────────
-
-function KdaText({ k, d, a }: { k: number; d: number; a: number }) {
-  return (
-    <span className="text-sm font-bold tabular-nums">
-      <span className="text-white">{k}</span>
-      <span className="text-white/40">/</span>
-      <span className="text-red-400">{d}</span>
-      <span className="text-white/40">/</span>
-      <span className="text-white">{a}</span>
-    </span>
-  );
-}
-
-// ─── Highlight badges ─────────────────────────────────────────────────────────
+// ─── Piezas de fila ───────────────────────────────────────────────────────────
 
 function MultikillBadge({ p }: { p: ParticipantStats }) {
-  if (p.pentaKills > 0)  return <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-red-500 text-white">PENTAKILL</span>;
-  if (p.quadraKills > 0) return <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-purple-500 text-white">QUADRA</span>;
-  if (p.tripleKills > 0) return <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-blue-500 text-white">TRIPLE</span>;
-  if (p.doubleKills > 0) return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-600 text-white">DOBLE</span>;
+  if (p.pentaKills > 0)  return <StatusChip kind="gold" dot={false}>Pentakill</StatusChip>;
+  if (p.quadraKills > 0) return <StatusChip kind="gold" dot={false}>Quadra</StatusChip>;
+  if (p.tripleKills > 0) return <StatusChip kind="dim" dot={false}>Triple</StatusChip>;
+  if (p.doubleKills > 0) return <StatusChip kind="dim" dot={false}>Doble</StatusChip>;
   return null;
 }
 
-// ─── Participant row ──────────────────────────────────────────────────────────
+const positionOf = (p: ParticipantStats) => p.teamPosition || (p as any).role || '';
 
 function ParticipantRow({
-  p, maxDmg, isFirst,
-}: { p: ParticipantStats; maxDmg: number; isFirst: boolean }) {
+  p, maxDmg, isMvp, isMe, side,
+}: { p: ParticipantStats; maxDmg: number; isMvp: boolean; isMe: boolean; side: Side }) {
   const kdaVal = p.deaths === 0 ? (p.kills + p.assists).toFixed(1) : ((p.kills + p.assists) / p.deaths).toFixed(2);
   const dmgPct = maxDmg > 0 ? Math.round((p.totalDamageDealt / maxDmg) * 100) : 0;
+  const pos = positionOf(p);
+  const lane = normalizeLane(pos);
 
   return (
-    <tr className={cn(
-      'border-b border-white/[0.04] transition-colors hover:bg-white/[0.03]',
-      isFirst && 'bg-yellow-500/5'
-    )}>
-      {/* Champion */}
-      <td className="px-3 py-2.5">
-        <div className="flex items-center gap-2">
-          <ChampIcon name={p.championName} level={p.champLevel} />
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs font-semibold text-white truncate max-w-[80px]">
-                {p.summonerName || 'Invocador'}
-              </span>
-              {p.firstBloodKill && (
-                <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-red-500/20 text-red-300 border border-red-500/20">
-                  1ª Sangre
-                </span>
-              )}
+    <tr data-me={isMe ? 'true' : undefined}>
+      {/* Jugador */}
+      <td>
+        <div className="mx-player">
+          <span className="mx-champ">
+            <ChampIcon src={dd.champion(p.championName)} name={p.championName} size={40} />
+            {p.champLevel != null && <span className="mx-lvl">{p.champLevel}</span>}
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div className="mx-pname">
+              <b title={p.summonerName || 'Invocador'}>{p.summonerName || 'Invocador'}</b>
+              {isMvp && <StatusChip kind="gold" dot={false}>MVP</StatusChip>}
+              {p.firstBloodKill && <StatusChip kind="dim" dot={false}>1.ª sangre</StatusChip>}
               <MultikillBadge p={p} />
             </div>
-            <span className="text-[10px] text-white/30">{p.teamPosition || (p as any).role || ''}</span>
+            <div className="mx-psub">
+              {pos && lane !== 'fill' && <RoleIcon lane={pos} size={14} />}
+              <span>{p.championName}{pos && lane !== 'fill' ? ` · ${LANE_LABELS[lane]}` : ''}</span>
+            </div>
           </div>
         </div>
       </td>
-      {/* Spells + Runes */}
-      <td className="px-2 py-2.5">
-        <div className="flex items-center gap-1">
-          <div className="flex flex-col gap-0.5">
-            <SpellSlot id={p.summoner1Id} />
-            <SpellSlot id={p.summoner2Id} />
+      {/* Hechizos + runas */}
+      <td>
+        <div className="mx-loadout">
+          <div className="mx-loadout-col">
+            <Slot src={spellIcon(p.summoner1Id)} size={22} />
+            <Slot src={spellIcon(p.summoner2Id)} size={22} />
           </div>
-          <RuneSlot keystoneId={p.perks.keystoneId} secondaryStyleId={p.perks.secondaryStyleId} />
+          <div className="mx-loadout-col">
+            <Slot src={keystoneIcon(p.perks.keystoneId)} size={26} round />
+            <Slot src={runePathIcon(p.perks.secondaryStyleId)} size={17} round />
+          </div>
         </div>
       </td>
       {/* KDA */}
-      <td className="px-3 py-2.5 text-center">
-        <KdaText k={p.kills} d={p.deaths} a={p.assists} />
-        <div className="text-[10px] text-white/30 mt-0.5">{kdaVal} KDA</div>
+      <td className="mx-c">
+        <Kda k={p.kills} d={p.deaths} a={p.assists} />
+        <span className="mx-sub">{kdaVal} KDA</span>
       </td>
       {/* CS */}
-      <td className="px-3 py-2.5 text-center">
-        <div className="text-sm font-semibold text-white">{p.cs}</div>
-        <div className="text-[10px] text-white/30">{p.csPerMin}/min</div>
+      <td className="mx-c">
+        <span className="td-num" style={{ fontWeight: 700 }}>{p.cs}</span>
+        <span className="mx-sub">{p.csPerMin}/min</span>
       </td>
-      {/* Damage */}
-      <td className="px-3 py-2.5 min-w-[110px]">
-        <div className="text-xs font-semibold text-white mb-1">{fmtNumber(p.totalDamageDealt)}</div>
-        <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-red-600 to-orange-500 transition-all duration-700"
-            style={{ width: `${dmgPct}%` }}
-          />
-        </div>
-        <div className="flex gap-1 mt-0.5">
-          {[
-            { v: p.physicalDamage, color: 'bg-orange-400' },
-            { v: p.magicDamage,    color: 'bg-blue-400' },
-            { v: p.trueDamage,     color: 'bg-white' },
-          ].map(({ v, color }, i) => (
-            <div key={i} className="h-0.5 rounded-full" style={{ width: `${maxDmg > 0 ? Math.round((v/maxDmg)*60) : 0}px` }}>
-              <div className={cn('h-full rounded-full', color)} />
-            </div>
-          ))}
+      {/* Daño */}
+      <td>
+        <div className="mx-dmg">
+          <span className="mx-dmg-num">{fmtNumber(p.totalDamageDealt)}</span>
+          <ProgressBar pct={dmgPct} kind={side === 'blue' ? SIDE_COLOR.blue : 'red'} height={5} />
+          <div className="mx-split" style={{ width: `${dmgPct}%` }}
+            title={`Físico ${fmtNumber(p.physicalDamage)} · Mágico ${fmtNumber(p.magicDamage)} · Verdadero ${fmtNumber(p.trueDamage)}`}>
+            <i style={{ flex: p.physicalDamage || 0, background: DMG_COLORS.physical }} />
+            <i style={{ flex: p.magicDamage || 0, background: DMG_COLORS.magic }} />
+            <i style={{ flex: p.trueDamage || 0, background: DMG_COLORS.true }} />
+          </div>
         </div>
       </td>
-      {/* Gold */}
-      <td className="px-3 py-2.5 text-center">
-        <div className="text-xs font-semibold text-yellow-300">{fmtNumber(p.goldEarned)}</div>
+      {/* Oro */}
+      <td className="mx-c"><span className="mx-gold">{fmtNumber(p.goldEarned)}</span></td>
+      {/* Visión */}
+      <td className="mx-c">
+        <span className="td-num" style={{ fontWeight: 700 }}>{p.visionScore}</span>
+        <span className="mx-sub" title="Centinelas colocados / destruidos">{p.wardsPlaced} col. · {p.wardsKilled} destr.</span>
       </td>
-      {/* Vision */}
-      <td className="px-3 py-2.5 text-center">
-        <div className="text-xs text-white/60">{p.visionScore}</div>
-        <div className="text-[10px] text-white/20">{p.wardsPlaced}P/{p.wardsKilled}K</div>
-      </td>
-      {/* Items */}
-      <td className="px-3 py-2.5">
-        <div className="flex gap-0.5 flex-wrap">
-          {p.items.slice(0, 7).map((id, i) => (
-            <ItemSlot key={i} id={id} />
+      {/* Objetos */}
+      <td>
+        <div className="mx-items">
+          {Array.from({ length: 7 }, (_, i) => p.items[i] || 0).map((id, i) => (
+            <Slot key={i} src={id ? dd.item(id) : ''} size={28} alt={id ? `Objeto ${id}` : ''} />
           ))}
         </div>
       </td>
@@ -225,115 +143,196 @@ function ParticipantRow({
   );
 }
 
-// ─── Team table ───────────────────────────────────────────────────────────────
+// ─── Tabla de equipo ──────────────────────────────────────────────────────────
+
+const Th = ({ icon, children, center }: { icon?: ReactNode; children: ReactNode; center?: boolean }) => (
+  <th style={center ? { textAlign: 'center' } : undefined}><span>{icon}{children}</span></th>
+);
 
 function TeamTable({
-  participants, teamColor, teamName,
-}: { participants: ParticipantStats[]; teamColor: 'blue' | 'red'; teamName?: string }) {
+  participants, side, teamName, highlightPuuid,
+}: { participants: ParticipantStats[]; side: Side; teamName?: string; highlightPuuid?: string }) {
   const maxDmg = Math.max(...participants.map(p => p.totalDamageDealt), 1);
   const totalKills  = participants.reduce((s, p) => s + p.kills, 0);
   const totalGold   = participants.reduce((s, p) => s + p.goldEarned, 0);
   const totalDmg    = participants.reduce((s, p) => s + p.totalDamageDealt, 0);
-  const colorClass  = teamColor === 'blue' ? 'text-blue-400 border-blue-500/30' : 'text-red-400 border-red-500/30';
-  const headerBg    = teamColor === 'blue' ? 'bg-blue-500/5' : 'bg-red-500/5';
   const winBadge    = participants[0]?.win;
   const mvp         = [...participants].sort((a, b) =>
     (b.kills + b.assists - b.deaths) - (a.kills + a.assists - a.deaths)
   )[0];
 
-  const HEADERS = ['Campeón', 'Hechizos', 'KDA', 'CS', 'Daño', 'Oro', 'Visión', 'Ítems'];
-
   return (
-    <div className={cn('rounded-[24px] overflow-hidden mb-4 bg-white/[0.015] shadow-[0_18px_50px_-22px_rgba(0,0,0,0.8)]')}>
-      {/* Team header */}
-      <div className={cn('flex items-center justify-between px-4 py-2.5', headerBg)}>
-        <div className="flex items-center gap-3">
-          <span className={cn('text-xs font-black uppercase tracking-widest', colorClass)}>
-            {teamName ?? (teamColor === 'blue' ? 'Equipo Azul' : 'Equipo Rojo')}
-          </span>
-          {winBadge ? (
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-green-500/20 text-green-300 border border-green-500/30">
-              <Trophy className="h-2.5 w-2.5" /> VICTORIA
-            </span>
-          ) : (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/5 text-white/40 border border-white/10">
-              DERROTA
-            </span>
-          )}
+    <section className="td-panel mx-team" data-side={side}>
+      <header className="mx-team-head">
+        <span className="mx-team-name">{teamName ?? (side === 'blue' ? 'Equipo Azul' : 'Equipo Rojo')}</span>
+        {winBadge
+          ? <StatusChip kind="pos" dot={false}><Trophy size={12} aria-hidden /> Victoria</StatusChip>
+          : <StatusChip kind="warn" dot={false}>Derrota</StatusChip>}
+        <div className="mx-team-totals">
+          <span title="Asesinatos del equipo"><UiIcon name="score" size={18} />{totalKills}</span>
+          <span title="Oro del equipo"><UiIcon name="gold" size={18} />{fmtNumber(totalGold)}</span>
+          <span title="Daño a campeones del equipo"><StatIcon stat="attack_damage" size={15} />{fmtNumber(totalDmg)}</span>
+          {mvp && <span style={{ color: 'var(--td-gold-bright)' }}>MVP · {mvp.summonerName}</span>}
         </div>
-        <div className="flex items-center gap-4 text-xs text-white/40">
-          <span className="flex items-center gap-1"><Skull className="h-3 w-3" />{totalKills}</span>
-          <span className="flex items-center gap-1"><Coins className="h-3 w-3 text-yellow-400" />{fmtNumber(totalGold)}</span>
-          <span className="flex items-center gap-1"><Sword className="h-3 w-3 text-orange-400" />{fmtNumber(totalDmg)}</span>
-          {mvp && <span className="flex items-center gap-1 text-yellow-300"><Star className="h-3 w-3" />MVP: {mvp.summonerName}</span>}
-        </div>
-      </div>
+      </header>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
+      <div className="ax-table-scroll">
+        <table className="ax-table mx-table">
+          <colgroup>
+            <col className="mx-col-player" /><col style={{ width: 96 }} /><col style={{ width: 116 }} />
+            <col style={{ width: 92 }} /><col /><col style={{ width: 92 }} />
+            <col style={{ width: 132 }} /><col style={{ width: 252 }} />
+          </colgroup>
           <thead>
-            <tr className="border-b border-white/[0.05]">
-              {HEADERS.map(h => (
-                <th key={h} className="px-3 py-2 text-[10px] text-white/25 uppercase tracking-wider whitespace-nowrap">
-                  {h}
-                </th>
-              ))}
+            <tr>
+              <Th>Jugador</Th>
+              <Th icon={<UiIcon name="spells" size={16} />}>Hechizos</Th>
+              <Th center icon={<UiIcon name="score" size={16} />}>KDA</Th>
+              <Th center icon={<UiIcon name="minion" size={16} />}>CS</Th>
+              <Th icon={<StatIcon stat="attack_damage" size={13} />}>Daño</Th>
+              <Th center icon={<UiIcon name="gold" size={16} />}>Oro</Th>
+              <Th center icon={<Eye size={13} aria-hidden />}>Visión</Th>
+              <Th icon={<UiIcon name="items" size={16} />}>Objetos</Th>
             </tr>
           </thead>
           <tbody>
             {participants.map((p, i) => (
-              <ParticipantRow key={i} p={p} maxDmg={maxDmg} isFirst={p === mvp} />
+              <ParticipantRow key={i} p={p} maxDmg={maxDmg} isMvp={p === mvp} side={side}
+                isMe={Boolean(highlightPuuid) && (p as any).puuid === highlightPuuid} />
             ))}
           </tbody>
         </table>
+      </div>
+    </section>
+  );
+}
+
+// ─── Barras: daño y oro ───────────────────────────────────────────────────────
+
+function BarRow({ p, index, pct, segments, value }: {
+  p: ParticipantStats; index: number; pct: number; segments: { v: number; color: string }[]; value: string;
+}) {
+  return (
+    <div className="mx-bar-row">
+      <ChampIcon src={dd.champion(p.championName)} name={p.championName} size={30} />
+      <span className="mx-bar-name" title={p.summonerName || p.championName}>{p.summonerName || p.championName}</span>
+      <div className="mx-bar-track">
+        <div className="mx-bar-fill" style={{ width: `${pct}%`, ...stagger(index) }}>
+          {segments.map((s, i) => <i key={i} style={{ flex: s.v || 0, background: s.color }} />)}
+        </div>
+      </div>
+      <span className="mx-bar-val">{value}</span>
+    </div>
+  );
+}
+
+function TeamBars({ blueTeam, redTeam, blueName, redName, render }: {
+  blueTeam: ParticipantStats[]; redTeam: ParticipantStats[]; blueName: string; redName: string;
+  render: (p: ParticipantStats, index: number, side: Side) => ReactNode;
+}) {
+  return (
+    <div className="mx-bars">
+      <div className="td-over mx-bars-label" data-side="blue">{blueName}</div>
+      {blueTeam.map((p, i) => render(p, i, 'blue'))}
+      <div className="td-over mx-bars-label" data-side="red">{redName}</div>
+      {redTeam.map((p, i) => render(p, i + blueTeam.length, 'red'))}
+    </div>
+  );
+}
+
+function DamageChart({ blueTeam, redTeam, blueName, redName }: {
+  blueTeam: ParticipantStats[]; redTeam: ParticipantStats[]; blueName: string; redName: string;
+}) {
+  const max = Math.max(...[...blueTeam, ...redTeam].map(p => p.totalDamageDealt), 1);
+  return (
+    <div className="td-panel ax-card">
+      <SectionHead icon={<StatIcon stat="attack_damage" size={15} />} title="Daño a campeones" />
+      <TeamBars blueTeam={blueTeam} redTeam={redTeam} blueName={blueName} redName={redName}
+        render={(p, i) => (
+          <BarRow key={i} p={p} index={i} pct={(p.totalDamageDealt / max) * 100} value={fmtNumber(p.totalDamageDealt)}
+            segments={[
+              { v: p.physicalDamage, color: DMG_COLORS.physical },
+              { v: p.magicDamage, color: DMG_COLORS.magic },
+              { v: p.trueDamage, color: DMG_COLORS.true },
+            ]} />
+        )} />
+      <div className="mx-legend">
+        <span><i style={{ background: DMG_COLORS.physical }} />Físico</span>
+        <span><i style={{ background: DMG_COLORS.magic }} />Mágico</span>
+        <span><i style={{ background: DMG_COLORS.true }} />Verdadero</span>
       </div>
     </div>
   );
 }
 
-// ─── Charts ───────────────────────────────────────────────────────────────────
+function GoldChart({ blueTeam, redTeam, blueName, redName }: {
+  blueTeam: ParticipantStats[]; redTeam: ParticipantStats[]; blueName: string; redName: string;
+}) {
+  const max = Math.max(...[...blueTeam, ...redTeam].map(p => p.goldEarned), 1);
+  return (
+    <div className="td-panel ax-card">
+      <SectionHead icon={<UiIcon name="gold" size={18} />} title="Oro ganado" />
+      <TeamBars blueTeam={blueTeam} redTeam={redTeam} blueName={blueName} redName={redName}
+        render={(p, i, side) => (
+          <BarRow key={i} p={p} index={i} pct={(p.goldEarned / max) * 100} value={fmtNumber(p.goldEarned)}
+            segments={[{ v: 1, color: SIDE_COLOR[side] }]} />
+        )} />
+    </div>
+  );
+}
 
-const CHART_STYLE = {
-  background: 'transparent',
-  fontSize: 10,
-  fill: 'rgba(255,255,255,0.4)',
-};
+// ─── Objetivos ────────────────────────────────────────────────────────────────
 
-function DamageChart({ blueTeam, redTeam }: { blueTeam: ParticipantStats[]; redTeam: ParticipantStats[] }) {
-  const data = [...blueTeam, ...redTeam].map(p => ({
-    name: p.summonerName || p.championName,
-    champ: p.championName,
-    dmg: p.totalDamageDealt,
-    physical: p.physicalDamage,
-    magic: p.magicDamage,
-    true: p.trueDamage,
-    team: p.teamId === 100 ? 'blue' : 'red',
-  }));
+type Objective = { key: string; label: string; short: string; icon: ReactNode; blue: number; red: number };
+
+function objectivesOf(blue: TeamObjectives, red: TeamObjectives): Objective[] {
+  return [
+    { key: 'dragon', label: 'Dragones', short: 'Dragones', icon: <DragonIcon dragon="elder" size={30} />, blue: blue.dragonKills, red: red.dragonKills },
+    { key: 'baron', label: 'Barón Nashor', short: 'Barón', icon: <UiIcon name="nashor" size={30} />, blue: blue.baronKills, red: red.baronKills },
+    { key: 'tower', label: 'Torres', short: 'Torres', icon: <UiIcon name="tower" size={30} />, blue: blue.towerKills, red: red.towerKills },
+    { key: 'herald', label: 'Heraldo de la Grieta', short: 'Heraldo', icon: <UiIcon name="rift_herald" size={30} />, blue: blue.riftHeraldKills, red: red.riftHeraldKills },
+    { key: 'inhib', label: 'Inhibidores', short: 'Inhib.', icon: <Hexagon size={22} aria-hidden />, blue: blue.inhibitorKills, red: red.inhibitorKills },
+  ];
+}
+
+function ObjectivesChart({ blue, red }: { blue: TeamObjectives; red: TeamObjectives }) {
+  const objectives = objectivesOf(blue, red);
+  const firsts: { label: string; side: Side | null }[] = [
+    { label: 'Primera torre', side: blue.firstTower ? 'blue' : red.firstTower ? 'red' : null },
+    { label: 'Primer dragón', side: blue.firstDragon ? 'blue' : red.firstDragon ? 'red' : null },
+    { label: 'Primer Barón', side: blue.firstBaron ? 'blue' : red.firstBaron ? 'red' : null },
+  ];
 
   return (
-    <div>
-      <p className="text-xs text-white/40 uppercase tracking-widest mb-3">Daño a Campeones</p>
-      <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={data} layout="vertical" margin={{ left: 60, right: 10 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-          <XAxis type="number" tick={CHART_STYLE} axisLine={false} tickLine={false} tickFormatter={v => fmtNumber(v)} />
-          <YAxis type="category" dataKey="name" tick={{ ...CHART_STYLE, fontSize: 9 }} axisLine={false} tickLine={false} width={58} />
-          <RechartTooltip
-            contentStyle={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
-            labelStyle={{ color: 'white', fontSize: 11 }}
-            itemStyle={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}
-            formatter={(v: number) => [fmtNumber(v)]}
-          />
-          <Bar dataKey="physical" stackId="a" fill="#f97316" name="Físico" radius={0} />
-          <Bar dataKey="magic"    stackId="a" fill="#3b82f6" name="Mágico" radius={0} />
-          <Bar dataKey="true"     stackId="a" fill="#ffffff" name="Verdadero" radius={[0, 4, 4, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-      <div className="flex items-center gap-4 mt-2 justify-center">
-        {[['#f97316','Físico'],['#3b82f6','Mágico'],['#ffffff','Verdadero']].map(([c,l]) => (
-          <span key={l} className="flex items-center gap-1 text-[10px] text-white/40">
-            <span className="w-2 h-2 rounded-sm" style={{ background: c }} />
-            {l}
+    <div className="td-panel ax-card">
+      <SectionHead icon={<UiIcon name="tower" size={18} />} title="Objetivos" />
+      <div className="mx-tug">
+        {objectives.map(o => {
+          const empty = o.blue === 0 && o.red === 0;
+          const total = o.blue + o.red || 1;
+          const bluePct = empty ? 50 : Math.round((o.blue / total) * 100);
+          return (
+            <div key={o.key}>
+              <div className="mx-tug-head">
+                <b data-side="blue">{o.blue}</b>
+                <span className="mx-tug-label"><span className="mx-obj-ico">{o.icon}</span>{o.label}</span>
+                <b data-side="red">{o.red}</b>
+              </div>
+              <div className="mx-tug-bar" data-empty={empty ? 'true' : undefined}>
+                <i data-side="blue" style={{ width: `${bluePct}%` }} />
+                <i data-side="red" style={{ width: `${100 - bluePct}%` }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mx-legend">
+        {firsts.map(f => (
+          <span key={f.label} data-side={f.side ?? undefined}>
+            <i style={{ background: f.side ? SIDE_COLOR[f.side] : 'var(--td-sunken-2)' }} />
+            {f.label}: <b style={{ color: f.side ? 'var(--side-text)' : 'var(--td-muted)', fontWeight: 700 }}>
+              {f.side === 'blue' ? 'Azul' : f.side === 'red' ? 'Rojo' : '—'}
+            </b>
           </span>
         ))}
       </div>
@@ -341,75 +340,7 @@ function DamageChart({ blueTeam, redTeam }: { blueTeam: ParticipantStats[]; redT
   );
 }
 
-function GoldChart({ blueTeam, redTeam }: { blueTeam: ParticipantStats[]; redTeam: ParticipantStats[] }) {
-  const data = [...blueTeam, ...redTeam].map(p => ({
-    name: p.summonerName || p.championName,
-    gold: p.goldEarned,
-    fill: p.teamId === 100 ? '#3b82f6' : '#ef4444',
-  }));
-
-  return (
-    <div>
-      <p className="text-xs text-white/40 uppercase tracking-widest mb-3">Oro Ganado</p>
-      <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={data} layout="vertical" margin={{ left: 60, right: 10 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-          <XAxis type="number" tick={CHART_STYLE} axisLine={false} tickLine={false} tickFormatter={v => fmtNumber(v)} />
-          <YAxis type="category" dataKey="name" tick={{ ...CHART_STYLE, fontSize: 9 }} axisLine={false} tickLine={false} width={58} />
-          <RechartTooltip
-            contentStyle={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
-            labelStyle={{ color: 'white', fontSize: 11 }}
-            itemStyle={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}
-            formatter={(v: number) => [fmtNumber(v), 'Oro']}
-          />
-          <Bar dataKey="gold" name="Oro" radius={[0, 4, 4, 0]}>
-            {data.map((d, i) => <Cell key={i} fill={d.fill} />)}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-function ObjectivesChart({
-  blue, red,
-}: { blue: TeamObjectives; red: TeamObjectives }) {
-  const objectives = [
-    { name: 'Dragones', blue: blue.dragonKills,   red: red.dragonKills,   icon: '🐉' },
-    { name: 'Barón',    blue: blue.baronKills,    red: red.baronKills,    icon: '🐲' },
-    { name: 'Torres',   blue: blue.towerKills,    red: red.towerKills,    icon: '🗼' },
-    { name: 'Heraldo',  blue: blue.riftHeraldKills, red: red.riftHeraldKills, icon: '👁️' },
-    { name: 'Inhibs',  blue: blue.inhibitorKills, red: red.inhibitorKills, icon: '💎' },
-  ];
-
-  return (
-    <div>
-      <p className="text-xs text-white/40 uppercase tracking-widest mb-3">Objetivos</p>
-      <div className="space-y-2.5">
-        {objectives.map(o => {
-          const total = o.blue + o.red || 1;
-          const bluePct = Math.round((o.blue / total) * 100);
-          const redPct  = 100 - bluePct;
-          return (
-            <div key={o.name}>
-              <div className="flex justify-between text-[10px] text-white/40 mb-1">
-                <span className="text-blue-400 font-bold">{o.blue}</span>
-                <span>{o.icon} {o.name}</span>
-                <span className="text-red-400 font-bold">{o.red}</span>
-              </div>
-              <div className="flex h-2 rounded-full overflow-hidden bg-white/5">
-                <div className="bg-blue-500 transition-all" style={{ width: `${o.blue === 0 && o.red === 0 ? 50 : bluePct}%` }} />
-                <div className="bg-red-500  transition-all" style={{ width: `${o.blue === 0 && o.red === 0 ? 50 : redPct}%` }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ─── In-progress placeholder ──────────────────────────────────────────────────
+// ─── Partida en curso (aún sin stats) ─────────────────────────────────────────
 
 function InProgressView({ bracketMatchId }: { bracketMatchId: string }) {
   const [seconds, setSeconds] = useState(0);
@@ -418,38 +349,30 @@ function InProgressView({ bracketMatchId }: { bracketMatchId: string }) {
     return () => clearInterval(t);
   }, []);
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <motion.div
-        animate={{ scale: [1, 1.1, 1], opacity: [1, 0.7, 1] }}
-        transition={{ repeat: Infinity, duration: 2 }}
-        className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center mb-6"
-      >
-        <Zap className="h-7 w-7 text-green-400" />
-      </motion.div>
-      <p className="text-green-400 font-bold text-lg mb-1">Partida en Curso</p>
-      <p className="text-white/30 text-sm mb-4">{bracketMatchId}</p>
-      <div className="flex items-center gap-2 text-white/40 text-sm">
-        <Clock className="h-4 w-4" />
-        <span>Actualizando en {35 - (seconds % 35)}s...</span>
-      </div>
-      <p className="text-xs text-white/20 mt-3">Los stats aparecerán automáticamente al finalizar</p>
-    </div>
+    <InlineState icon={<Zap size={34} aria-hidden style={{ color: 'var(--td-green)' }} />} title="Partida en curso">
+      <p className="mx-mono">{bracketMatchId}</p>
+      <span className="mx-empty-note">
+        <Clock size={14} aria-hidden />
+        <span className="td-num">Actualizando en {35 - (seconds % 35)} s</span>
+      </span>
+      <p style={{ marginTop: 10, fontSize: 13.5, color: 'var(--td-muted)' }}>
+        Las estadísticas aparecerán automáticamente al finalizar.
+      </p>
+    </InlineState>
   );
 }
 
-// ─── No gameId state ──────────────────────────────────────────────────────────
+// ─── Sin gameId ───────────────────────────────────────────────────────────────
 
 function NoGameView() {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <Sword className="h-12 w-12 text-white/10 mb-4" />
-      <p className="text-white/30 text-sm">Sin partida vinculada</p>
-      <p className="text-xs text-white/20 mt-1">Activa el partido y el sistema detectará el gameId automáticamente</p>
-    </div>
+    <InlineState icon={<Swords size={34} aria-hidden />} title="Sin partida vinculada">
+      <p>Activa el partido y el sistema detectará el gameId automáticamente.</p>
+    </InlineState>
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Componente principal ─────────────────────────────────────────────────────
 
 interface MatchStatsDetailProps {
   stats: MatchStatsResponse | null;
@@ -459,19 +382,44 @@ interface MatchStatsDetailProps {
   gameId?: number;
   team1?: string | null;
   team2?: string | null;
+  /** Nombre legible de la cola ("Solo/Dúo"); si falta se muestra el gameMode. */
+  queueLabel?: string;
+  /** puuid del jugador enfocado: se resalta su fila y su retrato. */
+  highlightPuuid?: string;
 }
 
-const TABS_STATS = [
+type StatsTab = 'tabla' | 'daño' | 'oro' | 'objetivos';
+const TABS_STATS: { key: StatsTab; label: string }[] = [
   { key: 'tabla',    label: 'Tabla' },
   { key: 'daño',     label: 'Daño' },
   { key: 'oro',      label: 'Oro' },
   { key: 'objetivos', label: 'Objetivos' },
 ];
 
+const fmtDate = (ts?: number) => {
+  if (!ts) return null;
+  try {
+    return new Date(ts).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch { return null; }
+};
+
+function Faces({ team, side, highlightPuuid }: { team: ParticipantStats[]; side: Side; highlightPuuid?: string }) {
+  return (
+    <div className="mx-faces" data-side={side}>
+      {team.map((p, i) => (
+        <img key={i} className="mx-face" src={dd.champion(p.championName)} alt={p.championName}
+          title={`${p.summonerName || 'Invocador'} · ${p.championName}`} loading="lazy" decoding="async"
+          data-me={highlightPuuid && (p as any).puuid === highlightPuuid ? 'true' : undefined}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
+      ))}
+    </div>
+  );
+}
+
 export function MatchStatsDetail({
-  stats, loading, error, bracketMatchId, gameId, team1, team2,
+  stats, loading, error, bracketMatchId, gameId, team1, team2, queueLabel, highlightPuuid,
 }: MatchStatsDetailProps) {
-  const [tab, setTab] = useState('tabla');
+  const [tab, setTab] = useState<StatsTab>('tabla');
   const [showConfetti, setShowConfetti] = useState(false);
   const confettiShown = useRef(false);
 
@@ -483,194 +431,157 @@ export function MatchStatsDetail({
     }
   }, [stats?.isComplete]);
 
-  if (!gameId) return <NoGameView />;
+  const wrap = (node: ReactNode) => <div className="td-root mx-embed">{node}</div>;
+
+  if (!gameId) return wrap(<NoGameView />);
   if (loading && !stats) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <div className="h-8 w-8 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-        <p className="text-white/30 text-sm animate-pulse">Obteniendo stats de Riot...</p>
-      </div>
+    return wrap(
+      <InlineState icon={<Loader2 size={30} aria-hidden className="mx-spin" />} title="Cargando estadísticas">
+        <p>Obteniendo los datos de la partida desde Riot…</p>
+      </InlineState>,
     );
   }
   if (error && !stats) {
-    return (
-      <div className="text-center py-14 text-white/30 text-sm">
-        <p>⚠ {error}</p>
-      </div>
+    return wrap(
+      <InlineState icon={<AlertTriangle size={32} aria-hidden style={{ color: 'var(--td-amber)' }} />} title="No se pudo cargar">
+        <p>{error}</p>
+      </InlineState>,
     );
   }
   if (!stats) {
-    return <InProgressView bracketMatchId={bracketMatchId} />;
+    return wrap(<InProgressView bracketMatchId={bracketMatchId} />);
   }
 
   const { blueTeam, redTeam, blueObjectives, redObjectives, gameDuration, gameMode, winner, isComplete } = stats;
 
   const blueTeamName = team1 ?? 'Equipo Azul';
   const redTeamName  = team2 ?? 'Equipo Rojo';
-  const winnerName   = winner === 'blue' ? blueTeamName : winner === 'red' ? redTeamName : null;
+  const blueKills = blueTeam.reduce((s, p) => s + p.kills, 0);
+  const redKills  = redTeam.reduce((s, p) => s + p.kills, 0);
+  const objectives = objectivesOf(blueObjectives, redObjectives);
+  const playedOn = fmtDate(stats.gameStartTimestamp);
+  const everyone = [...blueTeam, ...redTeam];
+
+  const highlights = [
+    { label: 'Mayor daño',   p: [...everyone].sort((a, b) => b.totalDamageDealt - a.totalDamageDealt)[0], value: (p: ParticipantStats) => fmtNumber(p.totalDamageDealt) },
+    { label: 'Mayor KDA',    p: [...everyone].sort((a, b) => b.kda - a.kda)[0],                           value: (p: ParticipantStats) => (Number.isFinite(p.kda) ? p.kda.toFixed(2) : 'Perfecto') },
+    { label: 'Más oro',      p: [...everyone].sort((a, b) => b.goldEarned - a.goldEarned)[0],             value: (p: ParticipantStats) => fmtNumber(p.goldEarned) },
+    { label: 'Mejor visión', p: [...everyone].sort((a, b) => b.visionScore - a.visionScore)[0],           value: (p: ParticipantStats) => String(p.visionScore) },
+  ];
+
+  const sideHead = (side: Side, name: string) => {
+    const generic = name === (side === 'blue' ? 'Equipo Azul' : 'Equipo Rojo');
+    return (
+      <div className="mx-side" data-side={side} data-lost={winner && winner !== side ? 'true' : undefined}>
+        {!generic && <span className="td-over mx-side-tag">{side === 'blue' ? 'Lado azul' : 'Lado rojo'}</span>}
+        <span className="mx-side-name">{name}</span>
+        {winner && (
+          <span className="mx-result" data-win={winner === side}>{winner === side ? 'Victoria' : 'Derrota'}</span>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <div className="text-white">
+    <div className="td-root mx-embed">
       {showConfetti && <Confetti />}
 
-      {/* Match header */}
-      <motion.div
-        initial={{ opacity: 0, y: 22, filter: 'blur(8px)' }}
-        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-        transition={{ duration: 0.6, ease: [0.2, 0.7, 0.2, 1] }}
-        className="rounded-[28px] bg-gradient-to-b from-white/[0.06] to-white/[0.01] p-5 mb-5 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.07)]">
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          {/* Blue team */}
-          <div className={cn(
-            'flex-1 text-center sm:text-right',
-            winner === 'blue' && 'text-blue-300',
-            winner === 'red' && 'opacity-50',
-          )}>
-            <p className="font-black text-lg truncate">{blueTeamName}</p>
-            <p className="text-xs text-white/30 uppercase tracking-widest">Equipo Azul</p>
-            {winner === 'blue' && (
-              <motion.p initial={{ scale: 0.8 }} animate={{ scale: 1 }}
-                className="text-blue-400 text-sm font-black mt-1">🏆 VICTORIA</motion.p>
-            )}
-          </div>
+      {/* Marcador */}
+      <section className="mx-bug ax-rise" data-live={!isComplete ? 'true' : undefined} aria-label="Marcador de la partida">
+        <div className="mx-bug-top">
+          {isComplete
+            ? <StatusChip kind="finished" dot={false}>Finalizada</StatusChip>
+            : <StatusChip kind="live">En vivo</StatusChip>}
+          <span className="mx-bug-fact">{queueLabel || gameMode}</span>
+          <span className="mx-bug-fact"><Clock size={14} aria-hidden /><b>{fmtDuration(gameDuration)}</b></span>
+          <span className="mx-spacer" />
+          {playedOn && <span className="mx-bug-fact">{playedOn}</span>}
+        </div>
 
-          {/* Center score / timer */}
-          <div className="text-center shrink-0">
-            <div className="flex items-center gap-3 justify-center">
-              <span className="text-3xl font-black text-white">
-                {blueTeam.reduce((s, p) => s + p.kills, 0)}
-              </span>
-              <span className="text-white/20 text-sm">vs</span>
-              <span className="text-3xl font-black text-white">
-                {redTeam.reduce((s, p) => s + p.kills, 0)}
-              </span>
+        <div className="mx-bug-main">
+          {sideHead('blue', blueTeamName)}
+          <div className="mx-score">
+            <div className="mx-score-nums" aria-label={`${blueKills} asesinatos del lado azul, ${redKills} del lado rojo`}>
+              <span data-dim={winner === 'red' ? 'true' : undefined}>{blueKills}</span>
+              <span className="mx-score-sep" aria-hidden />
+              <span data-dim={winner === 'blue' ? 'true' : undefined}>{redKills}</span>
             </div>
-            <div className="flex items-center gap-2 justify-center mt-1 text-xs text-white/30">
-              <Clock className="h-3 w-3" />
-              <span>{fmtDuration(gameDuration)}</span>
-              <span>·</span>
-              <span>{gameMode}</span>
-            </div>
-            {!isComplete && (
-              <motion.div
-                animate={{ opacity: [1, 0.4, 1] }} transition={{ repeat: Infinity, duration: 1.5 }}
-                className="mt-1.5 flex items-center gap-1 justify-center text-green-400 text-xs font-bold"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                EN VIVO
-              </motion.div>
-            )}
+            <span className="td-over">Asesinatos</span>
           </div>
+          {sideHead('red', redTeamName)}
 
-          {/* Red team */}
-          <div className={cn(
-            'flex-1 text-center sm:text-left',
-            winner === 'red' && 'text-red-300',
-            winner === 'blue' && 'opacity-50',
-          )}>
-            <p className="font-black text-lg truncate">{redTeamName}</p>
-            <p className="text-xs text-white/30 uppercase tracking-widest">Equipo Rojo</p>
-            {winner === 'red' && (
-              <motion.p initial={{ scale: 0.8 }} animate={{ scale: 1 }}
-                className="text-red-400 text-sm font-black mt-1">🏆 VICTORIA</motion.p>
-            )}
+          <div className="mx-faces-row">
+            <Faces team={blueTeam} side="blue" highlightPuuid={highlightPuuid} />
+            <Faces team={redTeam} side="red" highlightPuuid={highlightPuuid} />
           </div>
         </div>
 
-        {/* Quick team objectives */}
-        <div className="grid grid-cols-5 gap-2 mt-4 pt-4 border-t border-white/[0.05]">
-          {[
-            { label: 'Dragones', blueV: blueObjectives.dragonKills, redV: redObjectives.dragonKills, icon: '🐉' },
-            { label: 'Barón',    blueV: blueObjectives.baronKills,  redV: redObjectives.baronKills,  icon: '🐲' },
-            { label: 'Torres',   blueV: blueObjectives.towerKills,  redV: redObjectives.towerKills,  icon: '🗼' },
-            { label: 'Heraldo',  blueV: blueObjectives.riftHeraldKills, redV: redObjectives.riftHeraldKills, icon: '👁️' },
-            { label: 'Inhibs',   blueV: blueObjectives.inhibitorKills, redV: redObjectives.inhibitorKills, icon: '💎' },
-          ].map(o => (
-            <div key={o.label} className="text-center">
-              <div className="text-base mb-0.5">{o.icon}</div>
-              <div className="flex items-center justify-center gap-1.5 text-sm font-bold">
-                <span className="text-blue-400">{o.blueV}</span>
-                <span className="text-white/20">—</span>
-                <span className="text-red-400">{o.redV}</span>
-              </div>
-              <div className="text-[9px] text-white/25 uppercase">{o.label}</div>
+        <dl className="mx-objs">
+          {objectives.map(o => (
+            <div key={o.key} className="mx-obj" title={o.label}>
+              <dt>
+                <span className="mx-obj-ico">{o.icon}</span>
+                <span className="td-over">{o.short}</span>
+              </dt>
+              <dd>
+                <span data-side="blue">{o.blue}</span><i aria-hidden>–</i><span data-side="red">{o.red}</span>
+              </dd>
             </div>
           ))}
-        </div>
-      </motion.div>
+        </dl>
+      </section>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-white/[0.06] mb-5 overflow-x-auto">
-        {TABS_STATS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={cn(
-              'px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all border-b-2 -mb-px',
-              tab === t.key ? 'border-white text-white' : 'border-transparent text-white/30 hover:text-white/60'
-            )}>
-            {t.label}
-          </button>
-        ))}
+      {/* Pestañas */}
+      <div className="mx-tabs">
+        <FilterPills items={TABS_STATS} value={tab} onChange={(k) => setTab(k as StatsTab)} ariaLabel="Vista de estadísticas" />
       </div>
 
       <AnimatePresence mode="wait">
-        {/* Tabla */}
         {tab === 'tabla' && (
-          <motion.div key="tabla" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <TeamTable participants={blueTeam} teamColor="blue" teamName={blueTeamName} />
-            <TeamTable participants={redTeam}  teamColor="red"  teamName={redTeamName}  />
+          <motion.div key="tabla" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <TeamTable participants={blueTeam} side="blue" teamName={blueTeamName} highlightPuuid={highlightPuuid} />
+            <TeamTable participants={redTeam}  side="red"  teamName={redTeamName}  highlightPuuid={highlightPuuid} />
           </motion.div>
         )}
 
-        {/* Daño */}
         {tab === 'daño' && (
-          <motion.div key="damage" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="rounded-[24px] bg-white/[0.02] p-5 shadow-[0_18px_50px_-22px_rgba(0,0,0,0.8)]">
-            <DamageChart blueTeam={blueTeam} redTeam={redTeam} />
+          <motion.div key="damage" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <DamageChart blueTeam={blueTeam} redTeam={redTeam} blueName={blueTeamName} redName={redTeamName} />
           </motion.div>
         )}
 
-        {/* Oro */}
         {tab === 'oro' && (
-          <motion.div key="gold" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="rounded-[24px] bg-white/[0.02] p-5 shadow-[0_18px_50px_-22px_rgba(0,0,0,0.8)]">
-            <GoldChart blueTeam={blueTeam} redTeam={redTeam} />
+          <motion.div key="gold" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <GoldChart blueTeam={blueTeam} redTeam={redTeam} blueName={blueTeamName} redName={redTeamName} />
           </motion.div>
         )}
 
-        {/* Objetivos */}
         {tab === 'objetivos' && (
-          <motion.div key="objectives" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="rounded-[24px] bg-white/[0.02] p-5 shadow-[0_18px_50px_-22px_rgba(0,0,0,0.8)]">
+          <motion.div key="objectives" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
             <ObjectivesChart blue={blueObjectives} red={redObjectives} />
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Top performers */}
+      {/* Destacados */}
       {isComplete && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          className="mt-5 rounded-[24px] bg-gradient-to-b from-yellow-500/[0.10] to-transparent p-5 shadow-[0_18px_50px_-22px_rgba(0,0,0,0.8)]"
-        >
-          <p className="text-xs text-yellow-400/60 uppercase tracking-widest font-bold mb-4">⭐ Top Performers</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { label: 'Mayor Daño',  value: [...blueTeam, ...redTeam].sort((a,b) => b.totalDamageDealt - a.totalDamageDealt)[0] },
-              { label: 'Mayor KDA',   value: [...blueTeam, ...redTeam].sort((a,b) => b.kda - a.kda)[0] },
-              { label: 'Mayor Oro',   value: [...blueTeam, ...redTeam].sort((a,b) => b.goldEarned - a.goldEarned)[0] },
-              { label: 'Mejor Visión',value: [...blueTeam, ...redTeam].sort((a,b) => b.visionScore - a.visionScore)[0] },
-            ].map(({ label, value: p }) => p && (
-              <motion.div key={label}
-                whileHover={{ y: -5, scale: 1.04 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                className="rounded-2xl bg-white/[0.04] p-3 text-center shadow-[0_12px_34px_-18px_rgba(0,0,0,0.85)]">
-                <ChampIcon name={p.championName} size="sm" />
-                <p className="text-xs font-semibold text-white mt-2 truncate">{p.summonerName}</p>
-                <p className="text-[10px] text-yellow-400 mt-0.5">{label}</p>
-              </motion.div>
+        <section className="mx-block" style={{ marginTop: 32 }}>
+          <SectionHead icon={<Trophy size={16} />} title="Destacados de la partida" />
+          <div className="ax-grid mx-hl-grid" style={{ ['--cols' as string]: 4 } as CSSProperties}>
+            {highlights.map(({ label, p, value }, i) => p && (
+              <article key={label} className="ax-artcard mx-hl ax-rise" style={stagger(i)}>
+                <img className="ax-artcard-img" src={lol.splash(p.championName)} alt="" loading="lazy" decoding="async"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                <span className="td-over">{label}</span>
+                <span className="mx-hl-value">{value(p)}</span>
+                <span className="mx-hl-who">
+                  <ChampIcon src={dd.champion(p.championName)} name={p.championName} size={24} />
+                  <span>{p.summonerName || p.championName}</span>
+                </span>
+              </article>
             ))}
           </div>
-        </motion.div>
+        </section>
       )}
     </div>
   );

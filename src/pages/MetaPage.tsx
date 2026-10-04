@@ -1,106 +1,145 @@
 // src/pages/MetaPage.tsx — Meta diaria potenciada por OP.GG MCP:
 // tier list por línea, calendario esports y skins en oferta.
+// Rediseño "Arena": el n.º 1 de la línea elegida es el héroe (splash + modelo 3D)
+// y el podio usa el arte vertical de cada campeón.
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
 import { axiosInstance } from '@/lib/axios';
-import { ScrollVideoBg } from '@/components/ScrollVideoBg';
 import { useChampions } from '@/hooks/use-ddragon';
 import { dd } from '@/lib/dataDragon';
-import { TrendingUp, CalendarDays, Sparkles, Swords } from 'lucide-react';
+import { TrendingUp, CalendarDays, Sparkles, ArrowRight } from 'lucide-react';
+import {
+  ArenaPage, SplashBackdrop, PageHero, Champion3D, RoleIcon, ChampIcon, ProgressBar, StatusChip, lol, stagger,
+} from '@/components/arena';
+import '@/styles/pages/meta.css';
 
 const LANES = [
   { key: 'top', label: 'Top' }, { key: 'jungle', label: 'Jungla' },
   { key: 'mid', label: 'Mid' }, { key: 'bottom', label: 'ADC' }, { key: 'support', label: 'Soporte' },
 ] as const;
+type LaneKey = (typeof LANES)[number]['key'];
 
 const TABS = [
-  { key: 'tier', label: 'Tier List', icon: <TrendingUp className="h-4 w-4" /> },
-  { key: 'esports', label: 'Esports', icon: <CalendarDays className="h-4 w-4" /> },
-  { key: 'skins', label: 'Ofertas', icon: <Sparkles className="h-4 w-4" /> },
+  { key: 'tier', label: 'Tier list', icon: <TrendingUp size={18} /> },
+  { key: 'esports', label: 'Esports', icon: <CalendarDays size={18} /> },
+  { key: 'skins', label: 'Ofertas', icon: <Sparkles size={18} /> },
 ] as const;
+type TabKey = (typeof TABS)[number]['key'];
 
-const SURFACE = 'rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_24px_rgba(0,0,0,0.35)]';
-const SURFACE_BG = { background: 'linear-gradient(180deg, rgba(16,16,20,0.55) 0%, rgba(10,10,13,0.35) 100%)' };
-
-function tierBadge(tier: number) {
-  const map: Record<number, [string, string]> = {
-    0: ['NEW', 'bg-purple-500/20 text-purple-300'],
-    1: ['S', 'bg-yellow-500/20 text-yellow-300'],
-    2: ['A', 'bg-teal-500/20 text-teal-300'],
-    3: ['B', 'bg-blue-500/20 text-blue-300'],
-    4: ['C', 'bg-gray-500/20 text-gray-300'],
-    5: ['D', 'bg-red-500/20 text-red-300'],
-  };
-  const [label, cls] = map[tier] ?? map[4];
-  return <span className={`px-2 py-0.5 rounded-md text-xs font-black ${cls}`}>{label}</span>;
-}
-
+const TIER_LABEL: Record<number, string> = { 0: 'N', 1: 'S', 2: 'A', 3: 'B', 4: 'C', 5: 'D' };
 const LANE_POS: Record<string, string> = { top: 'TOP', jungle: 'JUNGLE', mid: 'MIDDLE', bottom: 'ADC', support: 'SUPPORT' };
+const wrColor = (wr?: number | null) =>
+  wr == null ? 'var(--td-muted)' : wr >= 52 ? 'var(--td-green)' : wr >= 49 ? 'var(--td-text)' : 'var(--td-neg)';
 
-function TierListTab() {
-  const [lane, setLane] = useState<(typeof LANES)[number]['key']>('mid');
-  const navigate = useNavigate();
-  const { data: champs } = useChampions();
-  const q = useQuery({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Pick = any;
+
+function useTierList(lane: LaneKey) {
+  return useQuery({
     queryKey: ['opgg', 'tier', lane],
-    queryFn: async () => (await axiosInstance.get(`/api/opgg/tier-list?position=${lane}`)).data.picks as any[],
+    queryFn: async () => (await axiosInstance.get(`/api/opgg/tier-list?position=${lane}`)).data.picks as Pick[],
     staleTime: 10 * 60 * 1000,
   });
+}
+
+function LaneSelect({ lane, onChange }: { lane: LaneKey; onChange: (l: LaneKey) => void }) {
+  return (
+    <div className="ax-lanes" role="group" aria-label="Línea">
+      {LANES.map((l) => (
+        <button key={l.key} type="button" className="ax-lane" data-active={lane === l.key} aria-pressed={lane === l.key}
+          onClick={() => onChange(l.key)}>
+          <RoleIcon lane={l.key} size={22} />
+          <span>{l.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TierListTab({ lane, setLane }: { lane: LaneKey; setLane: (l: LaneKey) => void }) {
+  const navigate = useNavigate();
+  const { data: champs } = useChampions();
+  const q = useTierList(lane);
+  const picks = (q.data ?? []).slice(0, 25);
+  const go = (p: Pick) => {
+    const slug = champs?.byKey?.[String(p.id)]?.id;
+    if (slug) navigate(`/champion/${slug}?pos=${LANE_POS[lane]}`);
+  };
 
   return (
     <div>
-      <div className="flex gap-2 flex-wrap mb-5">
-        {LANES.map((l) => (
-          <button key={l.key} onClick={() => setLane(l.key)}
-            className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
-              lane === l.key ? 'bg-red-600 text-white' : 'bg-white/[0.05] text-gray-400 hover:bg-white/[0.1] hover:text-white'
-            }`}>
-            {l.label}
-          </button>
-        ))}
+      <div className="mt-toolbar">
+        <LaneSelect lane={lane} onChange={setLane} />
+        <span className="td-over">Datos de OP.GG · se actualiza cada 30 min</span>
       </div>
 
-      {q.isLoading && <p className="text-gray-500 text-sm py-8 text-center animate-pulse">Cargando meta de OP.GG…</p>}
-      {q.isError && <p className="text-red-400 text-sm py-8 text-center">No se pudo cargar la tier list.</p>}
+      {q.isLoading && (
+        <div className="mt-list" aria-busy="true" aria-label="Cargando tier list">
+          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="mt-row mt-row--ghost" />)}
+        </div>
+      )}
+      {q.isError && (
+        <div className="ax-empty">
+          <h3>No se pudo cargar la tier list</h3>
+          <p style={{ margin: 0, fontSize: 14 }}>OP.GG no respondió. Vuelve a intentarlo en un momento.</p>
+        </div>
+      )}
 
-      <AnimatePresence mode="wait">
-        <motion.div key={lane} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-          <div className="grid gap-2">
-            {(q.data ?? []).slice(0, 25).map((p, i) => {
+      {!q.isLoading && !q.isError && (
+        <div key={lane}>
+          {/* Podio: arte vertical de los tres mejores de la línea */}
+          <div className="mt-podium">
+            {picks.slice(0, 3).map((p, i) => {
               const slug = champs?.byKey?.[String(p.id)]?.id;
               return (
-                <motion.div key={p.name}
-                  initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: Math.min(i * 0.03, 0.5) }}
-                  onClick={() => slug && navigate(`/champion/${slug}?pos=${LANE_POS[lane]}`)}
-                  role="link" tabIndex={0}
-                  className={`${SURFACE} flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-white/[0.04] hover:scale-[1.01] transition`} style={SURFACE_BG}>
-                  <span className="w-6 text-center text-sm font-black text-white/40">{i + 1}</span>
-                  <img src={slug ? dd.champion(slug) : ''} alt={p.name}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
-                    className="w-10 h-10 rounded-xl object-cover border border-white/10" loading="lazy" />
-                  <span className="flex-1 min-w-0 font-semibold text-white truncate">{p.name}</span>
-                  {tierBadge(p.tier)}
-                  <span className={`w-14 text-right text-sm font-bold ${p.wr >= 52 ? 'text-green-400' : p.wr >= 49 ? 'text-white/70' : 'text-red-400/80'}`}>
-                    {p.wr != null ? `${p.wr}%` : '—'}
+                <button key={p.name} type="button" className="ax-artcard mt-pod ax-rise" data-rank={i + 1} style={stagger(i)}
+                  onClick={() => go(p)} aria-label={`Ver ${p.name}`}>
+                  {slug && (
+                    <img className="ax-artcard-img" src={lol.loading(slug)} alt="" loading="lazy" decoding="async"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                  )}
+                  <span className="ax-pos mt-pod-rank" data-pos={i + 1}>{i + 1}</span>
+                  <span className="mt-pod-name">{p.name}</span>
+                  <span className="mt-pod-stats">
+                    <span className="ax-tier" data-tier={TIER_LABEL[p.tier] ?? 'C'}>{TIER_LABEL[p.tier] ?? 'C'}</span>
+                    <span className="td-num" style={{ color: wrColor(p.wr) }}>{p.wr != null ? `${p.wr}%` : '—'}<small> WR</small></span>
+                    <span className="td-num mt-pod-score">{p.score}<small> pts</small></span>
                   </span>
-                  <div className="hidden sm:block w-24">
-                    <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
-                      <motion.div className="h-full bg-gradient-to-r from-red-600 to-red-400 rounded-full"
-                        initial={{ width: 0 }} animate={{ width: `${(p.score / 10) * 100}%` }}
-                        transition={{ duration: 0.7, delay: Math.min(i * 0.03, 0.5) }} />
-                    </div>
-                  </div>
-                  <span className="hidden sm:block w-8 text-right text-xs text-white/40 tabular-nums">{p.score}</span>
-                </motion.div>
+                </button>
               );
             })}
           </div>
-          <p className="text-[11px] text-white/25 mt-4 text-center">Datos de OP.GG · actualizado cada 30 min · el score combina tier y ranking de línea</p>
-        </motion.div>
-      </AnimatePresence>
+
+          <div className="mt-list">
+            <div className="mt-row mt-row--head td-over" aria-hidden>
+              <span>#</span><span>Campeón</span><span>Tier</span><span className="mt-col-wr">WR</span>
+              <span className="mt-col-score">Puntuación</span><span />
+            </div>
+            {picks.slice(3).map((p, i) => {
+              const slug = champs?.byKey?.[String(p.id)]?.id;
+              const tier = TIER_LABEL[p.tier] ?? 'C';
+              return (
+                <button key={p.name} type="button" className="mt-row ax-slide" style={stagger(Math.min(i, 10))} onClick={() => go(p)}>
+                  <span className="ax-pos">{i + 4}</span>
+                  <span className="mt-champ">
+                    {slug ? <ChampIcon src={dd.champion(slug)} size={44} /> : <span className="ax-champ" style={{ width: 44, height: 44 }} />}
+                    <span className="mt-champ-name">{p.name}</span>
+                  </span>
+                  <span className="ax-tier" data-tier={tier}>{tier}</span>
+                  <span className="td-num mt-col-wr" style={{ color: wrColor(p.wr) }}>{p.wr != null ? `${p.wr}%` : '—'}</span>
+                  <span className="mt-col-score">
+                    <ProgressBar kind="red" pct={(p.score / 10) * 100} height={5} />
+                    <span className="td-num">{p.score}</span>
+                  </span>
+                  <ArrowRight size={16} aria-hidden className="mt-go" />
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-note">La puntuación combina el tier y el ranking del campeón dentro de su línea.</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -108,10 +147,12 @@ function TierListTab() {
 function EsportsTab() {
   const q = useQuery({
     queryKey: ['opgg', 'esports'],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     queryFn: async () => (await axiosInstance.get('/api/opgg/esports/schedules')).data.schedules as any[],
     staleTime: 10 * 60 * 1000,
   });
   const byDay = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const m = new Map<string, any[]>();
     for (const s of q.data ?? []) {
       const d = new Date(s.scheduledAt).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'short' });
@@ -121,37 +162,41 @@ function EsportsTab() {
     return [...m.entries()];
   }, [q.data]);
 
-  if (q.isLoading) return <p className="text-gray-500 text-sm py-8 text-center animate-pulse">Cargando calendario…</p>;
-  if (!byDay.length) return <p className="text-gray-500 text-sm py-8 text-center">Sin partidos próximos.</p>;
+  if (q.isLoading) return <p className="mt-state" role="status">Cargando calendario…</p>;
+  if (!byDay.length) return <div className="ax-empty"><h3>Sin partidos próximos</h3></div>;
+
+  const logo = (url?: string) => (
+    <img src={url} alt="" width={32} height={32} loading="lazy" decoding="async" className="mt-team-logo"
+      onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
+  );
 
   return (
-    <div className="space-y-6">
+    <div className="mt-days">
       {byDay.map(([day, matches]) => (
         <section key={day}>
-          <h3 className="text-xs uppercase tracking-[2px] text-red-400/80 font-bold mb-3">{day}</h3>
-          <div className="grid gap-2">
-            {matches.map((m: any) => (
-              <a key={m.id} href={m.details} target="_blank" rel="noopener noreferrer"
-                className={`${SURFACE} flex items-center gap-3 px-4 py-3 hover:bg-white/[0.04] transition`} style={SURFACE_BG}>
-                <span className="px-2 py-0.5 rounded-md bg-white/[0.06] text-[10px] font-bold text-white/60 w-14 text-center">{m.league}</span>
-                <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-                  <span className="text-sm font-semibold text-white truncate">{m.homeTeam?.acronym}</span>
-                  <img src={m.homeTeam?.image_url} alt="" className="w-7 h-7 object-contain" loading="lazy"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
-                </div>
-                <span className="text-xs font-black text-white/40 px-1">
-                  {m.status === 'NOT_STARTED'
-                    ? new Date(m.scheduledAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
-                    : `${m.homeScore} - ${m.awayScore}`}
-                </span>
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <img src={m.awayTeam?.image_url} alt="" className="w-7 h-7 object-contain" loading="lazy"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
-                  <span className="text-sm font-semibold text-white truncate">{m.awayTeam?.acronym}</span>
-                </div>
-                <span className="hidden sm:block text-[10px] text-white/30">Bo{m.numberOfGames}</span>
-              </a>
-            ))}
+          <h3 className="ax-h3 mt-day">{day}</h3>
+          <div className="mt-list">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {matches.map((m: any) => {
+              const upcoming = m.status === 'NOT_STARTED';
+              return (
+                <a key={m.id} href={m.details} target="_blank" rel="noopener noreferrer" className="mt-match">
+                  <StatusChip kind={upcoming ? 'dim' : m.status === 'IN_PROGRESS' ? 'live' : 'finished'} dot={!upcoming}>{m.league}</StatusChip>
+                  <span className="mt-team mt-team--home">
+                    <span className="mt-team-name">{m.homeTeam?.acronym}</span>{logo(m.homeTeam?.image_url)}
+                  </span>
+                  <span className="mt-score td-num" data-upcoming={upcoming}>
+                    {upcoming
+                      ? new Date(m.scheduledAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+                      : `${m.homeScore} - ${m.awayScore}`}
+                  </span>
+                  <span className="mt-team">
+                    {logo(m.awayTeam?.image_url)}<span className="mt-team-name">{m.awayTeam?.acronym}</span>
+                  </span>
+                  <span className="td-over mt-bo">Bo{m.numberOfGames}</span>
+                </a>
+              );
+            })}
           </div>
         </section>
       ))}
@@ -163,38 +208,29 @@ function SkinsTab() {
   const { data: champs } = useChampions();
   const q = useQuery({
     queryKey: ['opgg', 'skins'],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     queryFn: async () => (await axiosInstance.get('/api/opgg/skins-sale')).data.skins as any[],
     staleTime: 60 * 60 * 1000,
   });
-  if (q.isLoading) return <p className="text-gray-500 text-sm py-8 text-center animate-pulse">Cargando ofertas…</p>;
-  if (!q.data?.length) return <p className="text-gray-500 text-sm py-8 text-center">Sin ofertas activas.</p>;
+  if (q.isLoading) return <p className="mt-state" role="status">Cargando ofertas…</p>;
+  if (!q.data?.length) return <div className="ax-empty"><h3>Sin ofertas activas</h3></div>;
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+    <div className="ax-grid" style={{ ['--cols' as string]: 4 }}>
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       {q.data.map((s: any, i: number) => {
         const champ = champs?.byKey?.[String(s.champion_id)];
         const skinNum = s.skin_id % 1000;
         return (
-          <motion.div key={s.skin_id}
-            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: Math.min(i * 0.04, 0.6) }}
-            className={`${SURFACE} overflow-hidden group`} style={SURFACE_BG}>
-            <div className="relative h-40 overflow-hidden">
-              {champ && (
-                <img src={dd.championSplash(champ.id, skinNum)} alt=""
-                  className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
-                  loading="lazy"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = dd.championSplash(champ.id, 0); }} />
-              )}
-              <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-red-600 text-white text-xs font-black">
-                -{Math.round((s.discount_rate ?? 0) * 100)}%
-              </span>
-            </div>
-            <div className="p-3">
-              <p className="text-sm font-semibold text-white truncate">{champ?.name ?? `Campeón ${s.champion_id}`}</p>
-              <p className="text-xs text-yellow-300/90 font-bold mt-0.5">{s.cost} RP</p>
-            </div>
-          </motion.div>
+          <article key={s.skin_id} className="ax-artcard mt-skin ax-rise" data-hover="true" style={stagger(Math.min(i, 10))}>
+            {champ && (
+              <img className="ax-artcard-img" src={lol.splash(champ.id, skinNum)} alt="" loading="lazy" decoding="async"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = lol.splash(champ.id, 0); }} />
+            )}
+            <span className="mt-skin-off"><StatusChip kind="live" dot={false}>-{Math.round((s.discount_rate ?? 0) * 100)}%</StatusChip></span>
+            <span className="mt-skin-name">{champ?.name ?? `Campeón ${s.champion_id}`}</span>
+            <span className="td-num mt-skin-cost">{s.cost} RP</span>
+          </article>
         );
       })}
     </div>
@@ -202,41 +238,49 @@ function SkinsTab() {
 }
 
 export default function MetaPage() {
-  const [tab, setTab] = useState<(typeof TABS)[number]['key']>('tier');
+  const [tab, setTab] = useState<TabKey>('tier');
+  const [lane, setLane] = useState<LaneKey>('mid');
+  const { data: champs } = useChampions();
+  // El n.º 1 de la línea elegida protagoniza el héroe (misma caché que la lista).
+  const topQ = useTierList(lane);
+  const top = topQ.data?.[0];
+  const topEntry = top ? champs?.byKey?.[String(top.id)] : undefined;
+  const laneLabel = LANES.find((l) => l.key === lane)?.label ?? '';
+
   return (
-    <div className="min-h-screen text-white bg-black relative overflow-x-hidden">
-      <ScrollVideoBg peakOpacity={0.55} floorOpacity={0.3} />
-      <div className="relative max-w-4xl mx-auto px-4 pt-24 pb-16">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4 bg-white/[0.05] backdrop-blur-md text-gray-400 text-xs tracking-[3px] uppercase">
-            <Swords className="h-3.5 w-3.5" /> Datos en vivo de OP.GG
-          </div>
-          <h1 className="text-4xl md:text-5xl font-medium tracking-[-1px]">
-            Meta <span className="font-serif italic text-red-500">del parche</span>
-          </h1>
-          <p className="text-gray-500 text-sm mt-2">Tier list por línea, calendario pro y ofertas — actualizado solo.</p>
-        </div>
+    <ArenaPage
+      className="mt-page"
+      backdrop={topEntry ? <SplashBackdrop key={topEntry.id} champion={topEntry.id} opacity={0.42} side="right" position="68% 16%" /> : undefined}
+    >
+      <PageHero
+        kicker="Datos en vivo de OP.GG"
+        title={<>Meta <em>del parche</em></>}
+        lede="Tier list por línea, calendario profesional y skins en oferta. Se actualiza solo."
+        aside={topEntry && (
+          <Champion3D key={topEntry.id} slug={topEntry.id} champId={Number(topEntry.key)} clip="idle" art="centered"
+            facing={-0.3} className="mt-stage">
+            <div className="ax-stage-label">
+              <span className="td-over">N.º 1 en {laneLabel}</span>
+              <div className="mt-stage-name">{topEntry.name}</div>
+            </div>
+          </Champion3D>
+        )}
+      />
 
-        <div className="flex justify-center gap-2 mb-8">
-          {TABS.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition ${
-                tab === t.key ? 'bg-foreground text-background' : 'bg-white/[0.05] text-gray-400 hover:bg-white/[0.1] hover:text-white'
-              }`}>
-              {t.icon}{t.label}
-            </button>
-          ))}
-        </div>
+      <nav className="ax-tabs mt-tabs" aria-label="Secciones del meta">
+        {TABS.map((t) => (
+          <button key={t.key} type="button" className="ax-tab" data-active={tab === t.key}
+            aria-current={tab === t.key ? 'page' : undefined} onClick={() => setTab(t.key)}>
+            {t.icon}{t.label}
+          </button>
+        ))}
+      </nav>
 
-        <AnimatePresence mode="wait">
-          <motion.div key={tab} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}>
-            {tab === 'tier' && <TierListTab />}
-            {tab === 'esports' && <EsportsTab />}
-            {tab === 'skins' && <SkinsTab />}
-          </motion.div>
-        </AnimatePresence>
+      <div key={tab} className="ax-rise mt-body">
+        {tab === 'tier' && <TierListTab lane={lane} setLane={setLane} />}
+        {tab === 'esports' && <EsportsTab />}
+        {tab === 'skins' && <SkinsTab />}
       </div>
-    </div>
+    </ArenaPage>
   );
 }

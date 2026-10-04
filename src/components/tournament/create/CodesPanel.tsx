@@ -3,10 +3,14 @@
 // Los códigos son el único artefacto que el organizador tiene que sacar de la
 // app a mano, así que copiar tiene que ser trivial: uno a uno, todos de golpe,
 // y un buscador cuando hay decenas (un torneo de 32 equipos genera 64).
+//
+// Piel "Arena" (necesita un ancestro .td-root): aviso verde con el nombre en la
+// display condensada, cabecera de sección para los códigos y cada código como
+// una fila de 44px que se copia al pulsarla.
 import { useMemo, useState } from 'react';
-import { Check, Copy, CopyCheck, Search, Zap } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Callout, fieldCls } from '@/components/ui/form-bits';
+import { Check, Copy, CopyCheck, KeySquare, Search } from 'lucide-react';
+import { Button } from '@/components/tournament/ui';
+import { Notice } from '@/components/tournament/forms';
 import { toast } from '@/components/ui/sonner';
 
 export function CodesPanel({
@@ -40,82 +44,80 @@ export function CodesPanel({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-green-500/30 bg-green-500/10 p-4">
-        <p className="flex items-center gap-2 text-lg font-bold text-green-300">
-          <Check className="h-5 w-5" /> ¡Torneo creado!
-        </p>
-        <p className="mt-1 text-gray-300">{name}</p>
+    <div className="tf-form">
+      <Notice tone="ok" icon={<Check size={18} />} title="¡Torneo creado!">
+        <p className="tf-done-name">{name}</p>
         {riotTournamentId && (
-          <p className="mt-1 font-mono text-[11px] text-gray-500">
+          <p className="td-num" style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--td-text-2)' }}>
             Riot Tournament ID: {riotTournamentId}
           </p>
         )}
-      </div>
+      </Notice>
 
       {skippedReason && (
-        <Callout tone="warn" title="Sin códigos de Riot">
+        <Notice tone="warn" title="Sin códigos de Riot">
           {skippedReason} El torneo funciona igual: los resultados se detectan por el roster
           de los equipos.
-        </Callout>
+        </Notice>
       )}
 
       {codes.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="flex items-center gap-2 font-semibold text-purple-300">
-              <Zap className="h-4 w-4" />
-              Códigos generados ({codes.length})
-            </p>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={copyAll}
-              className="h-8 border-white/10 bg-white/[0.04] text-xs hover:bg-white/[0.08]"
-            >
-              {copiedAll
-                ? <CopyCheck className="mr-1.5 h-3.5 w-3.5 text-green-400" />
-                : <Copy className="mr-1.5 h-3.5 w-3.5" />}
-              Copiar todos
-            </Button>
+        <div>
+          <div className="td-sechead tf-sechead">
+            <span className="td-sechead-ico" aria-hidden><KeySquare size={16} /></span>
+            <h3 className="td-sechead-title" style={{ margin: 0 }}>
+              Códigos generados <span className="td-num" style={{ color: 'var(--td-muted)' }}>({codes.length})</span>
+            </h3>
+            <span className="td-sechead-right">
+              <Button
+                variant="secondary" onClick={copyAll}
+                icon={copiedAll
+                  ? <CopyCheck size={15} color="var(--td-green)" aria-hidden />
+                  : <Copy size={15} aria-hidden />}
+              >
+                Copiar todos
+              </Button>
+            </span>
           </div>
 
-          <p className="text-[11.5px] text-gray-500">
+          <p className="td-help" style={{ margin: '0 0 12px', fontSize: 14 }}>
             Compártelos con los equipos. Se ingresan en{' '}
-            <strong className="text-gray-300">LoL → Jugar → Torneos → Buscar por código</strong>.
+            <strong style={{ color: 'var(--td-text)', fontWeight: 600 }}>LoL → Jugar → Torneos → Buscar por código</strong>.
           </p>
 
           {codes.length > 12 && (
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-600" />
+            <label className="tf-ico-wrap" style={{ marginBottom: 10 }}>
+              <Search size={16} aria-hidden />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Filtrar códigos…"
-                className={`${fieldCls} pl-9`}
+                aria-label="Filtrar códigos"
+                className="td-input tf-has-ico"
               />
-            </div>
+            </label>
           )}
 
-          <div className="grid max-h-64 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+          <div className="tf-codes">
             {shown.map((code) => {
               const i = codes.indexOf(code);
+              const copied = copiedIndex === i;
               return (
                 <button
                   key={code}
                   type="button"
                   onClick={() => copyOne(code, i)}
-                  className="flex items-center justify-between gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2.5 text-left transition hover:border-purple-400/50 hover:bg-white/[0.07]"
+                  className="tf-code"
+                  data-copied={copied}
+                  aria-label={`Copiar código ${code}`}
                 >
-                  <span className="truncate font-mono text-[11.5px] text-purple-300">{code}</span>
-                  {copiedIndex === i
-                    ? <Check className="h-3.5 w-3.5 flex-shrink-0 text-green-400" />
-                    : <Copy className="h-3.5 w-3.5 flex-shrink-0 text-gray-600" />}
+                  <span>{code}</span>
+                  {copied ? <Check size={16} aria-hidden /> : <Copy size={16} aria-hidden />}
                 </button>
               );
             })}
             {shown.length === 0 && (
-              <p className="col-span-full py-4 text-center text-[12px] text-gray-600">
+              <p className="td-help" style={{ gridColumn: '1 / -1', margin: 0, padding: '14px 0', textAlign: 'center' }}>
                 Ningún código coincide con «{q}».
               </p>
             )}

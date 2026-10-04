@@ -1,22 +1,23 @@
-// src/pages/Dashboard.tsx — panel del usuario, lenguaje "vision" ATAK:
-// glass sobre degradado crimson, stat-cards con cuadrado de icono, gauge de
-// winrate y tarjeta de bienvenida con splash. Misma lógica/datos de siempre.
+// src/pages/Dashboard.tsx — panel del usuario (sistema "Arena").
+// Héroe con el campeón principal del jugador (splash + modelo 3D), tira de
+// métricas y pestañas. Misma lógica y datos de siempre: solo cambia la capa
+// visual (ver design-system/atak-gg/MASTER.md).
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
 import { useAuth, syncAuthFromStorage } from "@/features/auth/useAuth";
 import {
-  User as UserIcon,
   Trophy,
   Users,
   BarChart3,
   Calendar,
   Target,
-  Award,
   ArrowRight,
   LayoutDashboard,
   CalendarClock,
   Activity,
+  Clock,
+  UserRound,
+  Zap,
 } from "lucide-react";
 import { DailySchedulesAdmin } from "@/components/DailySchedulesAdmin";
 import { axiosInstance } from "@/lib/axios";
@@ -28,98 +29,15 @@ import { Tip } from "@/components/ui/Tip";
 import { useQueryClient } from "@tanstack/react-query";
 import { useOverview } from "@/hooks/queries/players";
 import { useTournaments } from "@/hooks/queries/tournaments";
+import { useChampions } from "@/hooks/use-ddragon";
 import { qk } from "@/hooks/queries/keys";
 import { TournamentDashboardPanel } from "@/components/TournamentDashboardPanel";
 import { dd } from "@/lib/dataDragon";
-import "@/styles/vision.css";
-
-// ─── Brand tokens ────────────────────────────────────────────────────────────
-const C = {
-  red: "#e1242e",
-  win: "#2fbf8a",
-  loss: "#ff5a64",
-  gold: "#c8aa6e",
-};
-const FONT_BODY = "'Saira', system-ui, sans-serif";
-const FONT_COND = "'Saira Condensed', 'Saira', sans-serif";
-
-const RISE_IN = {
-  initial: { opacity: 0, y: 18 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, margin: "-60px" },
-  transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
-};
-
-function Card({
-  children, className = "", style, delay = 0, hover = false,
-}: {
-  children: React.ReactNode; className?: string; style?: React.CSSProperties;
-  delay?: number; hover?: boolean;
-}) {
-  return (
-    <motion.div
-      initial={RISE_IN.initial}
-      whileInView={RISE_IN.whileInView}
-      viewport={RISE_IN.viewport}
-      transition={{ ...RISE_IN.transition, delay }}
-      className={`vs-card ${hover ? "vs-card--hover" : ""} ${className}`}
-      style={style}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-function CardTitle({ children, sub }: { children: React.ReactNode; sub?: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <h2 style={{
-        fontFamily: FONT_COND, fontWeight: 700, fontSize: 16,
-        color: "#fff", margin: 0, letterSpacing: "0.02em",
-      }}>
-        {children}
-      </h2>
-      {sub && <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "rgba(255,255,255,0.42)" }}>{sub}</p>}
-    </div>
-  );
-}
-
-// ─── Gauge circular (winrate) ────────────────────────────────────────────────
-function Gauge({ pct, label, sub }: { pct: number; label: string; sub?: string }) {
-  const p = Math.max(0, Math.min(100, pct));
-  const R = 62;
-  const CIRC = 2 * Math.PI * R;
-  // Arco de 270° (como el medidor de la referencia), empezando abajo-izquierda.
-  const SPAN = 0.75;
-  const good = p >= 50;
-  return (
-    <div style={{ position: "relative", width: 168, height: 168, margin: "0 auto" }}>
-      <svg width="168" height="168" viewBox="0 0 168 168" style={{ transform: "rotate(135deg)" }}>
-        <defs>
-          <linearGradient id="vs-gauge" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor={good ? "#2fbf8a" : "#e1242e"} />
-            <stop offset="100%" stopColor={good ? "#c8aa6e" : "#ff5a64"} />
-          </linearGradient>
-        </defs>
-        <circle cx="84" cy="84" r={R} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="10"
-          strokeLinecap="round" strokeDasharray={`${CIRC * SPAN} ${CIRC}`} />
-        <circle cx="84" cy="84" r={R} fill="none" stroke="url(#vs-gauge)" strokeWidth="10"
-          strokeLinecap="round"
-          strokeDasharray={`${CIRC * SPAN * (p / 100)} ${CIRC}`}
-          style={{ transition: "stroke-dasharray 1s cubic-bezier(0.22,1,0.36,1)" }} />
-      </svg>
-      <div style={{
-        position: "absolute", inset: 0, display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", textAlign: "center",
-      }}>
-        <span style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 34, color: "#fff", lineHeight: 1 }}>
-          {label}
-        </span>
-        {sub && <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.4)", marginTop: 4, maxWidth: 110 }}>{sub}</span>}
-      </div>
-    </div>
-  );
-}
+import {
+  ArenaPage, SplashBackdrop, PageHero, Champion3D, Button, StatusChip, SectionHead, ProgressBar,
+  ChampIcon, lol, mapArtFor,
+} from "@/components/arena";
+import "@/styles/pages/dashboard.css";
 
 // ==== helpers ====
 // Antes: `JSON.parse(atob(...))`. `atob` devuelve Latin-1, así que un nombre
@@ -145,109 +63,53 @@ type OverviewResponse = {
 // Las regiones viven en src/lib/regions.ts: el <select> envía el platform id
 // ("la1") pero muestra la etiqueta que usa la gente ("LAN").
 
-// ─── Sidebar de administración ───────────────────────────────────────────────
+// ─── Pestañas del panel ──────────────────────────────────────────────────────
 type DashSection = "resumen" | "torneos" | "actividad" | "diarios";
 
-const SIDE_ITEMS: Array<{ key: DashSection; label: string; sub: string; Icon: typeof Trophy; adminOnly?: boolean }> = [
-  { key: "resumen",   label: "Resumen",        sub: "Stats y perfil",        Icon: LayoutDashboard },
-  { key: "torneos",   label: "Mis torneos",    sub: "Equipos e invitaciones", Icon: Trophy },
-  { key: "actividad", label: "Actividad",      sub: "Partidas y accesos",     Icon: Activity },
-  { key: "diarios",   label: "Torneos diarios", sub: "Plantillas automáticas", Icon: CalendarClock, adminOnly: true },
+const TABS: Array<{ key: DashSection; label: string; Icon: typeof Trophy; adminOnly?: boolean }> = [
+  { key: "resumen",   label: "Resumen",         Icon: LayoutDashboard },
+  { key: "torneos",   label: "Mis torneos",     Icon: Trophy },
+  { key: "actividad", label: "Actividad",       Icon: Activity },
+  { key: "diarios",   label: "Torneos diarios", Icon: CalendarClock, adminOnly: true },
 ];
 
-function DashSidebar({
+function DashTabs({
   section, onSelect, isAdmin,
 }: { section: DashSection; onSelect: (s: DashSection) => void; isAdmin: boolean }) {
-  const items = SIDE_ITEMS.filter(i => !i.adminOnly || isAdmin);
+  const items = TABS.filter((i) => !i.adminOnly || isAdmin);
   return (
-    <>
-      {/* Desktop: columna sticky con stagger de entrada */}
-      <motion.aside
-        className="dash-side vs-card"
-        initial={{ opacity: 0, x: -24 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        style={{ padding: 12 }}
-      >
-        <p className="vs-over" style={{ margin: "6px 10px 10px" }}>Administración</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {items.map((it, i) => {
-            const active = section === it.key;
-            return (
-              <motion.button
-                key={it.key}
-                onClick={() => onSelect(it.key)}
-                initial={{ opacity: 0, x: -14 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 + i * 0.06, duration: 0.35, ease: "easeOut" }}
-                whileHover={{ x: 3 }}
-                style={{
-                  position: "relative", display: "flex", alignItems: "center", gap: 12,
-                  padding: "11px 12px", borderRadius: 12, border: "none", cursor: "pointer",
-                  textAlign: "left", width: "100%",
-                  background: active ? "rgba(225,36,46,0.12)" : "transparent",
-                  transition: "background 0.25s ease",
-                }}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="dash-side-ind"
-                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                    style={{
-                      position: "absolute", left: 0, top: 8, bottom: 8, width: 3,
-                      borderRadius: 4, background: C.red,
-                      boxShadow: "0 0 12px rgba(225,36,46,0.7)",
-                    }}
-                  />
-                )}
-                <span className="vs-ico" style={{
-                  width: 36, height: 36,
-                  color: active ? "#ff8a90" : undefined,
-                  borderColor: active ? "rgba(225,36,46,0.4)" : undefined,
-                }}>
-                  <it.Icon size={16} />
-                </span>
-                <span style={{ minWidth: 0 }}>
-                  <span style={{ display: "block", fontFamily: FONT_COND, fontWeight: 700, fontSize: 14.5, color: active ? "#fff" : "rgba(255,255,255,0.75)" }}>
-                    {it.label}
-                  </span>
-                  <span style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.38)" }}>{it.sub}</span>
-                </span>
-              </motion.button>
-            );
-          })}
-        </div>
-      </motion.aside>
-
-      {/* Móvil: pills horizontales */}
-      <div className="dash-side-m">
-        {items.map(it => {
+    <div className="db-tabs">
+      <div className="ax-tabs" role="tablist" aria-label="Secciones de tu panel">
+        {items.map((it) => {
           const active = section === it.key;
           return (
-            <button key={it.key} onClick={() => onSelect(it.key)}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap",
-                padding: "9px 14px", borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: "pointer",
-                color: active ? "#fff" : "rgba(255,255,255,0.55)",
-                background: active ? "rgba(225,36,46,0.2)" : "rgba(255,255,255,0.05)",
-                border: `1px solid ${active ? "rgba(225,36,46,0.5)" : "rgba(255,255,255,0.09)"}`,
-                transition: "all 0.25s ease",
-              }}>
-              <it.Icon size={13} /> {it.label}
+            <button key={it.key} type="button" role="tab" id={`db-tab-${it.key}`}
+              className="ax-tab" data-active={active} aria-selected={active}
+              onClick={() => onSelect(it.key)}>
+              <it.Icon size={17} aria-hidden />
+              {it.label}
             </button>
           );
         })}
       </div>
-    </>
+    </div>
   );
 }
 
-const SECTION_ANIM = {
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -10 },
-  transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
-};
+/** Nombre en la display: la última palabra lleva el acento crimson. */
+function heroName(name: string) {
+  const words = name.trim().split(/\s+/);
+  if (words.length < 2) return <em>{name}</em>;
+  return <>{words.slice(0, -1).join(" ")} <em>{words[words.length - 1]}</em></>;
+}
+
+const PHASE_CHIP = {
+  registration: { label: "Inscripciones", kind: "registration" },
+  checkin:      { label: "Check-in",      kind: "gold" },
+  active:       { label: "En curso",      kind: "live" },
+} as const;
+
+const hideImg = (e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.display = "none"; };
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -279,6 +141,28 @@ const Dashboard = () => {
       .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
     return upcoming[0] ?? list.find((t) => t.phase === "active") ?? null;
   }, [tournaments]);
+
+  // ===== campeón principal → slug de Data Dragon (arte y modelo 3D) =====
+  // El overview da el nombre tal cual llega de Riot; Data Dragon usa slugs
+  // ("MonkeyKing" para Wukong). Sin campeón no hay arte de campeón ni modelo.
+  const champs = useChampions();
+  const favRaw = overview?.stats?.favoriteChampion ?? null;
+  const favSlug = useMemo(() => {
+    if (!favRaw) return null;
+    const key = favRaw.replace(/[^a-zA-Z0-9]/g, "");
+    const byId = champs.data?.byId;
+    if (!byId || byId[key]) return key;
+    const low = key.toLowerCase();
+    const hit = Object.values(byId).find(
+      (c) => c.id.toLowerCase() === low || c.name.toLowerCase() === favRaw.toLowerCase(),
+    );
+    return hit?.id ?? key;
+  }, [favRaw, champs.data]);
+  // Nombre localizado del campeón ("Miss Fortune", no "MissFortune") cuando Data Dragon ya cargó.
+  const champName = (raw?: string | null) => {
+    if (!raw) return raw ?? null;
+    return champs.data?.byId[raw.replace(/[^a-zA-Z0-9]/g, "")]?.name ?? raw;
+  };
 
   // ===== procesa payload OAuth (cuando vuelves de Google) =====
   useEffect(() => {
@@ -341,77 +225,81 @@ const Dashboard = () => {
     }
   }, [overviewQ.error]);
 
-  const inputStyle: React.CSSProperties = {
-    width: "100%", height: 44, padding: "0 16px",
-    background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.10)",
-    borderRadius: 12, color: "#fff", fontFamily: FONT_BODY, fontSize: 14, outline: "none",
-  };
-
   // ===== loading =====
   if (loading) {
     return (
-      <div className="vs-page" style={{ fontFamily: FONT_BODY }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "92px 20px 80px" }}>
-          <div className="vs-grid">
+      <ArenaPage width="wide" className="db-page">
+        <div aria-busy="true" aria-label="Cargando tu panel">
+          <Skeleton width={180} height={14} />
+          <div style={{ marginTop: 16 }}><Skeleton width="min(520px, 80%)" height={64} /></div>
+          <div style={{ marginTop: 18 }}><Skeleton width="min(360px, 60%)" height={16} /></div>
+          <div className="td-panel ax-bug db-bug" style={{ ["--cols" as string]: 4 }}>
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="vs-card vs-col-3" style={{ padding: 20 }}>
+              <div key={i} className="ax-bug-cell">
                 <Skeleton width="55%" height={12} />
                 <div style={{ marginTop: 10 }}><Skeleton width="40%" height={24} /></div>
               </div>
             ))}
-            <div className="vs-card vs-col-5" style={{ padding: 24, minHeight: 260 }}>
+          </div>
+          <div className="db-grid" style={{ marginTop: 24 }}>
+            <div className="td-panel db-card db-c7" style={{ minHeight: 260 }}>
               <Skeleton width={200} height={20} />
-              <div style={{ marginTop: 14 }}><Skeleton width="70%" height={14} /></div>
+              <div style={{ marginTop: 18 }}><Skeleton width="45%" height={72} /></div>
+              <div style={{ marginTop: 18 }}><Skeleton width="70%" height={14} /></div>
             </div>
-            <div className="vs-card vs-col-3" style={{ padding: 24, minHeight: 260 }}>
-              <Skeleton variant="circle" width={140} height={140} style={{ margin: "20px auto" }} />
-            </div>
-            <div className="vs-card vs-col-4" style={{ padding: 24, minHeight: 260 }}>
-              <Skeleton variant="circle" width={64} height={64} style={{ margin: "0 auto 14px" }} />
-              <Skeleton height={14} />
+            <div className="td-panel db-card db-c5" style={{ minHeight: 260 }}>
+              <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                <Skeleton width={64} height={64} style={{ borderRadius: 6 }} />
+                <div style={{ flex: 1, display: "grid", gap: 8 }}>
+                  <Skeleton width="60%" height={18} /><Skeleton width="80%" height={12} />
+                </div>
+              </div>
+              <div style={{ marginTop: 22 }}><Skeleton height={14} count={3} /></div>
             </div>
           </div>
         </div>
-      </div>
+      </ArenaPage>
     );
   }
 
   // ===== CTA de vinculación =====
   if (!overview?.linked) {
+    const canLink = !!riotId && !linking && cooldown <= 0;
     return (
-      <div className="vs-page" style={{ fontFamily: FONT_BODY }}>
-        <div style={{ maxWidth: 620, margin: "0 auto", padding: "110px 20px 80px" }}>
-          <Card style={{ padding: 32 }}>
-            <CardTitle sub="Para mostrar tus estadísticas reales en ATAK.GG">
-              Vincula tu cuenta de League of Legends
-            </CardTitle>
-            <div style={{ display: "grid", gap: 16, marginTop: 8 }}>
-              <div>
-                <label className="vs-over" style={{ display: "block", marginBottom: 7 }}>
-                  Riot ID (GameName#TAG)
-                </label>
-                <input placeholder="Kister#IZPZ" value={riotId}
-                  onChange={(e) => setRiotId(e.target.value)} style={inputStyle} />
-              </div>
-              <div>
-                <label className="vs-over" style={{ display: "block", marginBottom: 7 }}>Región</label>
-                <select value={platform} onChange={(e) => setPlatform(e.target.value)} style={inputStyle}>
-                  {REGIONS.map((r) => (
-                    <option key={r.value} value={r.value} style={{ background: "#101014" }}>
-                      {r.flag} {r.label} — {r.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {err && <div style={{ fontSize: 13, color: C.loss }}>{err}</div>}
-              <button className="vs-btn" onClick={linkAccount}
-                disabled={!riotId || linking || cooldown > 0} style={{ width: "100%" }}>
-                {linking ? "Vinculando…" : cooldown > 0 ? `Reintenta en ${cooldown}s` : "Vincular cuenta"}
-              </button>
-            </div>
-          </Card>
-        </div>
-      </div>
+      <ArenaPage width="narrow" className="db-page"
+        backdrop={<SplashBackdrop map="summoners-rift" opacity={0.8} side="right" height="560px" position="50% 42%" />}>
+        <PageHero
+          size="md"
+          kicker="Tu cuenta de League of Legends"
+          title={<>Vincula tu <em>cuenta</em></>}
+          lede="Para mostrar tus estadísticas reales en ATAK.GG"
+        />
+        <form className="td-panel db-linkform ax-rise" style={{ ["--i" as string]: 3 }}
+          onSubmit={(e) => { e.preventDefault(); if (canLink) linkAccount(); }}>
+          <div className="td-field">
+            <label className="td-label" htmlFor="db-riot-id">Riot ID</label>
+            <input id="db-riot-id" className="td-input" placeholder="Kister#IZPZ" value={riotId}
+              autoComplete="off" spellCheck={false} aria-describedby="db-riot-id-help"
+              aria-invalid={err ? true : undefined}
+              onChange={(e) => setRiotId(e.target.value)} />
+            <span className="td-help" id="db-riot-id-help">Formato: GameName#TAG</span>
+          </div>
+          <div className="td-field">
+            <label className="td-label" htmlFor="db-region">Región</label>
+            <select id="db-region" className="td-select" value={platform} onChange={(e) => setPlatform(e.target.value)}>
+              {REGIONS.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label} — {r.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {err && <div className="td-error" role="alert">{err}</div>}
+          <Button type="submit" variant="primary" full disabled={!canLink} icon={<Zap size={15} />}>
+            {linking ? "Vinculando…" : cooldown > 0 ? `Reintenta en ${cooldown}s` : "Vincular cuenta"}
+          </Button>
+        </form>
+      </ArenaPage>
     );
   }
 
@@ -419,294 +307,265 @@ const Dashboard = () => {
   const s = overview?.stats ?? {};
   const recent = overview?.recent ?? [];
   const wr = s.winRate ?? 0;
-  const favChamp = s.favoriteChampion || "Katarina";
-
-  const statCards = [
-    { label: "Partidas recientes", value: `${s.totalMatches ?? 0}`, icon: <BarChart3 size={20} />, ico: "", tip: "Partidas analizadas recientemente" },
-    { label: "Win rate", value: `${wr}%`, delta: wr >= 50 ? "en forma" : "a remontar", deltaColor: wr >= 50 ? C.win : C.loss, icon: <Target size={20} />, ico: "", tip: "Porcentaje de victorias en tus partidas recientes" },
-    { label: "Rango actual", value: s.currentRank ?? "—", delta: s.lp != null ? `${s.lp} LP` : undefined, deltaColor: C.gold, icon: <Award size={20} />, ico: "vs-ico--gold", tip: "Tu rango en clasificatoria" },
-    { label: "Torneos", value: `${s.tournamentsJoined ?? 0}`, icon: <Trophy size={20} />, ico: "", tip: "Torneos en los que has participado" },
-  ];
+  const recentWins = recent.filter((m) => m.win).length;
+  const riotTag = overview?.profile?.gameName
+    ? `${overview.profile.gameName}#${overview.profile.tagLine}`
+    : null;
+  const profileHref = riotTag
+    ? `/stats/${overview?.profile?.platform || "la1"}/${encodeURIComponent(riotTag)}`
+    : "/stats";
 
   const quickActions = [
-    { to: "/stats", icon: <BarChart3 size={22} />, title: "Ver Stats", desc: "Revisa tus estadísticas" },
-    { to: "/tournaments", icon: <Trophy size={22} />, title: "Torneos", desc: "Únete a competencias" },
-    { to: "/social", icon: <Users size={22} />, title: "Social", desc: "Conecta con otros" },
+    { to: "/stats", icon: <BarChart3 size={20} />, title: "Ver Stats", desc: "Revisa tus estadísticas" },
+    { to: "/tournaments", icon: <Trophy size={20} />, title: "Torneos", desc: "Únete a competencias" },
+    { to: "/social", icon: <Users size={20} />, title: "Social", desc: "Conecta con otros" },
   ];
 
   const resumen = (
-    <div className="vs-grid">
-      {/* ── Fila 1: stat cards ── */}
-      {statCards.map((c, i) => (
-            <Card key={c.label} delay={i * 0.05} hover className="vs-col-3" style={{ padding: "16px 18px" }}>
-              <Tip label={c.tip}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <p className="vs-over" style={{ margin: 0 }}>{c.label}</p>
-                    <p style={{
-                      margin: "5px 0 0", fontFamily: FONT_COND, fontWeight: 800, fontSize: 24,
-                      color: "#fff", lineHeight: 1.05,
-                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    }}>
-                      {c.value}
-                      {c.delta && (
-                        <span style={{ fontSize: 12.5, fontWeight: 700, color: c.deltaColor, marginLeft: 8 }}>
-                          {c.delta}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <span className={`vs-ico ${c.ico}`}>{c.icon}</span>
-                </div>
-              </Tip>
-            </Card>
-          ))}
+    <div className="db-grid">
+      {/* ── Forma reciente: win rate + últimas partidas ── */}
+      <section className="td-panel db-card db-c7">
+        <SectionHead
+          size="lg"
+          icon={<Target size={19} />}
+          title="Win rate"
+          right={<StatusChip kind={wr >= 50 ? "pos" : "warn"}>{wr >= 50 ? "En forma" : "A remontar"}</StatusChip>}
+        />
+        <div className="db-wr">
+          <div className="db-wr-num" aria-label={`Win rate ${wr}%`}>{wr}<small>%</small></div>
+          <div className="db-wr-side">
+            <p className="db-muted" style={{ marginBottom: 10 }}>
+              De tus partidas recientes · sobre <b className="td-num" style={{ color: "var(--td-text)" }}>{s.totalMatches ?? 0}</b> partidas
+            </p>
+            <ProgressBar kind="wr" pct={wr} height={8} />
+            <div className="db-wr-scale td-num"><span>0%</span><span>100%</span></div>
+          </div>
+        </div>
 
-          {/* ── Fila 2: bienvenida + gauge + perfil ── */}
-          <Card className="vs-col-5" style={{ position: "relative", overflow: "hidden", minHeight: 280, padding: 0 }}>
-            <img
-              src={dd.championSplash(favChamp)} alt="" loading="lazy"
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 20%" }}
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-            />
-            <div style={{
-              position: "absolute", inset: 0,
-              background: "linear-gradient(105deg, rgba(10,7,9,0.92) 20%, rgba(10,7,9,0.55) 55%, rgba(10,7,9,0.25))",
-            }} />
-            <div style={{
-              position: "relative", height: "100%", minHeight: 280, padding: 26,
-              display: "flex", flexDirection: "column", justifyContent: "space-between",
-            }}>
-              <div>
-                <p className="vs-over" style={{ margin: 0 }}>Bienvenido de vuelta,</p>
-                <h1 style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 32, color: "#fff", margin: "6px 0 8px", lineHeight: 1.05 }}>
-                  {displayName || "Invocador"}
-                </h1>
-                <p style={{ margin: 0, fontSize: 13.5, color: "rgba(255,255,255,0.65)", maxWidth: 300 }}>
-                  {overview?.profile?.gameName
-                    ? `${overview.profile.gameName}#${overview.profile.tagLine} · ${regionLabel(overview.profile.platform)}`
-                    : "Tu resumen de actividad y estadísticas"}
-                </p>
-              </div>
-              <Link
-                to={overview?.profile?.gameName
-                  ? `/stats/${overview.profile.platform || "la1"}/${encodeURIComponent(`${overview.profile.gameName}#${overview.profile.tagLine}`)}`
-                  : "/stats"}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 7, textDecoration: "none",
-                  fontSize: 13.5, fontWeight: 700, color: "#fff",
-                }}
-              >
-                Ver mi perfil completo <ArrowRight size={15} />
-              </Link>
+        {recent.length > 0 && (
+          <div className="db-form">
+            <div className="td-over">
+              Últimas {recent.length} partidas ·{" "}
+              <span style={{ color: "var(--td-green)" }}>{recentWins}V</span>{" "}
+              <span style={{ color: "var(--td-neg)" }}>{recent.length - recentWins}D</span>
             </div>
-          </Card>
+            <ul className="db-form-row">
+              {recent.map((m, i) => (
+                <li key={i} className="db-form-chip" data-win={String(!!m.win)}
+                  title={`${champName(m.championName) ?? "?"} · ${m.win ? "Victoria" : "Derrota"}`}>
+                  {m.championName
+                    ? <ChampIcon src={dd.champion(m.championName)} size={44} style={{ borderRadius: 0 }} />
+                    : <span className="db-form-blank"><Target size={16} aria-hidden /></span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
 
-          <Card className="vs-col-3" delay={0.06} style={{ padding: 24, display: "flex", flexDirection: "column" }}>
-            <CardTitle sub="De tus partidas recientes">Win rate</CardTitle>
-            <div style={{ flex: 1, display: "flex", alignItems: "center" }}>
-              <Gauge pct={wr} label={`${wr}%`} sub={`sobre ${s.totalMatches ?? 0} partidas`} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
-              <span>0%</span><span>100%</span>
-            </div>
-          </Card>
+      {/* ── Mi perfil ── */}
+      <section className="td-panel db-card db-c5">
+        <SectionHead size="lg" icon={<UserRound size={19} />} title="Mi perfil" />
+        <div className="db-me">
+          {overview?.profile?.profileIcon ? (
+            <img className="db-me-icon" src={dd.profileIcon(overview.profile.profileIcon)} alt="" width={64} height={64}
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }} />
+          ) : (
+            <span className="db-me-icon" aria-hidden>{displayName?.[0]?.toUpperCase() || "U"}</span>
+          )}
+          <div style={{ minWidth: 0 }}>
+            <h3 className="db-me-name">{displayName || "Usuario"}</h3>
+            <p className="db-me-mail">{user?.email}</p>
+            {riotTag && <p className="db-me-riot">{riotTag}</p>}
+          </div>
+        </div>
 
-          <Card className="vs-col-4" delay={0.1} style={{ padding: 24 }}>
-            <CardTitle>Mi perfil</CardTitle>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
-              {overview?.profile?.profileIcon ? (
-                <img
-                  src={dd.profileIcon(overview.profile.profileIcon)} alt=""
-                  style={{ width: 58, height: 58, borderRadius: 14, objectFit: "cover", boxShadow: "0 0 0 2px rgba(225,36,46,0.45)" }}
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
-                />
-              ) : (
-                <div style={{
-                  width: 58, height: 58, borderRadius: 14, display: "grid", placeItems: "center",
-                  background: `linear-gradient(135deg, ${C.red}, #3b0000)`,
-                }}>
-                  <span style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 22, color: "#fff" }}>
-                    {displayName?.[0]?.toUpperCase() || "U"}
-                  </span>
-                </div>
-              )}
-              <div style={{ minWidth: 0 }}>
-                <h3 style={{ margin: 0, fontFamily: FONT_COND, fontWeight: 700, fontSize: 17, color: "#fff" }}>
-                  {displayName || "Usuario"}
-                </h3>
-                <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "rgba(255,255,255,0.45)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {user?.email}
-                </p>
-                {overview?.profile?.gameName && (
-                  <p style={{ margin: "3px 0 0", fontSize: 12, color: C.gold }}>
-                    {overview.profile.gameName}#{overview.profile.tagLine}
-                  </p>
-                )}
-              </div>
-            </div>
+        <dl className="db-dl">
+          <div>
+            <dt>Campeón favorito</dt>
+            <dd>
+              {s.favoriteChampion && <ChampIcon src={dd.champion(s.favoriteChampion)} size={26} />}
+              {champName(s.favoriteChampion) ?? "—"}
+            </dd>
+          </div>
+          <div>
+            <dt>Publicaciones</dt>
+            <dd className="td-num">{s.socialPosts ?? 0}</dd>
+          </div>
+          <div>
+            <dt>Región</dt>
+            <dd>{regionLabel(overview?.profile?.platform)}</dd>
+          </div>
+        </dl>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 11, fontSize: 13.5 }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "rgba(255,255,255,0.55)" }}>Campeón favorito</span>
-                <span style={{ fontWeight: 600, color: "#fff", display: "inline-flex", alignItems: "center", gap: 7 }}>
-                  {s.favoriteChampion && (
-                    <img src={dd.champion(s.favoriteChampion)} alt="" style={{ width: 20, height: 20, borderRadius: 6, objectFit: "cover" }}
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                  )}
-                  {s.favoriteChampion ?? "—"}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "rgba(255,255,255,0.55)" }}>Publicaciones</span>
-                <span style={{ fontWeight: 600, color: "#fff" }}>{s.socialPosts ?? 0}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "rgba(255,255,255,0.55)" }}>Región</span>
-                <span style={{ fontWeight: 600, color: "#fff" }}>{regionLabel(overview?.profile?.platform)}</span>
-              </div>
-            </div>
-
-            <button className="vs-btn vs-btn--ghost" style={{ width: "100%", marginTop: 18, height: 40, fontSize: 13.5 }}>
-              Editar perfil
-            </button>
-          </Card>
+        <Button variant="secondary" full>Editar perfil</Button>
+      </section>
     </div>
   );
 
+  const nextPhase = nextT ? (PHASE_CHIP[nextT.phase as keyof typeof PHASE_CHIP] ?? PHASE_CHIP.active) : null;
   const torneos = (
-    <div className="vs-grid">
+    <div className="db-grid">
       {/* Panel de torneos existente (equipos, invitaciones, administrando) */}
-      <div className="vs-col-12">
+      <div className="db-c8">
         <TournamentDashboardPanel />
       </div>
-      <Card className="vs-col-4" style={{ padding: 24 }}>
-        <CardTitle>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <Calendar size={15} color={C.gold} /> Próximo torneo
-          </span>
-        </CardTitle>
-        {nextT ? (
-          <div onClick={() => navigate(`/tournaments/${nextT.id}`)} style={{ cursor: "pointer" }}>
-            <div style={{ fontFamily: FONT_COND, fontWeight: 700, fontSize: 18, color: "#fff", lineHeight: 1.15, marginBottom: 8 }}>
-              {nextT.name}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "rgba(255,255,255,0.6)" }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <Calendar size={13} />
+      <div className="db-c4">
+        {nextT && nextPhase ? (
+          <Link to={`/tournaments/${nextT.id}`} className="ax-artcard db-next" aria-label={`Ver ${nextT.name}`}>
+            {/* El arte es el mapa del torneo (Grieta, ARAM o Arena) */}
+            <img className="ax-artcard-img" src={lol.map(mapArtFor(nextT.gameMap))} alt="" loading="lazy" decoding="async" onError={hideImg} />
+            <span className="td-over" style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+              <Calendar size={13} color="var(--td-gold)" aria-hidden /> Próximo torneo
+            </span>
+            <h2 className="db-next-name">{nextT.name}</h2>
+            <div className="db-next-facts">
+              <span>
+                <Calendar size={14} aria-hidden />
                 {new Date(nextT.startDate).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}
               </span>
-              {nextT.prize ? <span style={{ color: C.gold, display: "inline-flex", alignItems: "center", gap: 4 }}><Trophy size={12} aria-hidden />{nextT.prize}</span> : null}
+              {nextT.prize ? (
+                <span style={{ color: "var(--td-gold-bright)" }}><Trophy size={14} aria-hidden />{nextT.prize}</span>
+              ) : null}
             </div>
-            <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span className="vs-over" style={{ color: nextT.phase === "active" ? C.win : C.gold }}>
-                {nextT.phase === "registration" ? "Inscripciones" : nextT.phase === "checkin" ? "Check-in" : "En curso"}
-              </span>
-              <span style={{ fontSize: 12.5, color: C.red, fontWeight: 700 }}>Ver →</span>
+            <div className="db-next-foot">
+              <StatusChip kind={nextPhase.kind}>{nextPhase.label}</StatusChip>
+              <span className="db-go">Ver <ArrowRight size={15} aria-hidden /></span>
             </div>
-          </div>
+          </Link>
         ) : (
-          <p style={{ textAlign: "center", fontSize: 13.5, color: "rgba(255,255,255,0.45)", margin: "16px 0" }}>
-            No hay torneos próximos
-          </p>
+          <section className="td-panel db-card">
+            <SectionHead icon={<Calendar size={15} />} title="Próximo torneo" />
+            <p className="db-muted" style={{ textAlign: "center", padding: "12px 0" }}>No hay torneos próximos</p>
+          </section>
         )}
-      </Card>
+      </div>
     </div>
   );
 
   const actividad = (
-    <div className="vs-grid">
-          <Card className="vs-col-4" style={{ padding: 24 }}>
-            <CardTitle sub="Accede a las funciones principales">Acciones rápidas</CardTitle>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {quickActions.map((a) => (
-                <Link key={a.to} to={a.to} style={{ textDecoration: "none" }}>
-                  <div className="vs-row">
-                    <span className="vs-ico" style={{ width: 40, height: 40 }}>{a.icon}</span>
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ margin: 0, fontFamily: FONT_COND, fontWeight: 700, fontSize: 15, color: "#fff" }}>{a.title}</p>
-                      <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{a.desc}</p>
-                    </div>
-                    <ArrowRight size={15} style={{ marginLeft: "auto", color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </Card>
+    <div className="db-grid">
+      <section className="td-panel db-card db-c4">
+        <SectionHead size="lg" icon={<Zap size={19} />} title="Acciones rápidas" />
+        <p className="db-block-sub">Accede a las funciones principales</p>
+        <ul className="db-links">
+          {quickActions.map((a) => (
+            <li key={a.to}>
+              <Link to={a.to}>
+                <span className="td-ico db-ico" data-tone="red" aria-hidden>{a.icon}</span>
+                <span style={{ minWidth: 0 }}>
+                  <span className="db-link-title">{a.title}</span>
+                  <span className="db-link-desc">{a.desc}</span>
+                </span>
+                <ArrowRight size={17} aria-hidden />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
 
-          <Card className="vs-col-5" delay={0.05} style={{ padding: 24 }}>
-            <CardTitle sub="Últimas partidas">Actividad reciente</CardTitle>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {!recent || recent.length === 0 ? (
-                <p style={{ fontSize: 13.5, color: "rgba(255,255,255,0.45)" }}>No hay partidas recientes.</p>
-              ) : (
-                recent.map((m, index) => (
-                  <div key={index} className="vs-row" style={{ boxShadow: `inset 3px 0 0 ${m.win ? C.win : C.loss}` }}>
-                    {m.championName ? (
-                      <img src={dd.champion(m.championName)} alt="" loading="lazy"
-                        style={{ width: 34, height: 34, borderRadius: 10, objectFit: "cover", flexShrink: 0 }}
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }} />
-                    ) : (
-                      <span className="vs-ico vs-ico--dim" style={{ width: 34, height: 34 }}><Target size={15} /></span>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontWeight: 600, fontSize: 13.5, color: "#fff" }}>
-                        {m.championName ?? "?"} · {m.queueName ?? "Partida"}
-                      </p>
-                      <p style={{ margin: "1px 0 0", fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
-                        <span style={{ color: m.win ? C.win : C.loss, fontWeight: 700 }}>
-                          {m.win ? "Victoria" : "Derrota"}
-                        </span>{" "}
-                        · {m.duration ? Math.round(m.duration / 60) : 0} min
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
+      <section className="td-panel db-card db-c8">
+        <SectionHead size="lg" icon={<Activity size={19} />} title="Actividad reciente" />
+        <p className="db-block-sub">Últimas partidas</p>
+        {!recent || recent.length === 0 ? (
+          <p className="db-muted">No hay partidas recientes.</p>
+        ) : (
+          <ul className="db-matches">
+            {recent.map((m, index) => (
+              <li key={index} className="db-match" data-win={String(!!m.win)}>
+                {m.championName ? (
+                  <ChampIcon src={dd.champion(m.championName)} size={44} />
+                ) : (
+                  <span className="td-ico" style={{ width: 44, height: 44 }} aria-hidden><Target size={18} /></span>
+                )}
+                <div className="db-match-main">
+                  <p className="db-match-name">{champName(m.championName) ?? "?"}</p>
+                  <p className="db-match-sub">{m.queueName ?? "Partida"}</p>
+                </div>
+                <div className="db-match-end">
+                  <span className="td-num db-match-time">
+                    <Clock size={14} aria-hidden style={{ display: "inline", verticalAlign: "-2px", marginRight: 6, color: "var(--td-muted)" }} />
+                    {m.duration ? Math.round(m.duration / 60) : 0} min
+                  </span>
+                  <StatusChip kind={m.win ? "pos" : "warn"} dot={false}>{m.win ? "Victoria" : "Derrota"}</StatusChip>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 
   const isAdmin = (user as any)?.role === "admin";
 
   return (
-    <div className="vs-page" style={{ fontFamily: FONT_BODY, lineHeight: 1.5 }}>
-      <div style={{ maxWidth: 1320, margin: "0 auto", padding: "92px 20px 80px" }}>
-        <div className="dash-shell">
-          <DashSidebar section={section} onSelect={setSection} isAdmin={isAdmin} />
+    <ArenaPage
+      width="wide"
+      className="db-page"
+      backdrop={favSlug
+        ? <SplashBackdrop champion={favSlug} side="right" opacity={0.5} />
+        : <SplashBackdrop map="summoners-rift" side="right" opacity={0.8} height="560px" position="50% 42%" />}
+    >
+      <PageHero
+        size="md"
+        kicker="Bienvenido de vuelta"
+        title={heroName(displayName || "Invocador")}
+        lede={riotTag
+          ? `${riotTag} · ${regionLabel(overview?.profile?.platform)}`
+          : "Tu resumen de actividad y estadísticas"}
+        actions={
+          <Link to={profileHref} className="td-btn td-btn--primary">
+            Ver mi perfil completo <ArrowRight size={15} aria-hidden />
+          </Link>
+        }
+        /* Un único modelo 3D en la página: el campeón principal del jugador. */
+        aside={favSlug ? <Champion3D slug={favSlug} clip="idle" art="none" className="db-stage" /> : undefined}
+      />
 
-          <div style={{ minWidth: 0 }}>
-            <AnimatePresence mode="wait">
-              <motion.div key={section} {...SECTION_ANIM}>
-                {section === "resumen" && resumen}
-                {section === "torneos" && torneos}
-                {section === "actividad" && actividad}
-                {section === "diarios" && isAdmin && <DailySchedulesAdmin />}
-              </motion.div>
-            </AnimatePresence>
+      {/* ── Tira de métricas ── */}
+      <dl className="td-panel ax-bug db-bug ax-rise" style={{ ["--cols" as string]: 4, ["--i" as string]: 4 }}>
+        <Tip label="Partidas analizadas recientemente">
+          <div className="ax-bug-cell">
+            <dt className="td-over">Partidas recientes</dt>
+            <dd className="ax-bug-value" style={{ marginLeft: 0 }}>{s.totalMatches ?? 0}</dd>
           </div>
-        </div>
+        </Tip>
+        <Tip label="Porcentaje de victorias en tus partidas recientes">
+          <div className="ax-bug-cell">
+            <dt className="td-over">Win rate</dt>
+            <dd className="ax-bug-value" style={{ marginLeft: 0 }}>
+              {wr}% <small data-tone={wr >= 50 ? "pos" : "neg"}>{wr >= 50 ? "en forma" : "a remontar"}</small>
+            </dd>
+          </div>
+        </Tip>
+        <Tip label="Tu rango en clasificatoria">
+          <div className="ax-bug-cell" data-accent="gold">
+            <dt className="td-over">Rango actual</dt>
+            <dd className="ax-bug-value" style={{ marginLeft: 0 }}>
+              {s.currentRank ?? "—"}{s.lp != null && <small data-tone="gold"> {s.lp} LP</small>}
+            </dd>
+          </div>
+        </Tip>
+        <Tip label="Torneos en los que has participado">
+          <div className="ax-bug-cell">
+            <dt className="td-over">Torneos</dt>
+            <dd className="ax-bug-value" style={{ marginLeft: 0 }}>{s.tournamentsJoined ?? 0}</dd>
+          </div>
+        </Tip>
+      </dl>
 
-        {err && <div style={{ fontSize: 13, color: C.loss, marginTop: 22 }}>{err}</div>}
+      <DashTabs section={section} onSelect={setSection} isAdmin={isAdmin} />
+
+      <div key={section} className="ax-rise" role="tabpanel" aria-labelledby={`db-tab-${section}`}>
+        {section === "resumen" && resumen}
+        {section === "torneos" && torneos}
+        {section === "actividad" && actividad}
+        {section === "diarios" && isAdmin && <div style={{ marginTop: 16 }}><DailySchedulesAdmin /></div>}
       </div>
 
-      {/* Responsive del shell: sidebar sticky en desktop, pills arriba en móvil */}
-      <style>{`
-        .dash-shell { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 20px; align-items: start; }
-        .dash-side { position: sticky; top: 92px; }
-        .dash-side-m { display: none; }
-        @media (max-width: 900px) {
-          .dash-shell { grid-template-columns: 1fr; }
-          .dash-side { display: none; }
-          .dash-side-m {
-            display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px;
-            -webkit-overflow-scrolling: touch; scrollbar-width: none;
-          }
-          .dash-side-m::-webkit-scrollbar { display: none; }
-        }
-      `}</style>
-    </div>
+      {err && <div className="td-error" role="alert" style={{ marginTop: 22 }}>{err}</div>}
+    </ArenaPage>
   );
 };
 

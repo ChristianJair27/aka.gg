@@ -38,7 +38,9 @@
 *, *::before, *::after { box-sizing: border-box; }
 html { overflow-x: hidden; scroll-behavior: smooth; }
 body {
-  overflow-x: hidden;
+  /* clip, no hidden: `hidden` convertía a body en contenedor de scroll y
+     anulaba position: sticky en toda la app (html ya corta el desborde). */
+  overflow-x: clip;
   background: #000;
   color: #fff;
   font-family: "Barlow", ui-sans-serif, system-ui, sans-serif;

@@ -84,12 +84,12 @@ export function ErrorCard({ message, onRetry }: { message: string; onRetry: () =
   return (
     <Card accent="rgba(232,50,60,0.35)" style={{ padding: 40, textAlign: 'center' }}>
       <AlertTriangle size={36} color={RED} style={{ margin: '0 auto 12px' }} />
-      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--td-text)', marginBottom: 6 }}>
+      <div style={{ fontFamily: 'var(--td-font-display)', fontSize: 22, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: 'var(--td-text)', marginBottom: 6 }}>
         No se pudieron cargar los datos
       </div>
-      <p style={{ fontSize: 12.5, color: 'var(--td-text-2)', margin: '0 0 16px' }}>{message}</p>
+      <p style={{ fontSize: 14, color: 'var(--td-text-2)', margin: '0 0 16px' }}>{message}</p>
       <Button variant="secondary" icon={<RefreshCw size={14} />} onClick={onRetry}>
-        REINTENTAR
+        Reintentar
       </Button>
     </Card>
   );
@@ -185,8 +185,8 @@ export function ChampPortrait({ id, ring }: { id: number; ring: 'red' | 'gray' }
 export function TeamCol({ team }: { team: NonNullable<TdBoardPayload['liveMatch']>['teamA'] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textAlign: 'center', minWidth: 0, flex: 1 }}>
-      <TeamBadge name={team.name} color={team.color} mono={team.mono} size={44} />
-      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+      <TeamBadge name={team.name} color={team.color} mono={team.mono} size={56} />
+      <span style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
         {team.name}
       </span>
     </div>
@@ -196,16 +196,16 @@ export function TeamCol({ team }: { team: NonNullable<TdBoardPayload['liveMatch'
 export function ScheduleTeams({ a, b }: { a: TdBoardPayload['schedule'][number]['teamA']; b: TdBoardPayload['schedule'][number]['teamB'] }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-      <TeamBadge name={a?.name} color={a?.color} mono={a?.mono} size={22} />
-      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--td-text-2)' }}>vs</span>
-      <TeamBadge name={b?.name} color={b?.color} mono={b?.mono} size={22} />
+      <TeamBadge name={a?.name} color={a?.color} mono={a?.mono} size={26} />
+      <span className="td-over">vs</span>
+      <TeamBadge name={b?.name} color={b?.color} mono={b?.mono} size={26} />
     </div>
   );
 }
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <div style={{ padding: '20px 8px', textAlign: 'center', fontSize: 12.5, color: 'var(--td-muted)' }}>
+    <div style={{ padding: '20px 8px', textAlign: 'center', fontSize: 14, color: 'var(--td-muted)' }}>
       {children}
     </div>
   );

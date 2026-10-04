@@ -1,8 +1,12 @@
 // src/components/ProfileComments.tsx — Community comments for a summoner profile
+// Visual: sistema "Arena". Requiere un ancestro .td-root y las clases pf-comment*
+// de src/styles/pages/profile.css (lo monta el perfil dentro de un td-panel).
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { axiosInstance } from '@/lib/axios';
 import { Heart, Trash2, MessageCircle, Send, ChevronDown, ChevronUp } from 'lucide-react';
+import { Button, SectionHead } from '@/components/tournament/ui';
+import '@/styles/pages/profile.css';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ProfileComment {
@@ -77,44 +81,36 @@ const CommentItem = memo(function CommentItem({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
-      className="group flex gap-3 p-4 rounded-xl border border-white/[0.06] bg-white/[0.02]
-        hover:bg-white/[0.04] hover:border-white/[0.1] transition-all duration-200"
+      className="td-sub pf-comment"
     >
       {/* Avatar */}
-      <div className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center
-        bg-gradient-to-br from-red-700/60 to-red-900/40 border border-red-500/20 text-xs font-bold text-red-300">
-        {initials}
-      </div>
+      <div className="pf-comment-avatar" aria-hidden>{initials}</div>
 
       {/* Body */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2 mb-1">
-          <span className="text-sm font-semibold text-white">{comment.username}</span>
-          <span className="text-[11px] text-gray-600">{timeAgo(comment.createdAt)}</span>
+      <div className="pf-comment-body">
+        <div className="pf-comment-head">
+          <b>{comment.username}</b>
+          <span>{timeAgo(comment.createdAt)}</span>
         </div>
-        <p className="text-sm text-gray-300 leading-relaxed break-words">{comment.content}</p>
+        <p className="pf-comment-text">{comment.content}</p>
 
         {/* Actions */}
-        <div className="flex items-center gap-3 mt-2">
+        <div className="pf-comment-actions">
           <button
+            type="button"
             onClick={() => onLike(comment.id)}
-            className={`flex items-center gap-1.5 text-xs transition-colors ${
-              comment.likedByMe
-                ? 'text-red-400'
-                : 'text-gray-600 hover:text-red-400'
-            }`}
+            className="pf-comment-btn td-num"
+            data-on={comment.likedByMe}
+            aria-pressed={comment.likedByMe}
+            aria-label={comment.likedByMe ? 'Quitar me gusta' : 'Me gusta'}
           >
-            <Heart className={`h-3.5 w-3.5 ${comment.likedByMe ? 'fill-current' : ''}`} />
+            <Heart size={15} fill={comment.likedByMe ? 'currentColor' : 'none'} />
             {comment.likes > 0 && <span>{comment.likes}</span>}
           </button>
 
           {isOwn && (
-            <button
-              onClick={() => onDelete(comment.id)}
-              className="flex items-center gap-1 text-xs text-gray-700 hover:text-red-500
-                transition-colors opacity-0 group-hover:opacity-100"
-            >
-              <Trash2 className="h-3 w-3" />
+            <button type="button" onClick={() => onDelete(comment.id)} className="pf-comment-btn">
+              <Trash2 size={14} />
               Eliminar
             </button>
           )}
@@ -127,12 +123,12 @@ const CommentItem = memo(function CommentItem({
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function CommentSkeleton() {
   return (
-    <div className="flex gap-3 p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] animate-pulse">
-      <div className="w-9 h-9 rounded-full bg-white/[0.07] flex-shrink-0" />
-      <div className="flex-1 space-y-2 pt-1">
-        <div className="h-3 bg-white/[0.07] rounded w-1/4" />
-        <div className="h-3 bg-white/[0.05] rounded w-3/4" />
-        <div className="h-3 bg-white/[0.05] rounded w-1/2" />
+    <div className="td-sub pf-comment" aria-hidden>
+      <span className="pf-skel" style={{ width: 40, height: 40, flexShrink: 0 }} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 2 }}>
+        <span className="pf-skel" style={{ height: 13, width: '25%' }} />
+        <span className="pf-skel" style={{ height: 13, width: '75%' }} />
+        <span className="pf-skel" style={{ height: 13, width: '50%' }} />
       </div>
     </div>
   );
@@ -212,109 +208,94 @@ export const ProfileComments = memo(function ProfileComments({ puuid }: Props) {
   const hasMore = safeComments.length > 3;
 
   return (
-    <section className="py-10 px-4">
-      <div className="max-w-3xl mx-auto">
+    <div>
+      {/* Header */}
+      <SectionHead
+        icon={<MessageCircle size={15} />}
+        title="Comentarios de la comunidad"
+        right={!loading ? (
+          <span className="td-over">
+            {safeComments.length} {safeComments.length === 1 ? 'comentario' : 'comentarios'}
+          </span>
+        ) : undefined}
+      />
 
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
-            <MessageCircle className="h-5 w-5" />
+      {/* Compose box */}
+      {isLoggedIn ? (
+        <form onSubmit={handleSubmit} className="pf-compose">
+          <label className="td-field">
+            <span className="td-label">Tu comentario</span>
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={e => setText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSubmit(e as any); }}
+              placeholder="Escribe un comentario sobre este jugador..."
+              rows={2}
+              maxLength={400}
+              className="td-textarea"
+              aria-invalid={error ? true : undefined}
+            />
+          </label>
+          <div className="pf-compose-foot">
+            <span className="td-help td-num">{text.length}/400 · Ctrl+Enter para enviar</span>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={submitting || !text.trim()}
+              icon={<Send size={14} />}
+            >
+              {submitting ? 'Publicando…' : 'Publicar'}
+            </Button>
           </div>
-          <div>
-            <h3 className="font-bold text-white text-lg leading-none">Comentarios de la comunidad</h3>
-            {!loading && (
-              <p className="text-xs text-gray-500 mt-0.5">
-                {safeComments.length} {safeComments.length === 1 ? 'comentario' : 'comentarios'}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Compose box */}
-        {isLoggedIn ? (
-          <form onSubmit={handleSubmit} className="mb-6">
-            <div className="relative rounded-xl border border-white/[0.08] bg-white/[0.03]
-              focus-within:border-red-500/40 focus-within:bg-white/[0.05] transition-all duration-300">
-              <textarea
-                ref={textareaRef}
-                value={text}
-                onChange={e => setText(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSubmit(e as any); }}
-                placeholder="Escribe un comentario sobre este jugador..."
-                rows={2}
-                maxLength={400}
-                className="w-full bg-transparent px-4 pt-3 pb-2 text-sm text-gray-200
-                  placeholder-gray-600 resize-none outline-none"
-              />
-              <div className="flex items-center justify-between px-4 pb-3">
-                <span className="text-[11px] text-gray-700">{text.length}/400 · Ctrl+Enter para enviar</span>
-                <button
-                  type="submit"
-                  disabled={submitting || !text.trim()}
-                  className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold
-                    bg-red-600 hover:bg-red-500 text-white disabled:opacity-40 disabled:cursor-not-allowed
-                    transition-colors"
-                >
-                  {submitting
-                    ? <div className="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                    : <Send className="h-3.5 w-3.5" />
-                  }
-                  Publicar
-                </button>
-              </div>
-            </div>
-            {error && (
-              <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-                className="text-red-400 text-xs mt-2 px-1">
-                {error}
-              </motion.p>
-            )}
-          </form>
-        ) : (
-          <div className="mb-6 px-4 py-3 rounded-xl border border-white/[0.06] bg-white/[0.02]
-            text-sm text-gray-500 text-center">
-            <a href="/login" className="text-red-400 hover:underline">Inicia sesión</a> para dejar un comentario.
-          </div>
-        )}
-
-        {/* Comments list */}
-        <div className="space-y-2">
-          {loading ? (
-            [1, 2, 3].map(i => <CommentSkeleton key={i} />)
-          ) : safeComments.length === 0 ? (
-            <div className="text-center py-10 text-gray-600 text-sm">
-              Nadie ha comentado aún. ¡Sé el primero!
-            </div>
-          ) : (
-            <AnimatePresence initial={false}>
-              {visibleComments.map(c => (
-                <CommentItem
-                  key={c.id}
-                  comment={c}
-                  currentUserId={currentUser?.id ?? null}
-                  onLike={handleLike}
-                  onDelete={handleDelete}
-                />
-              ))}
-            </AnimatePresence>
+          {error && (
+            <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+              className="td-error" role="alert" style={{ margin: '8px 0 0' }}>
+              {error}
+            </motion.p>
           )}
-        </div>
+        </form>
+      ) : (
+        <p className="td-sub pf-login-note">
+          <a href="/login" className="ax-link">Inicia sesión</a> para dejar un comentario.
+        </p>
+      )}
 
-        {/* Show more / less */}
-        {!loading && hasMore && (
-          <button
-            onClick={() => setExpanded(e => !e)}
-            className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl
-              border border-white/[0.06] text-xs text-gray-500 hover:text-white
-              hover:border-white/[0.12] hover:bg-white/[0.03] transition-all duration-200"
-          >
-            {expanded
-              ? <><ChevronUp className="h-4 w-4" /> Mostrar menos</>
-              : <><ChevronDown className="h-4 w-4" /> Ver los {safeComments.length - 3} comentarios restantes</>
-            }
-          </button>
+      {/* Comments list */}
+      <div className="pf-comments">
+        {loading ? (
+          [1, 2, 3].map(i => <CommentSkeleton key={i} />)
+        ) : safeComments.length === 0 ? (
+          <p className="pf-note" style={{ padding: '20px 0', textAlign: 'center' }}>
+            Nadie ha comentado aún. ¡Sé el primero!
+          </p>
+        ) : (
+          <AnimatePresence initial={false}>
+            {visibleComments.map(c => (
+              <CommentItem
+                key={c.id}
+                comment={c}
+                currentUserId={currentUser?.id ?? null}
+                onLike={handleLike}
+                onDelete={handleDelete}
+              />
+            ))}
+          </AnimatePresence>
         )}
       </div>
-    </section>
+
+      {/* Show more / less */}
+      {!loading && hasMore && (
+        <div className="pf-comments-more">
+          <Button
+            variant="ghost"
+            icon={expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            onClick={() => setExpanded(e => !e)}
+          >
+            {expanded ? 'Mostrar menos' : `Ver los ${safeComments.length - 3} comentarios restantes`}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 });

@@ -132,10 +132,10 @@ function NavSearch({ className = '', onDone }: { className?: string; onDone?: ()
         aria-expanded={showDrop}
         aria-label="Buscar invocador"
         title={bad ? 'Formato: Nombre#Tag — o no se encontró el invocador' : 'Buscar invocador'}
-        className={`w-full h-9 rounded-full pl-9 pr-8 text-sm text-white placeholder:text-white/25
+        className={`w-full h-9 rounded-[6px] pl-9 pr-8 text-sm text-white placeholder:text-white/40
           bg-white/[0.05] border outline-none transition-all duration-200
           focus:bg-white/[0.07] ${
-            bad ? 'border-red-500/60' : 'border-white/[0.08] focus:border-[#c8aa6e]/40'
+            bad ? 'border-red-500/60' : 'border-white/[0.10] focus:border-[#e8323c]'
           }`}
       />
       {busy && (
@@ -146,8 +146,8 @@ function NavSearch({ className = '', onDone }: { className?: string; onDone?: ()
       {showDrop && (
         <div
           role="listbox"
-          className="absolute left-0 right-0 top-full mt-2 z-50 min-w-[260px] overflow-hidden rounded-2xl
-            border border-white/[0.10] bg-black/95 shadow-[0_16px_48px_rgba(0,0,0,0.6)]"
+          className="absolute left-0 right-0 top-full mt-2 z-50 min-w-[260px] overflow-hidden rounded-[10px]
+            border border-white/[0.14] bg-[#121216] shadow-[0_16px_48px_rgba(0,0,0,0.6)]"
           style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
         >
           {champMatches.length > 0 && (
@@ -336,6 +336,15 @@ export const Navbar = () => {
 
   const navHidden = hidden && !mobileOpen && !userMenuOpen;
 
+  // Las barras pegajosas de cada página (p. ej. las pestañas del torneo) leen
+  // este atributo para subir al hueco que deja la pastilla al esconderse.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (navHidden) root.setAttribute('data-nav-hidden', 'true');
+    else root.removeAttribute('data-nav-hidden');
+    return () => root.removeAttribute('data-nav-hidden');
+  }, [navHidden]);
+
   return (
     <nav
       className="fixed top-0 left-0 right-0 z-50 px-3 pt-3 md:px-5 pointer-events-none"
@@ -347,7 +356,7 @@ export const Navbar = () => {
     >
       {/* Pastilla flotante (estilo React Bits): cápsula con blur separada del
           borde, más presente al scrollear. El hairline pasa a ser el borde. */}
-      <div className={`pointer-events-auto max-w-6xl 2xl:max-w-[1440px] min-[2200px]:max-w-[1680px] mx-auto rounded-full border transition-all duration-500 ${
+      <div className={`ax-nav pointer-events-auto max-w-6xl 2xl:max-w-[1440px] min-[2200px]:max-w-[1680px] mx-auto rounded-[12px] border transition-all duration-500 ${
         scrolled || !isHome
           ? 'bg-black/85 border-white/[0.10] shadow-[0_12px_40px_rgba(0,0,0,0.55)]'
           : 'bg-black/45 border-white/[0.07] shadow-[0_8px_32px_rgba(0,0,0,0.35)]'
@@ -358,43 +367,28 @@ export const Navbar = () => {
         <div className="flex items-center justify-between h-14">
 
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="relative">
+          <Link to="/" className="flex items-center gap-2.5 group shrink-0">
+            <div className="relative shrink-0">
               <DaggerLogo className="h-8 w-8 transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-[0_0_12px_rgba(239,68,68,0.8)]" />
               <div className="absolute inset-0 rounded-full bg-red-500/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="font-serif text-lg tracking-wide text-white">
-                ATAK<span className="text-red-500">.GG</span>
-              </span>
-              <span className="text-[9px] font-mono text-white/40 uppercase tracking-widest">Powered by Riot API</span>
+              <span className="ax-nav-mark">ATAK<em>.GG</em></span>
+              <span className="ax-nav-sub">Powered by Riot API</span>
             </div>
           </Link>
 
           {/* Desktop nav — icono + palabra. El icono da reconocimiento rápido
               y la palabra evita adivinanzas; ninguno de los dos solo. */}
-          <nav className="hidden md:flex items-center gap-1.5 lg:gap-2.5">
+          <nav className="hidden md:flex items-center gap-0.5 lg:gap-1">
             {NAV_LINKS.map(({ label, href, Icon }) => {
               const active = location.pathname === href ||
                              (href !== '/' && location.pathname.startsWith(href));
               return (
                 <Link key={href} to={href} aria-current={active ? 'page' : undefined}
-                  className={`relative group flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
-                    active
-                      ? 'text-red-300 bg-red-500/[0.10] border border-red-500/25'
-                      : 'text-gray-400 border border-transparent hover:text-white hover:bg-white/[0.05]'
-                  }`}>
-                  <Icon className={`h-4 w-4 transition-transform duration-200 group-hover:scale-110 ${
-                    active ? 'text-red-400' : 'text-gray-500 group-hover:text-red-400'
-                  }`} />
+                  className="ax-nav-link" data-active={active}>
+                  <Icon className="h-4 w-4" aria-hidden />
                   {label}
-                  {/* Subrayado blade: sesgado como el corte de marca, rojo → oro */}
-                  <span
-                    className={`absolute -bottom-0.5 left-3 right-3 h-[2px] bg-gradient-to-r from-red-500 via-red-400 to-[#c8aa6e] transition-opacity duration-300 ${
-                      active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                    }`}
-                    style={{ transform: 'skewX(-14deg)' }}
-                  />
                 </Link>
               );
             })}
@@ -406,22 +400,19 @@ export const Navbar = () => {
             {/* Acción destacada de la barra: la misma que manda en la portada. */}
             <Link
               to="/crear-torneo"
-              className="group hidden lg:inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-bold text-white transition-transform duration-200 hover:scale-[1.04]"
-              style={{
-                background: 'linear-gradient(135deg,#ef4444,#b91c1c)',
-                boxShadow: '0 8px 22px -10px rgba(225,36,46,0.95)',
-              }}
+              className="ax-nav-cta hidden lg:inline-flex"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-4 w-4" aria-hidden />
               Crear torneo
             </Link>
             {isAuthenticated && user ? (
               <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-white/[0.05] border border-red-900/30 hover:border-red-600/50 transition-all duration-200"
+                  aria-expanded={userMenuOpen} aria-haspopup="menu"
+                  className="ax-nav-user"
                 >
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-xs font-black text-white flex-shrink-0">
+                  <div className="ax-nav-avatar">
                     {initial}
                   </div>
                   <span className="text-sm font-medium text-white/80 max-w-[120px] truncate">{fixMojibakeUtf8(user.name)}</span>
@@ -429,10 +420,10 @@ export const Navbar = () => {
                 </button>
 
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-52 bg-black/95 border border-red-900/30 rounded-xl shadow-2xl shadow-black/70 overflow-hidden z-50 backdrop-blur-xl">
+                  <div className="absolute right-0 mt-2 w-56 bg-[#121216] border border-white/[0.14] rounded-[10px] shadow-2xl shadow-black/70 overflow-hidden z-50">
                     <div className="px-4 py-3 border-b border-white/[0.05]">
                       <p className="text-sm font-semibold text-white truncate">{fixMojibakeUtf8(user.name)}</p>
-                      <p className="text-xs text-gray-600 truncate">{user.email}</p>
+                      <p className="text-xs text-gray-400 truncate">{user.email}</p>
                     </div>
                     <div className="py-1">
                       <Link to="/dashboard" onClick={() => setUserMenuOpen(false)}
@@ -445,7 +436,7 @@ export const Navbar = () => {
                         <span className="min-w-0">
                           Mi Perfil
                           {linked?.gameName && (
-                            <span className="block text-[10px] text-[#c8aa6e] truncate">
+                            <span className="block text-[12px] text-[#c8aa6e] truncate">
                               {linked.gameName}#{linked.tagLine}
                             </span>
                           )}
@@ -465,20 +456,17 @@ export const Navbar = () => {
               <>
                 {/* Un solo botón rojo en la barra: "Crear torneo". Cuenta y
                     sesión van sobrias para no competir con la acción principal. */}
-                <Link to="/login"
-                  className="whitespace-nowrap px-3 py-1.5 text-sm font-medium text-gray-400 transition-colors hover:text-white">
-                  Entrar
-                </Link>
-                <Link to="/register"
-                  className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-white/[0.14] bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30 hover:bg-white/[0.08]">
-                  <Zap className="h-3.5 w-3.5 text-red-400" />Crear cuenta
+                <Link to="/login" className="ax-nav-link">Entrar</Link>
+                <Link to="/register" className="ax-nav-ghost">
+                  <Zap className="h-3.5 w-3.5" aria-hidden />Crear cuenta
                 </Link>
               </>
             )}
           </div>
 
           {/* Mobile hamburger */}
-          <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden text-white/70 hover:text-white transition-colors">
+          <button onClick={() => setMobileOpen(!mobileOpen)} aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'} aria-expanded={mobileOpen}
+            className="md:hidden grid place-items-center w-11 h-11 -mr-2 text-white/80 hover:text-white transition-colors">
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
@@ -488,7 +476,7 @@ export const Navbar = () => {
       {/* Menú móvil: panel propio bajo la pastilla (la cápsula no se deforma) */}
       {mobileOpen && (
         <div
-          className="pointer-events-auto md:hidden max-w-6xl mx-auto mt-2 rounded-3xl border border-white/[0.10] bg-black/90 shadow-[0_16px_48px_rgba(0,0,0,0.6)] px-4 py-4"
+          className="ax-nav pointer-events-auto md:hidden max-w-6xl mx-auto mt-2 rounded-[12px] border border-white/[0.12] bg-[#0e0e11]/95 shadow-[0_16px_48px_rgba(0,0,0,0.6)] px-4 py-4"
           style={{ backdropFilter: 'blur(18px) saturate(150%)', WebkitBackdropFilter: 'blur(18px) saturate(150%)' }}
         >
           {/* Búsqueda primero: es a lo que más se viene */}
@@ -496,8 +484,7 @@ export const Navbar = () => {
           {/* Crear torneo primero: es la acción que empuja toda la app. */}
           <Link
             to="/crear-torneo"
-            className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white"
-            style={{ background: 'linear-gradient(135deg,#ef4444,#b91c1c)' }}
+            className="ax-nav-cta mb-3 flex w-full" style={{ height: 46 }}
           >
             <Plus className="h-4 w-4" /> Crear torneo
           </Link>
@@ -507,10 +494,8 @@ export const Navbar = () => {
                              (href !== '/' && location.pathname.startsWith(href));
               return (
                 <Link key={href} to={href} aria-current={active ? 'page' : undefined}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                    active ? 'bg-red-600/15 text-red-300' : 'text-gray-300 hover:bg-red-600/10 hover:text-white'
-                  }`}>
-                  <Icon className={`h-4 w-4 ${active ? 'text-red-400' : 'text-gray-500'}`} />
+                  className="ax-nav-link ax-nav-link--block" data-active={active}>
+                  <Icon className="h-4 w-4" aria-hidden />
                   {label}
                 </Link>
               );
@@ -528,9 +513,8 @@ export const Navbar = () => {
               </>
             ) : (
               <>
-                <Link to="/login" className="block w-full py-2.5 text-center text-sm text-gray-400 border border-white/[0.08] rounded-full">Iniciar sesión</Link>
-                <Link to="/register" className="block w-full py-2.5 text-center text-sm font-bold text-white rounded-full"
-                  style={{ background: 'linear-gradient(135deg,#ef4444,#b91c1c)' }}>Crear cuenta</Link>
+                <Link to="/login" className="ax-nav-ghost justify-center" style={{ height: 46 }}>Iniciar sesión</Link>
+                <Link to="/register" className="ax-nav-cta flex w-full" style={{ height: 46 }}>Crear cuenta</Link>
               </>
             )}
           </div>

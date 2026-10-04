@@ -1,44 +1,39 @@
-// ATAK.GG — Dashboard de torneo (extraído del componente único original).
-// Prompt 8: contraste SideNav + Tip en desktop + header con Trophy.
+// ATAK.GG — Dashboard de torneo: navegación entre secciones.
+// Escritorio/tablet: barra de pestañas pegajosa bajo el héroe (antes era un
+// sidebar de 212px que le quitaba ancho a las tablas). Móvil: nav inferior.
 
-import { Trophy } from 'lucide-react';
 import { Tip } from '@/components/ui/Tip';
-import { BLUE, RED, NAV_ITEMS, NAV_TIPS, type Tab } from './shared';
+import { NAV_ITEMS, NAV_TIPS, type Tab } from './shared';
 
-export function SideNav({ value, onChange, live }: { value: Tab; onChange: (t: Tab) => void; live: boolean }) {
+export function TabBar({ value, onChange, live }: { value: Tab; onChange: (t: Tab) => void; live: boolean }) {
   return (
-    <nav className="td-panel" aria-label="Secciones del torneo" style={{ padding: 8 }}>
-      <div className="td-over" style={{ padding: '8px 12px 10px', letterSpacing: '2.6px', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Trophy size={14} color={RED} aria-hidden />
-        TORNEO
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {NAV_ITEMS.map((it) => {
-          const active = value === it.key;
-          return (
-            <Tip key={it.key} label={NAV_TIPS[it.key]} side="right">
-              <button
-                onClick={() => onChange(it.key)}
-                aria-current={active ? 'page' : undefined}
-                className="td-nav-item"
-                data-active={active}
-              >
-                <span className="td-nav-ind" aria-hidden />
-                <span style={{ color: active ? RED : '#a1a1aa', display: 'inline-flex' }}>{it.icon}</span>
-                <span style={{ flex: 1 }}>{it.label}</span>
-                {it.key === 'resumen' && live && (
-                  <span className="td-dot-pulse" style={{ width: 6, height: 6, borderRadius: '50%', background: BLUE }} />
-                )}
-              </button>
-            </Tip>
-          );
-        })}
-      </div>
+    <nav className="ax-tabs" aria-label="Secciones del torneo">
+      {NAV_ITEMS.map((it) => {
+        const active = value === it.key;
+        return (
+          <Tip key={it.key} label={NAV_TIPS[it.key]} side="bottom">
+            <button
+              type="button"
+              className="ax-tab"
+              data-active={active}
+              aria-current={active ? 'page' : undefined}
+              onClick={() => onChange(it.key)}
+            >
+              {it.icon}
+              {it.label}
+              {it.key === 'resumen' && live && <span className="ax-tab-live td-dot-pulse" aria-label="En vivo" />}
+            </button>
+          </Tip>
+        );
+      })}
     </nav>
   );
 }
 
-// Nav inferior flotante (móvil): pastilla fija con iconos, como una app nativa.
+/** Alias: el sidebar pasó a ser la barra de pestañas. */
+export const SideNav = TabBar;
+
+// Nav inferior flotante (móvil): barra fija con iconos, como una app nativa.
 export function BottomNav({ value, onChange, live }: { value: Tab; onChange: (t: Tab) => void; live: boolean }) {
   return (
     <nav className="td-bottomnav" aria-label="Secciones del torneo">
@@ -57,7 +52,7 @@ export function BottomNav({ value, onChange, live }: { value: Tab; onChange: (t:
               {it.key === 'resumen' && live && !active && (
                 <span className="td-dot-pulse" style={{
                   position: 'absolute', top: -2, right: -4,
-                  width: 6, height: 6, borderRadius: '50%', background: BLUE,
+                  width: 6, height: 6, borderRadius: '50%', background: 'var(--td-red)',
                 }} />
               )}
             </span>

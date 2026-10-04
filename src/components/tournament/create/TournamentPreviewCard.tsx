@@ -4,8 +4,14 @@
 // arma el backend en POST /api/tournaments, así que lo que el organizador ve
 // aquí es literalmente lo que va a aparecer luego en la lista de torneos. Si
 // algún día cambia la regla en el servidor, hay que cambiarla aquí también.
-import { Calendar, Globe, Lock, Trophy, Users, Zap, Swords } from 'lucide-react';
-import { cn } from '@/lib/utils';
+//
+// Piel "Arena": es la hermana pequeña de la tarjeta destacada del listado
+// (.ax-feature en Tournaments.tsx) — mismas etiquetas, nombre en la display
+// condensada, datos en `dl` y el cupo abajo — con el arte del mapa elegido.
+import { Globe, Lock, Swords, Zap } from 'lucide-react';
+import { ProgressBar, StatusChip } from '@/components/tournament/ui';
+import { lol, mapArtFor } from '@/lib/lolAssets';
+import '@/styles/pages/tournament-forms.css';
 
 export interface PreviewInput {
   name: string;
@@ -38,18 +44,11 @@ const SERIES_LABEL: Record<string, string> = {
   '2f3': 'Bo3 · Final Bo5',
 };
 
-function Row({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 text-[12px] text-gray-400">
-      <span className="flex-shrink-0 text-gray-600 [&>svg]:h-3.5 [&>svg]:w-3.5">{icon}</span>
-      <span className="truncate">{children}</span>
-    </div>
-  );
-}
-
 export function TournamentPreviewCard({ input }: { input: PreviewInput }) {
   const isArena = input.gameMap === 'ARENA';
   const fmt = deriveFormat(input);
+  const name = input.name.trim();
+  const riot = !isArena && input.createRiot;
   const date = input.startDate
     ? new Date(`${input.startDate}T12:00:00`).toLocaleDateString('es-MX', {
         weekday: 'short', day: '2-digit', month: 'long',
@@ -57,54 +56,74 @@ export function TournamentPreviewCard({ input }: { input: PreviewInput }) {
     : 'Sin fecha';
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.025]">
-      <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] bg-white/[0.02] px-3 py-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-500">
-          Así se verá en la lista
-        </span>
-        <span
-          className={cn(
-            'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold',
-            input.isPrivate
-              ? 'border-amber-400/35 bg-amber-400/10 text-amber-300'
-              : 'border-white/10 bg-white/[0.04] text-gray-400',
-          )}
-        >
-          {input.isPrivate ? <Lock className="h-2.5 w-2.5" /> : <Globe className="h-2.5 w-2.5" />}
-          {input.isPrivate ? 'Privado' : 'Público'}
-        </span>
+    <article className="tf-preview" aria-label="Vista previa del torneo">
+      {/* key: al cambiar de mapa se remonta la imagen y se limpia un onError previo. */}
+      <div className="tf-preview-art" aria-hidden>
+        <img
+          key={input.gameMap} src={lol.map(mapArtFor(input.gameMap))} alt="" decoding="async"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+        />
       </div>
 
-      <div className="space-y-2.5 p-3.5">
-        <div>
-          <p className="truncate font-serif text-[17px] font-bold leading-tight text-white">
-            {input.name.trim() || 'Nombre del torneo'}
-          </p>
-          <p className="mt-0.5 text-[11.5px] font-semibold uppercase tracking-wider text-red-400">
-            {fmt}
-            {!isArena && ` · ${SERIES_LABEL[input.seriesTo] ?? 'Bo1'}`}
-          </p>
-        </div>
+      <div className="tf-preview-top">
+        <span className="td-over">Así se verá en la lista</span>
+        <StatusChip kind={input.isPrivate ? 'gold' : 'dim'} dot={false}>
+          {input.isPrivate ? <Lock size={12} aria-hidden /> : <Globe size={12} aria-hidden />}
+          {input.isPrivate ? 'Privado' : 'Público'}
+        </StatusChip>
+      </div>
 
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-          <Row icon={<Calendar />}>{date}</Row>
-          <Row icon={<Users />}>{input.maxParticipants} equipos máx.</Row>
-          <Row icon={<Trophy />}>{input.prize.trim() || 'Por definir'}</Row>
-          {isArena ? (
-            <Row icon={<Swords />}>Ventana de {input.durationHours} h</Row>
-          ) : input.bracketType === 'swiss' && Number(input.swissRounds) > 0 ? (
-            <Row icon={<Zap />}>{input.swissRounds} rondas automáticas</Row>
-          ) : (
-            <Row icon={<Zap />}>
-              {isArena || !input.createRiot ? 'Sin códigos de Riot' : 'Códigos de Riot'}
-            </Row>
+      <div className="tf-preview-main">
+        {/* Mismas etiquetas que pinta el listado para un torneo recién creado. */}
+        <div className="ax-row-tags">
+          <StatusChip kind="registration">Inscripciones</StatusChip>
+          {riot && <StatusChip kind="gold" dot={false}>Riot oficial</StatusChip>}
+          {input.gameMap === 'ARAM' && <StatusChip kind="dim" dot={false}>ARAM</StatusChip>}
+          {isArena && <StatusChip kind="dim" dot={false}>Arena ladder</StatusChip>}
+          {input.teamSize !== 5 && !isArena && (
+            <StatusChip kind="dim" dot={false}>{input.teamSize}v{input.teamSize}</StatusChip>
           )}
         </div>
 
-        {!isArena && input.createRiot && input.bracketType === 'swiss' && (
-          <p className="text-[11px] text-gray-600">Los códigos se generan al crear el torneo.</p>
+        <h3 className="tf-preview-name" data-empty={name ? undefined : 'true'}>
+          {name || 'Nombre del torneo'}
+        </h3>
+        <p className="tf-preview-format">
+          {fmt}
+          {!isArena && ` · ${SERIES_LABEL[input.seriesTo] ?? 'Bo1'}`}
+        </p>
+
+        <dl className="tf-preview-facts">
+          <div style={{ minWidth: 0 }}>
+            <dt className="td-over">Premio</dt>
+            <dd>{input.prize.trim() || 'Por definir'}</dd>
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <dt className="td-over">Inicio</dt>
+            <dd>{date}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div className="tf-preview-side">
+        <div className="td-over">Equipos</div>
+        <div className="ax-cap-num">0<small> / {input.maxParticipants}</small></div>
+        <ProgressBar kind="red" pct={0} height={6} />
+
+        <p className="tf-preview-extra">
+          {isArena ? (
+            <><Swords size={15} aria-hidden /> Ventana de {input.durationHours} h</>
+          ) : input.bracketType === 'swiss' && Number(input.swissRounds) > 0 ? (
+            <><Zap size={15} aria-hidden /> {input.swissRounds} rondas automáticas</>
+          ) : (
+            <><Zap size={15} aria-hidden /> {riot ? 'Códigos de Riot' : 'Sin códigos de Riot'}</>
+          )}
+        </p>
+
+        {riot && input.bracketType === 'swiss' && (
+          <p className="td-help" style={{ margin: '6px 0 0' }}>Los códigos se generan al crear el torneo.</p>
         )}
       </div>
-    </div>
+    </article>
   );
 }

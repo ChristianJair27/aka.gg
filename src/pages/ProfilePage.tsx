@@ -1,7 +1,7 @@
 // src/pages/ProfilePage.tsx
-// Porofessor-style summoner profile — ATAK.GG dark red & black brand.
-// New page; reuses the existing backend (/api/stats/*) via axiosInstance,
-// the useChampions hook, and the DDragon icon helpers in src/lib/dataDragon.ts.
+// Perfil de invocador — sistema de diseño "Arena" (design-system/atak-gg/MASTER.md).
+// La capa de datos (/api/stats/* vía hooks, OP.GG, spectator) no cambia: aquí solo
+// se decide cómo se pinta. Estilos de página en src/styles/pages/profile.css.
 import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -17,8 +17,7 @@ import {
 } from '@/hooks/queries/stats';
 import { qk } from '@/hooks/queries/keys';
 import { axiosInstance } from '@/lib/axios';
-import { useDominantColor, tintRgba } from '@/lib/dominantColor';
-import AiTags from '@/components/ai/AiTags';
+import { useDominantColor } from '@/lib/dominantColor';
 import { ProfileComments } from '@/components/ProfileComments';
 import { PlayerTournamentsCard } from '@/components/tournament/PlayerTournamentsCard';
 import { TierEmblem } from '@/components/tournament/MicroViz';
@@ -30,28 +29,18 @@ import {
   keystoneIcon,
   runePathIcon,
 } from '@/lib/dataDragon';
-import { RefreshCw, Star, Search, ChevronDown } from 'lucide-react';
+import { regionLabel } from '@/lib/regions';
+import {
+  RefreshCw, Star, Sparkles, Swords, Trophy, Crown, ChevronDown, ChevronUp, Users, BarChart3, History, Compass,
+} from 'lucide-react';
 import { KataLoaderOverlay } from '@/components/KataLoader';
-import { motion } from 'framer-motion';
-import ChampionDanceSlot from '@/components/ChampionDanceSlot';
 import { Tip } from '@/components/ui/Tip';
 import { ShareProfileButton } from '@/components/ShareProfileCard';
-
-// ─── Brand tokens ───────────────────────────────────────────────────────────
-const C = {
-  bg: '#0a0a0c',
-  panel: '#131316',
-  border: 'rgba(255,255,255,0.07)',
-  red: '#e1242e',
-  redHover: '#ff5a64',
-  win: '#0bc4e3',    // ATAK teal for wins (not blue like OP.GG, distinct brand)
-  loss: '#ff5a64',
-  gold: '#c8aa6e',
-  teal: '#0bc4e3',
-};
-const FONT_BODY = "'Saira', system-ui, sans-serif";
-const FONT_COND = "'Saira Condensed', 'Saira', sans-serif";
-const FONT_KDA = "'Saira Semi Condensed', 'Saira', sans-serif";
+import {
+  ArenaPage, SplashBackdrop, Champion3D, Reveal, Button, StatusChip, SectionHead, FilterPills, ProgressBar,
+  RoleIcon, UiIcon, ChampIcon, stagger,
+} from '@/components/arena';
+import '@/styles/pages/profile.css';
 
 // ─── Region / platform helpers ──────────────────────────────────────────────
 type Platform = 'la1'|'la2'|'na1'|'br1'|'oc1'|'euw1'|'eun1'|'tr1'|'ru'|'jp1'|'kr';
@@ -136,216 +125,56 @@ const toRole = (m: any): Role | null => {
   return null;
 };
 
-// Mastery hexagon color by level
-const masteryColor = (level: number): string => {
-  if (level >= 7) return '#d13639';
-  if (level >= 6) return '#8b3fb0';
-  if (level >= 5) return '#b53a3a';
-  if (level >= 4) return '#3f7fb0';
-  return '#5a5a62';
+// Rol en español → clave de carril de los iconos de LoL (<RoleIcon lane>).
+const ROLE_LANE: Record<Role, string> = {
+  Central: 'middle', Jungla: 'jungle', Tirador: 'bottom', Soporte: 'support', Superior: 'top',
 };
 
-// ─── Small UI primitives ────────────────────────────────────────────────────
-// Seamless "incrustado" surface: no hard 1px outline, just a whisper-soft
-// background gradient + layered shadows + a faint inset top highlight, so the
-// panels read as embedded into the dark page rather than boxes on top of it.
-const PANEL_SURFACE: React.CSSProperties = {
-  // Sin tarjetas: las secciones son transparentes y fluyen sobre el fondo como
-  // una sola página. La legibilidad sobre el video la da el velo del contenedor
-  // (.atak-glow), no un fill por sección — así nada se lee como "caja".
-  background: 'transparent',
-  borderRadius: 18,
-};
+// ─── Piezas pequeñas ────────────────────────────────────────────────────────
+type Tone = 'pos' | 'neg' | 'gold' | 'dim' | undefined;
 
-// Inner "sub-cards": kept minimal and reserved for the rare place a subtle lift
-// genuinely helps (e.g. the featured rank emblem block). Most former sub-cards
-// have been replaced by open sections separated with hairline dividers.
-const SUBCARD_SURFACE: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.018)',
-  backdropFilter: 'blur(6px)',
-  WebkitBackdropFilter: 'blur(6px)',
-  borderRadius: 12,
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
-};
+/** Tono de una tasa de victorias: mismos cortes que <ProgressBar kind="wr">. */
+const wrTone = (wr: number | null | undefined): Tone =>
+  wr == null ? undefined : wr >= 60 ? 'pos' : wr < 45 ? 'neg' : undefined;
 
-// Thin hairline divider used to separate open sections within a single panel,
-// replacing nested cards.
-const HAIRLINE = '1px solid rgba(255,255,255,0.06)';
+const tierName = (tier?: string | null) => (tier ? tier[0] + tier.slice(1).toLowerCase() : '');
 
-// Shared motion: fade + rise + de-blur as the panel scrolls into view.
-const RISE_IN = {
-  initial: { opacity: 0, y: 22, filter: 'blur(6px)' },
-  whileInView: { opacity: 1, y: 0, filter: 'blur(0px)' },
-  viewport: { once: true, margin: '-60px' },
-  transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
-};
+const hideImg = (e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.visibility = 'hidden'; };
 
-function Panel({ children, style, className = '', delay = 0 }: {
-  children: React.ReactNode; style?: React.CSSProperties; className?: string; delay?: number;
-}) {
+function Skel({ h = 16, w = '100%', style }: { h?: number | string; w?: number | string; style?: React.CSSProperties }) {
+  return <span className="pf-skel" aria-hidden style={{ height: h, width: w, ...style }} />;
+}
+
+/** Panel del sistema (`td-panel`) que entra al aparecer en pantalla. */
+function Panel({ children, className, index = 0 }: { children: React.ReactNode; className?: string; index?: number }) {
   return (
-    <motion.div
-      className={className}
-      initial={RISE_IN.initial}
-      whileInView={RISE_IN.whileInView}
-      viewport={RISE_IN.viewport}
-      transition={{ ...RISE_IN.transition, delay }}
-      style={{ ...PANEL_SURFACE, ...style }}
-    >
+    <Reveal as="section" index={index} className={`td-panel pf-panel${className ? ` ${className}` : ''}`}>
       {children}
-    </motion.div>
+    </Reveal>
   );
 }
 
-function SectionTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
+/** Chips de insights: mismos datos que antes ({ label, kind }), con las piezas del sistema. */
+function Insights({ tags, loading, unavailable }: {
+  tags: { label: string; kind: 'pos' | 'warn' | 'gold' | 'dim' }[]; loading: boolean; unavailable: boolean;
+}) {
+  if (!loading && (unavailable || !tags.length)) return null;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
-      <h2
-        style={{
-          fontFamily: FONT_COND,
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.12em',
-          fontSize: 13,
-          color: 'rgba(255,255,255,0.82)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          margin: 0,
-        }}
-      >
-        <span style={{ width: 4, height: 16, background: C.red, borderRadius: 2, display: 'inline-block' }} />
-        {children}
-      </h2>
-      {right}
-    </div>
-  );
-}
-
-function Bar({ value, color }: { value: number; color: string }) {
-  return (
-    <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 999, overflow: 'hidden' }}>
-      <div style={{ height: '100%', width: '100%', background: color, borderRadius: 999, transformOrigin: 'left', transform: `scaleX(${Math.min(Math.max(value, 0), 100) / 100})`, transition: 'transform .6s' }} />
-    </div>
-  );
-}
-
-function Skeleton({ h = 16, w = '100%', style }: { h?: number; w?: number | string; style?: React.CSSProperties }) {
-  return (
-    <div
-      style={{
-        height: h, width: w, borderRadius: 6,
-        background: 'linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.09), rgba(255,255,255,0.04))',
-        backgroundSize: '200% 100%',
-        animation: 'atak-shimmer 1.3s ease-in-out infinite',
-        ...style,
-      }}
-    />
-  );
-}
-
-// ─── Logo ───────────────────────────────────────────────────────────────────
-function Dagger({ size = 22 }: { size?: number }) {
-  return (
-    <svg viewBox="0 0 64 64" width={size} height={size} fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M32 6L23 38L32 50L41 38L32 6Z" fill="url(#pp-blade)" stroke={C.red} strokeWidth="2" />
-      <path d="M32 6V50" stroke="#fff" strokeWidth="1" opacity="0.55" />
-      <path d="M18 44H46" stroke={C.red} strokeWidth="3" strokeLinecap="round" />
-      <path d="M32 44V60" stroke="#1a1a1f" strokeWidth="4" strokeLinecap="round" />
-      <defs>
-        <linearGradient id="pp-blade" x1="32" y1="6" x2="32" y2="50" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#ff4d4d" />
-          <stop offset="100%" stopColor="#3b0000" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-}
-
-function Logo() {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-      <Dagger />
-      <div style={{ lineHeight: 1 }}>
-        <div style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 22, letterSpacing: '0.02em', color: '#fff' }}>
-          ATAK<span style={{ color: C.red }}>.GG</span>
-        </div>
-        <div style={{ fontFamily: FONT_BODY, fontSize: 8, letterSpacing: '0.18em', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' }}>
-          Powered by Riot API
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Top bar ────────────────────────────────────────────────────────────────
-function TopBar({ region }: { region: string }) {
-  const navigate = useNavigate();
-  const [q, setQ] = useState('');
-  const nav = [
-    { label: 'Perfil', active: true },
-    { label: 'Campeones' }, { label: 'Meta' }, { label: 'Torneos' }, { label: 'Clasificación' },
-  ];
-
-  const go = () => {
-    const v = q.trim();
-    if (!v.includes('#')) return;
-    const [name, tag] = v.split('#');
-    navigate(`/profile/${region}/${encodeURIComponent(name.trim())}-${encodeURIComponent((tag || '').trim())}`);
-  };
-
-  return (
-    <div
-      style={{
-        position: 'sticky', top: 0, zIndex: 50, height: 60,
-        background: 'rgba(10,10,12,0.92)', backdropFilter: 'blur(10px)',
-        borderBottom: `1px solid ${C.border}`,
-      }}
-    >
-      <div style={{ maxWidth: 1340, margin: '0 auto', height: '100%', padding: '0 18px', display: 'flex', alignItems: 'center', gap: 22 }}>
-        <Logo />
-        <nav style={{ display: 'flex', gap: 18 }}>
-          {nav.map((n) => (
-            <span
-              key={n.label}
-              style={{
-                fontFamily: FONT_BODY, fontSize: 14, fontWeight: n.active ? 700 : 500,
-                color: n.active ? '#fff' : 'rgba(255,255,255,0.5)',
-                borderBottom: n.active ? `2px solid ${C.red}` : '2px solid transparent',
-                paddingBottom: 4, cursor: 'pointer',
-              }}
-            >
-              {n.label}
-            </span>
-          ))}
-        </nav>
-        <div style={{ flex: 1 }} />
-        <div style={{ position: 'relative', width: 280, maxWidth: '36vw' }}>
-          <Search size={15} style={{ position: 'absolute', left: 11, top: 10, color: 'rgba(255,255,255,0.4)' }} />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && go()}
-            placeholder="Invocador o Campeón…"
-            style={{
-              width: '100%', height: 36, paddingLeft: 32, paddingRight: 12,
-              background: '#0e0e11', border: `1px solid ${C.border}`, borderRadius: 8,
-              color: '#fff', fontFamily: FONT_BODY, fontSize: 13, outline: 'none',
-            }}
-          />
-        </div>
-        <button
-          style={{
-            height: 36, padding: '0 16px', background: C.red, color: '#fff',
-            border: 'none', borderRadius: 8, fontFamily: FONT_BODY, fontWeight: 700,
-            fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = C.redHover)}
-          onMouseLeave={(e) => (e.currentTarget.style.background = C.red)}
-        >
-          Registrarse
-        </button>
-      </div>
+    <div className="pf-insights ax-rise" style={stagger(2)}>
+      <span className="td-over pf-insights-label"><Sparkles size={13} aria-hidden /> ATAK Insights</span>
+      {loading
+        ? [0, 1, 2].map((i) => <Skel key={i} h={22} w={68 + i * 16} style={{ borderRadius: 4 }} />)
+        : tags.map((t, i) => {
+            const lane = ROLE_LANE[t.label as Role];
+            // Los iconos son de LoL o de lucide: el emoji de la etiqueta se queda fuera.
+            const label = t.label.replace(/\s*\p{Extended_Pictographic}️?/gu, '');
+            return (
+              <StatusChip key={`${t.label}-${i}`} kind={t.kind} dot={!lane}>
+                {lane && <RoleIcon lane={lane} size={15} />}
+                {label}
+              </StatusChip>
+            );
+          })}
     </div>
   );
 }
@@ -460,7 +289,7 @@ export default function ProfilePage() {
 
   const masteryTop = (summary?.masteryTop || []).slice(0, 6);
 
-  // Highest-mastery champion → feeds the small 3D dancing-champion slot.
+  // Highest-mastery champion → splash de fondo y modelo 3D del héroe.
   const topMasteryChamp = useMemo(() => {
     const top = (summary?.masteryTop || [])[0];
     if (!top) return null;
@@ -469,14 +298,11 @@ export default function ProfilePage() {
     return c ? { slug: c.id, name: c.name, id: top.championId } : null;
   }, [summary, champByKey]);
 
-  // Hero Scroll Expand: splash del main si hay; si no, video ATAK (dagger/hero).
+  // Splash del main (mismo arte que pinta <SplashBackdrop>).
   const heroSplash = topMasteryChamp ? dd.championSplash(topMasteryChamp.slug) : null;
-  const heroMediaType: 'image' | 'video' = heroSplash ? 'image' : 'video';
-  const heroMediaSrc = heroSplash || '/video/dagger-scroll.mp4';
-  const heroPoster = heroSplash || undefined;
 
-  // Tinte ambiental: color dominante del splash del main → el fondo de la página
-  // y el glow del modelo 3D combinan con el campeón (fallback: rojo de marca).
+  // Tinte ambiental: color dominante del splash del main → la luz del modelo 3D
+  // combina con el campeón (fallback: rojo de marca).
   const champTint = useDominantColor(heroSplash);
 
   const filtered = useMemo(() => {
@@ -728,284 +554,192 @@ export default function ProfilePage() {
     : null;
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  return (
-    <div style={{ minHeight: '100vh', background: C.bg, color: '#e8e8ea', fontFamily: FONT_BODY, lineHeight: 1.5 }}>
-      <style>{`
-        @keyframes atak-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-        @keyframes atak-live-dot { 0%,100%{opacity:1} 50%{opacity:.35} }
-        .atak-saas-bg {
-          position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
-        }
-        .atak-saas-bg img, .atak-saas-bg video {
-          width: 100%; height: 100%; object-fit: cover; object-position: top center;
-          opacity: 0.14; filter: saturate(0.85) brightness(0.45);
-        }
-        .atak-saas-veil {
-          position: absolute; inset: 0;
-          background:
-            radial-gradient(900px 480px at 85% -5%, ${champTint ? tintRgba(champTint, 0.22) : 'rgba(225,36,46,0.18)'}, transparent 55%),
-            radial-gradient(700px 420px at 8% 20%, ${champTint ? tintRgba(champTint, 0.1) : 'rgba(225,36,46,0.08)'}, transparent 60%),
-            linear-gradient(180deg, rgba(10,10,12,0.55) 0%, rgba(10,10,12,0.88) 45%, #0a0a0c 100%);
-        }
-        .atak-kpi-grid {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 12px;
-        }
-        .atak-kpi {
-          border-radius: 16px;
-          padding: 18px 18px 16px;
-          background: linear-gradient(165deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 12px 32px rgba(0,0,0,0.25);
-          border: 1px solid rgba(255,255,255,0.06);
-          min-height: 108px;
-          display: flex; flex-direction: column; justify-content: space-between;
-          transition: border-color .2s, transform .2s, box-shadow .2s;
-        }
-        .atak-kpi:hover {
-          border-color: rgba(225,36,46,0.35);
-          transform: translateY(-2px);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 16px 36px rgba(0,0,0,0.35);
-        }
-        .atak-kpi .k { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.45); font-weight: 700; }
-        .atak-kpi .v { font-family: ${FONT_COND}; font-weight: 800; font-size: 32px; line-height: 1.05; color: #fff; margin-top: 8px; }
-        .atak-kpi .s { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 6px; }
-        @media (max-width: 960px){
-          .atak-grid{ grid-template-columns: 1fr !important; }
-          .atak-kpi-grid{ grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
-        }
-        @media (max-width: 520px){
-          .atak-kpi-grid{ grid-template-columns: 1fr !important; }
-        }
-      `}</style>
+  // Luz del escenario 3D: color dominante del splash del main (respaldo: crimson).
+  const stageAccent = champTint ? `rgb(${champTint.r}, ${champTint.g}, ${champTint.b})` : undefined;
+  const notFound = resolveErr && !puuid;
+  const mainMastery: any = (summary?.masteryTop || [])[0];
+  const kpiPending = summaryLoading && !recap;
 
+  return (
+    <ArenaPage
+      width="wide"
+      flush
+      className="pf"
+      backdrop={<SplashBackdrop champion={topMasteryChamp?.slug} opacity={0.4} />}
+    >
       {/* 3D Katarina loader while resolving the invocador (initial load). */}
       {!puuid && !resolveErr && <KataLoaderOverlay show label="Cargando invocador" />}
 
-      {/* Fondo ambiental (no bloquea stats): splash del main o video ATAK */}
-      <div className="atak-saas-bg" aria-hidden>
-        {heroMediaType === 'video' ? (
-          <video src={heroMediaSrc} poster={heroPoster} autoPlay muted loop playsInline />
-        ) : (
-          <img src={heroMediaSrc} alt="" />
-        )}
-        <div className="atak-saas-veil" />
-      </div>
-
-      <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh' }}>
-        <div style={{ maxWidth: 1340, margin: '0 auto', padding: '88px 18px 80px' }}>
-
-          {/* Resolve error */}
-          {resolveErr && !puuid && (
-            <Panel style={{ padding: 24, marginBottom: 18 }}>
-              <div style={{ fontFamily: FONT_COND, fontWeight: 700, fontSize: 18, marginBottom: 6 }}>
-                No se encontró al invocador
-              </div>
-              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>
-                Verifica el Riot ID (Nombre#TAG) y la región. Buscado: <b>{gameName || '—'}#{tagLine || '—'}</b> en {platform.toUpperCase()}.
-              </div>
-            </Panel>
-          )}
-
-          {/* ── Identity strip (compacto) ──────────────────────────────────── */}
-          <div style={{
-            display: 'flex', flexWrap: 'wrap', gap: 18, alignItems: 'center',
-            marginBottom: 20, paddingBottom: 18,
-            borderBottom: '1px solid rgba(255,255,255,0.06)',
-          }}>
-            <div style={{ position: 'relative', flexShrink: 0 }}>
-              {summaryLoading && !summary ? (
-                <Skeleton h={64} w={64} style={{ borderRadius: 14 }} />
-              ) : (
-                <img
-                  src={profileIconUrl}
-                  alt=""
-                  style={{ width: 64, height: 64, borderRadius: 14, border: `2px solid ${C.red}`, objectFit: 'cover', background: '#000' }}
-                  onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')}
-                />
-              )}
-              <div style={{
-                position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
-                background: '#0a0a0c', borderRadius: 999, padding: '1px 8px',
-                fontFamily: FONT_COND, fontWeight: 700, fontSize: 11, color: C.gold, whiteSpace: 'nowrap',
-              }}>
-                Nv. {summary?.summoner?.level ?? '—'}
-              </div>
-            </div>
-
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <h1 style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 30, margin: 0, color: '#fff', lineHeight: 1 }}>
-                  {gameName || '—'}
-                  <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600, fontSize: 18 }}> #{tagLine}</span>
-                </h1>
-                <span style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 999, padding: '4px 12px', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>
-                  {platform.toUpperCase()}
-                </span>
-                <Star size={18} style={{ color: C.gold, opacity: 0.85 }} />
-                {isLive && (
-                  <Link
-                    to={`/live/${region}/${encodeURIComponent(name || '')}`}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 8,
-                      background: 'rgba(225,36,46,0.16)', color: '#ff6b73',
-                      borderRadius: 999, padding: '7px 14px', textDecoration: 'none',
-                      fontFamily: FONT_COND, fontWeight: 700, fontSize: 13,
-                      boxShadow: 'inset 0 0 0 1px rgba(225,36,46,0.35)',
-                    }}
-                  >
-                    <span style={{
-                      width: 8, height: 8, borderRadius: '50%', background: C.red,
-                      boxShadow: `0 0 10px ${C.red}`, animation: 'atak-live-dot 1.4s ease-in-out infinite',
-                    }} />
-                    EN VIVO
-                  </Link>
-                )}
-                {!!gameName && (
-                  <ShareProfileButton
-                    data={{
-                      gameName,
-                      tagLine,
-                      platform,
-                      level: summary?.summoner?.level ?? null,
-                      profileIconUrl: profileIconUrl || null,
-                      splashUrl: topMasteryChamp ? dd.championSplash(topMasteryChamp.slug) : null,
-                      emblemUrl: soloRank ? rankEmblem(soloRank.tier) : null,
-                      soloRank,
-                      flexRank: flexRank ? { tier: flexRank.tier, rank: flexRank.rank, lp: flexRank.lp } : null,
-                      topPercent: leagueRank?.topPercent ?? null,
-                      recap,
-                      season: shareData.season,
-                      mastery: shareData.mastery,
-                      bestDamage: shareData.bestDamage,
-                      wardsRecent: shareData.wardsRecent,
-                      topChamps: shareData.topChamps,
-                    }}
-                  />
-                )}
-              </div>
-              <div style={{ marginTop: 10 }}>
-                <AiTags
-                  label="ATAK INSIGHTS"
-                  tags={aiTags}
-                  loading={aiLoading}
-                  unavailable={aiUnavailable}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto' }}>
-              <Tip label="Volver a cargar los datos del invocador">
-                <button
-                  onClick={refresh}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6, background: C.red, color: '#fff',
-                    border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = C.redHover)}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = C.red)}
-                >
-                  <RefreshCw size={15} /> Actualizar
-                </button>
-              </Tip>
-            </div>
+      {/* ── Héroe: identidad a la izquierda, campeón principal en 3D a la derecha ── */}
+      <header className="pf-hero">
+        <div className="pf-hero-main">
+          <div className="pf-eyebrow ax-rise">
+            <span className="td-over ax-kicker">Perfil de invocador</span>
+            <StatusChip kind="dim" dot={false}>{regionLabel(platform)}</StatusChip>
+            <Star size={16} className="pf-fav" aria-hidden />
+            {isLive && (
+              <Link to={`/live/${region}/${encodeURIComponent(name || '')}`} aria-label="Ver la partida en vivo">
+                <StatusChip kind="live">En vivo</StatusChip>
+              </Link>
+            )}
           </div>
 
-          {/* ── KPI Bento (lo primero que importa) ─────────────────────────── */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-            className="atak-kpi-grid"
-            style={{ marginBottom: 28 }}
-          >
-            <div className="atak-kpi">
-              <div className="k">Win rate · 30d</div>
-              <div className="v" style={{ color: kpiWr == null ? '#fff' : kpiWr >= 50 ? C.win : C.loss }}>
-                {summaryLoading && !recap ? '—' : kpiWr != null ? `${kpiWr}%` : '—'}
+          <div className="pf-id ax-rise" style={stagger(1)}>
+            {!notFound && (
+              <div className="pf-avatar">
+                {summaryLoading && !summary ? (
+                  <span className="pf-skel" aria-hidden />
+                ) : profileIconUrl ? (
+                  <img src={profileIconUrl} alt="" width={108} height={108} decoding="async" onError={hideImg} />
+                ) : (
+                  <span className="pf-skel" aria-hidden style={{ animation: 'none' }} />
+                )}
+                <span className="pf-level td-num">Nv. {summary?.summoner?.level ?? '—'}</span>
               </div>
-              <div className="s">
-                {recap ? `${recap.wins}V · ${recap.losses}D` : 'Últimas partidas'}
-              </div>
-            </div>
-            <div className="atak-kpi">
-              <div className="k">KDA medio</div>
-              <div className="v">{summaryLoading && !recap ? '—' : (kpiKda ?? '—')}</div>
-              <div className="s">
-                {recap ? `${recap.k} / ${recap.d} / ${recap.a}` : 'Kills · Muertes · Asist.'}
-              </div>
-            </div>
-            <div className="atak-kpi">
-              <div className="k">Partidas</div>
-              <div className="v">{summaryLoading && !recap ? '—' : (kpiGames ?? '—')}</div>
-              <div className="s">Ventana de análisis 30 días</div>
-            </div>
-            <div className="atak-kpi">
-              <div className="k">Solo / Dúo</div>
-              <div className="v" style={{ fontSize: kpiTier && kpiTier.length > 10 ? 22 : 28, display: 'flex', alignItems: 'center', gap: 10 }}>
-                {soloRank?.tier && <TierEmblem tier={soloRank.tier} division={soloRank.rank} size={72} showLabel={false} />}
-                <span>{summaryLoading && !soloRank ? '—' : (kpiTier || 'Unranked')}</span>
-              </div>
-              <div className="s">
-                {kpiLp != null ? `${kpiLp} LP` : 'Clasificatoria actual'}
-                {leagueRank?.topPercent != null ? ` · Top ${leagueRank.topPercent}%` : ''}
-              </div>
-            </div>
-          </motion.div>
+            )}
+            <h1 className="ax-pagehero-title pf-name">
+              {gameName || '—'}
+              <span className="pf-tag">#{tagLine}</span>
+            </h1>
+          </div>
 
-          {/* Torneos de ATAK en los que está inscrito: región, posición y rango */}
-          <PlayerTournamentsCard
-            riotId={gameName && tagLine ? `${gameName}#${tagLine}` : undefined}
-            style={{ marginBottom: 24 }}
-          />
+          <Insights tags={aiTags} loading={aiLoading && !notFound} unavailable={aiUnavailable} />
 
-          {/* Mastery chips compactos bajo KPIs */}
-          {(masteryTop.length > 0 || (summaryLoading && !summary)) && (
-            <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', fontWeight: 700, marginRight: 4 }}>
-                Maestría
-              </span>
+          {/* Maestría: los campeones con más puntos del jugador */}
+          {!notFound && (masteryTop.length > 0 || (summaryLoading && !summary)) && (
+            <div className="pf-mastery ax-rise" style={stagger(3)}>
+              <span className="td-over">Maestría</span>
               {summaryLoading && !summary
-                ? Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} h={36} w={36} style={{ borderRadius: 8 }} />)
+                ? Array.from({ length: 5 }).map((_, i) => <Skel key={i} h={44} w={44} />)
                 : masteryTop.map((m: any, i: number) => {
                     const c = champByKey?.[String(m.championId)];
-                    const col = masteryColor(m.level);
                     return (
-                      <div
-                        key={i}
-                        title={`${c?.name || m.championId} · Nv.${m.level} · ${fmtNumber(m.points)}`}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 6,
-                          padding: '4px 8px 4px 4px', borderRadius: 999,
-                          background: 'rgba(255,255,255,0.04)',
-                          border: `1px solid ${col}44`,
-                        }}
-                      >
-                        {c?.image ? (
-                          <img src={c.image} alt="" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover' }} />
-                        ) : (
-                          <div style={{ width: 28, height: 28, borderRadius: 8, background: '#222' }} />
-                        )}
-                        <span style={{ fontFamily: FONT_COND, fontWeight: 700, fontSize: 12, color: col }}>{m.level}</span>
-                      </div>
+                      <Tip key={i} label={`${c?.name || m.championId} · Nv. ${m.level} · ${fmtNumber(m.points)} pts`}>
+                        <span className="pf-mastery-item" data-top={i === 0}>
+                          {c?.image
+                            ? <ChampIcon src={c.image} size={44} />
+                            : <Skel h={44} w={44} style={{ animation: 'none' }} />}
+                          <span className="pf-mastery-lvl td-num">{m.level}</span>
+                        </span>
+                      </Tip>
                     );
                   })}
             </div>
           )}
 
-          {/* ── Two-column grid ────────────────────────────────────────────── */}
-          <div className="atak-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.12fr)', gap: 28 }}>
-
-            {/* LEFT */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0 }}>
-              <PersonalScore
-                solo={soloRank} flex={flexRank}
-                loading={summaryLoading && !summary}
-                leagueRank={leagueRank}
-                opggData={opggData}
-                enemyAvg={enemyAvg}
-                enemyAvgLoading={enemyAvgQ.isPending}
+          <div className="ax-pagehero-actions pf-actions ax-rise" style={stagger(4)}>
+            {!!gameName && !notFound && (
+              <ShareProfileButton
+                data={{
+                  gameName,
+                  tagLine,
+                  platform,
+                  level: summary?.summoner?.level ?? null,
+                  profileIconUrl: profileIconUrl || null,
+                  splashUrl: topMasteryChamp ? dd.championSplash(topMasteryChamp.slug) : null,
+                  emblemUrl: soloRank ? rankEmblem(soloRank.tier) : null,
+                  soloRank,
+                  flexRank: flexRank ? { tier: flexRank.tier, rank: flexRank.rank, lp: flexRank.lp } : null,
+                  topPercent: leagueRank?.topPercent ?? null,
+                  recap,
+                  season: shareData.season,
+                  mastery: shareData.mastery,
+                  bestDamage: shareData.bestDamage,
+                  wardsRecent: shareData.wardsRecent,
+                  topChamps: shareData.topChamps,
+                }}
               />
+            )}
+            <Tip label="Volver a cargar los datos del invocador">
+              <span style={{ display: 'inline-flex' }}>
+                <Button
+                  variant="secondary"
+                  icon={<RefreshCw size={15} className={summaryQ.isFetching ? 'pf-spin' : undefined} />}
+                  onClick={refresh}
+                >
+                  Actualizar
+                </Button>
+              </span>
+            </Tip>
+          </div>
+        </div>
+
+        {/* Modelo 3D del campeón de mayor maestría: sin caja, sobre su propio splash. */}
+        <div className="pf-hero-stage">
+          {topMasteryChamp && (
+            <Champion3D
+              slug={topMasteryChamp.slug}
+              champId={topMasteryChamp.id}
+              clip="idle"
+              art="none"
+              accent={stageAccent}
+              className="pf-stage"
+            >
+              <div className="ax-stage-label pf-stage-label">
+                <span className="td-over">Maestría principal</span>
+                <b>{topMasteryChamp.name}</b>
+                {mainMastery?.points ? (
+                  <small className="td-num">Nivel {mainMastery.level} · {fmtNumber(mainMastery.points)} pts</small>
+                ) : null}
+              </div>
+            </Champion3D>
+          )}
+        </div>
+      </header>
+
+      {notFound ? (
+        <div className="ax-empty pf-block" role="status">
+          <Compass size={30} color="var(--td-muted)" aria-hidden />
+          <h3>No se encontró al invocador</h3>
+          <p style={{ margin: 0 }}>
+            Verifica el Riot ID (Nombre#TAG) y la región. Buscado: <b>{gameName || '—'}#{tagLine || '—'}</b> en {platform.toUpperCase()}.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* ── Tira de datos clave ──────────────────────────────────────────── */}
+          <dl className="td-panel ax-bug pf-bug ax-rise" style={{ ['--cols' as string]: 4, ...stagger(5) }}>
+            <div className="ax-bug-cell">
+              <dt className="td-over">Win rate · 30 d</dt>
+              <dd className="ax-bug-value pf-tone" data-tone={wrTone(kpiWr)}>
+                {kpiPending ? '—' : kpiWr != null ? `${kpiWr}%` : '—'}
+              </dd>
+              <dd className="pf-bug-hint">{recap ? `${recap.wins}V · ${recap.losses}D` : 'Últimas partidas'}</dd>
+            </div>
+            <div className="ax-bug-cell">
+              <dt className="td-over">KDA medio</dt>
+              <dd className="ax-bug-value">{kpiPending ? '—' : (kpiKda ?? '—')}</dd>
+              <dd className="pf-bug-hint">{recap ? `${recap.k} / ${recap.d} / ${recap.a}` : 'Kills · Muertes · Asist.'}</dd>
+            </div>
+            <div className="ax-bug-cell">
+              <dt className="td-over">Partidas</dt>
+              <dd className="ax-bug-value">{kpiPending ? '—' : (kpiGames ?? '—')}</dd>
+              <dd className="pf-bug-hint">Ventana de análisis 30 días</dd>
+            </div>
+            <div className="ax-bug-cell" data-accent={soloRank ? 'gold' : undefined}>
+              <dt className="td-over">Solo / Dúo</dt>
+              <dd className="pf-bug-rank">
+                {soloRank?.tier && <TierEmblem tier={soloRank.tier} division={soloRank.rank} size={46} showLabel={false} />}
+                <div>
+                  <div className="ax-bug-value">{summaryLoading && !soloRank ? '—' : (kpiTier || 'Sin clasificar')}</div>
+                  <div className="pf-bug-hint">
+                    {kpiLp != null ? `${kpiLp} LP` : 'Clasificatoria actual'}
+                    {leagueRank?.topPercent != null ? ` · Top ${leagueRank.topPercent}%` : ''}
+                  </div>
+                </div>
+              </dd>
+            </div>
+          </dl>
+
+          {/* Torneos de ATAK en los que está inscrito: región, posición y rango */}
+          <PlayerTournamentsCard
+            riotId={gameName && tagLine ? `${gameName}#${tagLine}` : undefined}
+            style={{ marginTop: 16 }}
+          />
+
+          {/* ── Dos columnas: partidas | rango, roles, campeones, temporadas, compañeros ── */}
+          <div className="pf-grid">
+            <div className="pf-col">
               <RecentGames
                 matches={filtered} loading={matchesLoading && !matches.length}
                 recap={recap} filter={filter} setFilter={setFilter}
@@ -1016,46 +750,38 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* RIGHT */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0 }}>
-              {/* Small 3D dancing champion (highest mastery) — degrades to splash art. */}
-              <motion.div {...RISE_IN}>
-                <ChampionDanceSlot
-                  champSlug={topMasteryChamp?.slug}
-                  champId={topMasteryChamp?.id}
-                  champName={topMasteryChamp?.name}
-                  accent={champTint}
-                  loading={summaryLoading && !summary}
-                />
-              </motion.div>
-              {/* Etiquetas solo en el hero (ATAK INSIGHTS) — la card duplicada se quitó */}
+            <div className="pf-col">
+              <PersonalScore
+                solo={soloRank} flex={flexRank}
+                loading={summaryLoading && !summary}
+                leagueRank={leagueRank}
+                opggData={opggData}
+                enemyAvg={enemyAvg}
+                enemyAvgLoading={enemyAvgQ.isPending}
+              />
+              <RolePerformance perf={rolePerf} loading={matchesLoading && !matches.length} />
+              <ChampionsTable rows={champRows} champByKey={champByKey} loading={matchesLoading && !matches.length} bestPlayers={bestPlayers} region={platform} opggChampStats={opggData?.champion_stats ?? null} puuid={puuid} />
               <SeasonHistory seasons={(opggData as any)?.previous_seasons ?? []} loading={opggQ.isLoading} />
               <RecentlyPlayedWith
                 players={teammates} loading={teammatesLoading}
                 champByKey={champByKey} region={platform}
               />
-              <RolePerformance perf={rolePerf} loading={matchesLoading && !matches.length} />
-              <ChampionsTable rows={champRows} champByKey={champByKey} loading={matchesLoading && !matches.length} bestPlayers={bestPlayers} region={platform} opggChampStats={opggData?.champion_stats ?? null} puuid={puuid} />
             </div>
           </div>
 
-          {/* Comentarios de la comunidad — ancho completo bajo el grid. */}
+          {/* Comentarios de la comunidad — ancho completo bajo la rejilla. */}
           {puuid && (
-            <motion.div {...RISE_IN} style={{ marginTop: 24 }}>
-              <Panel style={{ padding: 26 }}>
-                <SectionTitle>Comentarios de la comunidad</SectionTitle>
-                <ProfileComments puuid={puuid} />
-              </Panel>
-            </motion.div>
+            <Panel className="pf-block">
+              <ProfileComments puuid={puuid} />
+            </Panel>
           )}
-
-        </div>
-      </div>
-    </div>
+        </>
+      )}
+    </ArenaPage>
   );
 }
 
-// ─── Personal score (featured Solo/Dúo) ─────────────────────────────────────
+// ─── Puntuación personal (rango Solo/Dúo destacado) ─────────────────────────
 function PersonalScore({ solo, flex, loading, leagueRank, opggData, enemyAvg, enemyAvgLoading }: {
   solo: RankEntry | null; flex: RankEntry | null; loading: boolean;
   leagueRank: { regionalRank: number | null; topPercent: number | null } | null;
@@ -1071,13 +797,13 @@ function PersonalScore({ solo, flex, loading, leagueRank, opggData, enemyAvg, en
   const isVeteran = opggData?.is_veteran ?? false;
 
   return (
-    <Panel style={{ padding: 26 }}>
-      <SectionTitle>Puntuación personal</SectionTitle>
+    <Panel className="pf-order-1">
+      <SectionHead icon={<Trophy size={15} />} title="Puntuación personal" />
       {loading ? (
-        <div style={{ display: 'flex', gap: 16 }}>
-          <Skeleton h={88} w={88} style={{ borderRadius: 12 }} />
+        <div className="pf-rank">
+          <Skel h={96} w={96} style={{ flexShrink: 0 }} />
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <Skeleton h={20} w="60%" /><Skeleton h={14} w="40%" /><Skeleton h={8} />
+            <Skel h={30} w="60%" /><Skel h={16} w="40%" /><Skel h={8} />
           </div>
         </div>
       ) : solo ? (
@@ -1086,64 +812,52 @@ function PersonalScore({ solo, flex, loading, leagueRank, opggData, enemyAvg, en
         <Unranked label="Solo/Dúo sin clasificar" />
       )}
 
-      {/* OP.GG regional position card */}
+      {/* Posición regional (OP.GG) + pico de la temporada */}
       {ladderRank != null && (
-        <div style={{ marginTop: 16, padding: '10px 14px', background: 'rgba(11,196,227,0.06)', border: 'none', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(11,196,227,0.5)', fontWeight: 700, marginBottom: 2 }}>Posición regional</div>
-            <div style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 20, color: '#0bc4e3', lineHeight: 1 }}>
-              #{ladderRank.toLocaleString()}
-              {ladderTotal != null && (
-                <span style={{ fontFamily: FONT_BODY, fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,0.35)', marginLeft: 5 }}>
-                  de {(ladderTotal / 1_000_000).toFixed(1)}M
-                </span>
-              )}
+        <div className="td-sub pf-facts">
+          <div className="pf-fact" data-wide>
+            <div className="td-over">Posición regional</div>
+            <b>
+              <span className="td-num">#{ladderRank.toLocaleString()}</span>
+              {ladderTotal != null && <small>de {(ladderTotal / 1_000_000).toFixed(1)}M</small>}
               {ladderTotal != null && ladderTotal > 0 && (
-                <span style={{
-                  fontFamily: FONT_BODY, fontSize: 10.5, fontWeight: 800, marginLeft: 8,
-                  padding: '2px 8px', borderRadius: 999, verticalAlign: 'middle',
-                  color: '#0bc4e3', border: '1px solid rgba(11,196,227,0.35)', background: 'rgba(11,196,227,0.08)',
-                }}>
+                <StatusChip kind="gold" dot={false}>
                   TOP {Math.max(0.1, (ladderRank / ladderTotal) * 100) < 1
                     ? ((ladderRank / ladderTotal) * 100).toFixed(1)
                     : Math.round((ladderRank / ladderTotal) * 100)}%
-                </span>
+                </StatusChip>
               )}
-            </div>
+            </b>
           </div>
           {/* Peak de la temporada por cola (elo más alto alcanzado) */}
           {(opggData?.season_peaks ?? []).map((p: any) => (
-            <div key={p.queue} style={{ borderLeft: '1px solid rgba(255,255,255,0.07)', paddingLeft: 14 }}>
-              <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(200,170,110,0.55)', fontWeight: 700, marginBottom: 2 }}>
-                Peak {p.queue === 'FLEXRANKED' ? 'Flex' : 'Solo/Dúo'}
-              </div>
-              <div style={{ fontFamily: FONT_COND, fontWeight: 700, fontSize: 16, color: C.gold }}>
+            <div key={p.queue} className="pf-fact">
+              <div className="td-over">Peak {p.queue === 'FLEXRANKED' ? 'Flex' : 'Solo/Dúo'}</div>
+              <b className="pf-tone" data-tone="gold">
                 {`${p.tier[0]}${p.tier.slice(1).toLowerCase()} ${p.division ?? ''}`.trim()}
-              </div>
+              </b>
             </div>
           ))}
           {seasonPlay > 0 && (
-            <div style={{ borderLeft: '1px solid rgba(255,255,255,0.07)', paddingLeft: 14 }}>
-              <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 2 }}>Partidas temporada</div>
-              <div style={{ fontFamily: FONT_COND, fontWeight: 700, fontSize: 16 }}>
-                {seasonPlay}
-                {seasonWR != null && (
-                  <span style={{ fontSize: 13, fontWeight: 700, marginLeft: 8, color: seasonWR >= 50 ? C.win : C.loss }}>{seasonWR}%</span>
-                )}
-              </div>
+            <div className="pf-fact">
+              <div className="td-over">Partidas temporada</div>
+              <b>
+                <span className="td-num">{seasonPlay}</span>
+                {seasonWR != null && <small className="pf-tone" data-tone={wrTone(seasonWR)}>{seasonWR}% WR</small>}
+              </b>
             </div>
           )}
           {(isHotStreak || isVeteran) && (
-            <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
-              {isHotStreak && <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'rgba(248,113,113,0.14)', border: 'none', color: '#f87171' }}>Racha ganadora</span>}
-              {isVeteran && <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'rgba(200,155,60,0.13)', border: 'none', color: C.gold }}>Veterano</span>}
+            <div className="pf-fact-chips">
+              {isHotStreak && <StatusChip kind="pos">Racha ganadora</StatusChip>}
+              {isVeteran && <StatusChip kind="gold" dot={false}>Veterano</StatusChip>}
             </div>
           )}
         </div>
       )}
 
-      {/* 2-up: Flex + enemy avg — open sections divided by a hairline (no cards) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 22, paddingTop: 20, borderTop: HAIRLINE }}>
+      {/* Flex + elo promedio de los rivales */}
+      <div className="pf-rank-duo">
         <MiniRank label="Flex" rank={flex} loading={loading} />
         <EnemyAvgSlot data={enemyAvg} loading={enemyAvgLoading} />
       </div>
@@ -1158,48 +872,28 @@ function FeaturedRank({ rank, leagueRank }: {
   const wins = rank.wins || 0, losses = rank.losses || 0;
   const total = wins + losses;
   const wr = total ? Math.round((wins / total) * 100) : 0;
-  const tierName = rank.tier ? rank.tier[0] + rank.tier.slice(1).toLowerCase() : '';
-  const tierColor: Record<string, string> = {
-    IRON: '#6b6b6b', BRONZE: '#ad7c52', SILVER: '#9eaab8', GOLD: '#c8aa6e',
-    PLATINUM: '#5bbfa7', EMERALD: '#4cad6d', DIAMOND: '#6aa5d4',
-    MASTER: '#9d4dc4', GRANDMASTER: '#e84d4d', CHALLENGER: '#00eeff',
-  };
-  const color = tierColor[rank.tier?.toUpperCase?.()] ?? C.gold;
   return (
-    <div style={{ display: 'flex', gap: 22, alignItems: 'center' }}>
-      {/* Rank emblem with glow ring */}
-      <div style={{ position: 'relative', flexShrink: 0 }}>
-        <div style={{
-          position: 'absolute', inset: -6, borderRadius: '50%',
-          background: `radial-gradient(circle, ${color}30 0%, transparent 70%)`,
-          filter: 'blur(12px)',
-        }} />
-        {/* El emblema manda: más grande que el texto del elo para que resalte. */}
-        {/* El PNG de CDragon trae ~35% de padding transparente: el scale lo
-            compensa sin romper el layout de la fila. */}
-        <img src={rankEmblem(rank.tier)} alt={rank.tier}
-          style={{ width: 240, height: 240, objectFit: 'contain', position: 'relative',
-            transform: 'scale(1.5)', transformOrigin: 'center',
-            filter: `drop-shadow(0 0 34px ${color}80)` }} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontFamily: FONT_COND, fontWeight: 900, fontSize: 30, color, lineHeight: 1, letterSpacing: '-0.01em' }}>
-          {tierName} {rank.rank}
-        </div>
-        <div style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 22, color: '#fff', marginTop: 4 }}>{rank.lp} LP</div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 5, fontSize: 12, color: 'rgba(255,255,255,0.45)', flexWrap: 'wrap' }}>
-          {leagueRank?.regionalRank != null && (
-            <span>Rank regional: <b style={{ color: 'rgba(255,255,255,0.7)' }}>#{fmtNumber(leagueRank.regionalRank)}</b></span>
-          )}
-          {leagueRank?.topPercent != null && (
-            <span>Top %: <b style={{ color: 'rgba(255,255,255,0.7)' }}>{leagueRank.topPercent}%</b></span>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-          <span style={{ fontFamily: FONT_COND, fontSize: 14, color: C.win, fontWeight: 700 }}>{wins}V</span>
-          <span style={{ fontFamily: FONT_COND, fontSize: 14, color: C.loss, fontWeight: 700 }}>{losses}D</span>
-          <div style={{ flex: 1, maxWidth: 200 }}><Bar value={wr} color={wr >= 50 ? C.win : C.loss} /></div>
-          <span style={{ fontSize: 15, fontWeight: 800, fontFamily: FONT_COND, color: wr >= 50 ? C.win : C.loss }}>{wr}%</span>
+    <div className="pf-rank">
+      <TierEmblem tier={rank.tier} division={rank.rank} lp={rank.lp} size={104} showLabel={false} />
+      <div className="pf-rank-info">
+        <div className="td-over">Solo / Dúo</div>
+        <div className="pf-rank-tier">{tierName(rank.tier)} {rank.rank}</div>
+        <div className="pf-rank-lp td-num">{rank.lp} LP</div>
+        {(leagueRank?.regionalRank != null || leagueRank?.topPercent != null) && (
+          <div className="pf-rank-meta">
+            {leagueRank?.regionalRank != null && (
+              <span>Rank regional: <b className="td-num">#{fmtNumber(leagueRank.regionalRank)}</b></span>
+            )}
+            {leagueRank?.topPercent != null && (
+              <span>Top %: <b className="td-num">{leagueRank.topPercent}%</b></span>
+            )}
+          </div>
+        )}
+        <div className="pf-wl td-num">
+          <span className="pf-tone" data-tone="pos">{wins}V</span>
+          <span className="pf-tone" data-tone="neg">{losses}D</span>
+          <ProgressBar kind="wr" pct={wr} />
+          <span className="pf-tone" data-tone={wrTone(wr)}>{wr}%</span>
         </div>
       </div>
     </div>
@@ -1207,36 +901,21 @@ function FeaturedRank({ rank, leagueRank }: {
 }
 
 function MiniRank({ label, rank, loading }: { label: string; rank: RankEntry | null; loading: boolean }) {
-  const tierColor: Record<string, string> = {
-    IRON: '#6b6b6b', BRONZE: '#ad7c52', SILVER: '#9eaab8', GOLD: '#c8aa6e',
-    PLATINUM: '#5bbfa7', EMERALD: '#4cad6d', DIAMOND: '#6aa5d4',
-    MASTER: '#9d4dc4', GRANDMASTER: '#e84d4d', CHALLENGER: '#00eeff',
-  };
-  const color = rank ? (tierColor[rank.tier?.toUpperCase?.()] ?? C.gold) : C.gold;
   return (
-    <div>
-      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 500, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>{label}</div>
-      {loading ? <Skeleton h={18} w="70%" /> : rank ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ position: 'relative', flexShrink: 0 }}>
-            <div style={{
-              position: 'absolute', inset: -8,
-              background: `radial-gradient(circle, ${color}28 0%, transparent 70%)`,
-              filter: 'blur(8px)',
-            }} />
-            <img src={rankEmblem(rank.tier)} alt={rank.tier}
-              style={{ width: 96, height: 96, objectFit: 'contain', position: 'relative',
-                filter: `drop-shadow(0 0 14px ${color}75)` }} />
-          </div>
-          <div>
-            <div style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 20, color }}>
-              {rank.tier[0] + rank.tier.slice(1).toLowerCase()} {rank.rank}
-            </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{rank.lp} LP</div>
+    <div style={{ minWidth: 0 }}>
+      <div className="td-over">{label}</div>
+      {loading ? <Skel h={22} w="70%" style={{ marginTop: 12 }} /> : rank ? (
+        <div className="pf-minirank">
+          <TierEmblem tier={rank.tier} division={rank.rank} lp={rank.lp} size={56} showLabel={false} />
+          <div style={{ minWidth: 0 }}>
+            <div className="pf-minirank-tier">{tierName(rank.tier)} {rank.rank}</div>
+            <div className="pf-minirank-sub td-num">{rank.lp} LP</div>
           </div>
         </div>
       ) : (
-        <div style={{ fontFamily: FONT_COND, fontWeight: 600, fontSize: 16, color: 'rgba(255,255,255,0.45)' }}>Sin clasificar</div>
+        <div className="pf-minirank">
+          <div className="pf-minirank-tier pf-tone" data-tone="dim">Sin clasificar</div>
+        </div>
       )}
     </div>
   );
@@ -1247,43 +926,24 @@ function EnemyAvgSlot({ data, loading }: {
   data?: { tier: string | null; rank: string | null; sample: number } | null;
   loading?: boolean;
 }) {
-  const tierColor: Record<string, string> = {
-    IRON: '#6b6b6b', BRONZE: '#ad7c52', SILVER: '#9eaab8', GOLD: '#c8aa6e',
-    PLATINUM: '#5bbfa7', EMERALD: '#4cad6d', DIAMOND: '#6aa5d4',
-    MASTER: '#9d4dc4', GRANDMASTER: '#e84d4d', CHALLENGER: '#00eeff',
-  };
   const tier = data?.tier ?? null;
-  const color = tier ? (tierColor[tier.toUpperCase()] ?? C.gold) : C.gold;
   return (
-    <div>
-      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 500, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>
-        Promedio enemigos
-      </div>
-      {loading ? <Skeleton h={18} w="70%" /> : tier ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ position: 'relative', flexShrink: 0 }}>
-            <div style={{
-              position: 'absolute', inset: -8,
-              background: `radial-gradient(circle, ${color}28 0%, transparent 70%)`,
-              filter: 'blur(8px)',
-            }} />
-            <img src={rankEmblem(tier)} alt={tier}
-              style={{ width: 96, height: 96, objectFit: 'contain', position: 'relative',
-                filter: `drop-shadow(0 0 14px ${color}75)` }} />
-          </div>
-          <div>
-            <div style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 20, color }}>
-              {tier[0] + tier.slice(1).toLowerCase()}{data?.rank ? ` ${data.rank}` : ''}
-            </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
-              últimos 30 días · {data?.sample} rivales
-            </div>
+    <div style={{ minWidth: 0 }}>
+      <div className="td-over">Promedio enemigos</div>
+      {loading ? <Skel h={22} w="70%" style={{ marginTop: 12 }} /> : tier ? (
+        <div className="pf-minirank">
+          <TierEmblem tier={tier} division={data?.rank} size={56} showLabel={false} />
+          <div style={{ minWidth: 0 }}>
+            <div className="pf-minirank-tier">{tierName(tier)}{data?.rank ? ` ${data.rank}` : ''}</div>
+            <div className="pf-minirank-sub">últimos 30 días · {data?.sample} rivales</div>
           </div>
         </div>
       ) : (
-        <div>
-          <div style={{ fontFamily: FONT_COND, fontWeight: 600, fontSize: 16, color: 'rgba(255,255,255,0.45)' }}>—</div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>Sin ranked reciente</div>
+        <div className="pf-minirank">
+          <div>
+            <div className="pf-minirank-tier pf-tone" data-tone="dim">—</div>
+            <div className="pf-minirank-sub">Sin ranked reciente</div>
+          </div>
         </div>
       )}
     </div>
@@ -1292,100 +952,90 @@ function EnemyAvgSlot({ data, loading }: {
 
 function Unranked({ label }: { label: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
-      <div style={{ width: 64, height: 64, borderRadius: 14, ...SUBCARD_SURFACE, display: 'grid', placeItems: 'center', color: 'rgba(255,255,255,0.25)', fontFamily: FONT_COND, fontWeight: 800, fontSize: 22 }}>?</div>
-      <div>
-        <div style={{ fontFamily: FONT_COND, fontWeight: 700, fontSize: 18, color: 'rgba(255,255,255,0.6)' }}>{label}</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>Juega partidas clasificatorias</div>
+    <div className="pf-rank">
+      <TierEmblem tier={null} size={72} showLabel={false} />
+      <div className="pf-rank-info">
+        <div className="pf-minirank-tier">{label}</div>
+        <div className="pf-minirank-sub">Juega partidas clasificatorias</div>
       </div>
     </div>
   );
 }
 
-// ─── Recent games ───────────────────────────────────────────────────────────
+// ─── Partidas recientes ─────────────────────────────────────────────────────
+type QueueFilter = 'all' | 420 | 440 | 450;
+const QUEUE_PILLS: { key: string; label: string }[] = [
+  { key: 'all', label: 'Todas' }, { key: '420', label: 'Solo/Dúo' },
+  { key: '440', label: 'Flex' }, { key: '450', label: 'ARAM' },
+];
+
 function RecentGames({
   matches, loading, recap, filter, setFilter, champByKey, puuid, onLoadMore, loadingMore, hasMore, region, continent,
 }: {
   matches: any[]; loading: boolean; recap: any;
-  filter: 'all' | 420 | 440 | 450; setFilter: (f: any) => void;
+  filter: QueueFilter; setFilter: (f: any) => void;
   champByKey: any; puuid?: string; onLoadMore: () => void; loadingMore: boolean; hasMore: boolean;
   region: string; continent: string;
 }) {
-  const chips: { label: string; val: 'all' | 420 | 440 | 450 }[] = [
-    { label: 'Todas', val: 'all' }, { label: 'Solo/Dúo', val: 420 },
-    { label: 'Flex', val: 440 }, { label: 'ARAM', val: 450 },
-  ];
   return (
-    <Panel style={{ padding: 26 }}>
-      <SectionTitle
+    <Panel className="pf-order-2 pf-games">
+      <SectionHead
+        size="lg"
+        icon={<Swords size={19} />}
+        title="Partidas recientes"
         right={
-          <div style={{ display: 'flex', gap: 6 }}>
-            {chips.map((c) => (
-              <Tip key={String(c.val)} label={`Filtrar por ${c.label}`}>
-                <button
-                  onClick={() => setFilter(c.val)}
-                  style={{
-                    fontSize: 12, fontWeight: 500, padding: '4px 11px', borderRadius: 999, cursor: 'pointer',
-                    border: filter === c.val ? `1px solid ${C.red}` : '1px solid transparent',
-                    background: filter === c.val ? 'rgba(225,36,46,0.18)' : 'rgba(255,255,255,0.05)',
-                    color: filter === c.val ? C.redHover : 'rgba(255,255,255,0.55)',
-                    transition: 'color .16s, border-color .16s, background .16s',
-                  }}
-                >
-                  {c.label}
-                </button>
-              </Tip>
-            ))}
-          </div>
+          <FilterPills
+            ariaLabel="Filtrar partidas por cola"
+            items={QUEUE_PILLS}
+            value={String(filter)}
+            onChange={(k) => setFilter(k === 'all' ? 'all' : Number(k))}
+          />
         }
-      >
-        Partidas recientes
-      </SectionTitle>
+      />
 
-      {/* Summary strip — open row, separated by a hairline (no card) */}
+      {/* Resumen de la ventana de análisis */}
       {recap && (
-        <div style={{ display: 'flex', gap: 24, alignItems: 'center', padding: '4px 0 18px', marginBottom: 18, borderBottom: HAIRLINE, flexWrap: 'wrap' }}>
+        <div className="pf-recap">
           <div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Últimos 30 días · {recap.n} partidas</div>
-            <div style={{ fontFamily: FONT_COND, fontWeight: 700, fontSize: 16, marginTop: 2 }}>
-              <span style={{ color: C.win }}>{recap.wins}V</span> <span style={{ color: C.loss }}>{recap.losses}D</span>
+            <div className="td-over">Últimos 30 días · {recap.n} partidas</div>
+            <div className="pf-recap-value td-num">
+              <span className="pf-tone" data-tone="pos">{recap.wins}V</span>{' '}
+              <span className="pf-tone" data-tone="neg">{recap.losses}D</span>
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>KDA prom.</div>
-            <div style={{ fontFamily: FONT_KDA, fontWeight: 700, fontSize: 16, marginTop: 2 }}>{recap.k} / <span style={{ color: C.loss }}>{recap.d}</span> / {recap.a} <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13 }}>({recap.kda})</span></div>
+            <div className="td-over">KDA prom.</div>
+            <div className="pf-recap-value td-num">
+              {recap.k} / <span className="pf-tone" data-tone="neg">{recap.d}</span> / {recap.a}{' '}
+              <small>({recap.kda})</small>
+            </div>
           </div>
-          <div style={{ flex: 1, minWidth: 120 }}>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Victorias {recap.wr}%</div>
-            <Bar value={recap.wr} color={recap.wr >= 50 ? C.win : C.loss} />
+          <div className="pf-recap-bar">
+            <div className="td-over" style={{ marginBottom: 8 }}>Victorias {recap.wr}%</div>
+            <ProgressBar kind="wr" pct={recap.wr} />
           </div>
         </div>
       )}
 
-      {/* Rows */}
       {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} h={66} style={{ borderRadius: 10 }} />)}
+        <div className="pf-matches">
+          {Array.from({ length: 5 }).map((_, i) => <Skel key={i} h={76} style={{ borderRadius: 8 }} />)}
         </div>
       ) : matches.length === 0 ? (
-        <div style={{ padding: '24px 0', textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>
+        <p className="pf-note" style={{ padding: '24px 0', textAlign: 'center' }}>
           No hay partidas recientes para este filtro.
-        </div>
+        </p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div className="pf-matches">
           {matches.map((m, i) => <MatchRowMini key={m.matchId} m={m} champByKey={champByKey} puuid={puuid} region={region} continent={continent} index={i} />)}
         </div>
       )}
 
       {hasMore && matches.length > 0 && (
-        <div style={{ textAlign: 'center', marginTop: 14 }}>
-          <button
-            onClick={onLoadMore}
-            disabled={loadingMore}
-            style={{ padding: '8px 22px', borderRadius: 999, border: 'none', background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.65)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
-          >
+        <div className="pf-more">
+          <Button variant="secondary" onClick={onLoadMore} disabled={loadingMore}>
             {loadingMore ? 'Cargando…' : 'Cargar más'}
-          </button>
+          </Button>
         </div>
       )}
     </Panel>
@@ -1425,206 +1075,131 @@ function MatchRowMini({ m, champByKey, puuid, region, continent, index = 0 }: {
   const openDetail = () =>
     navigate(`/match/${continent}/${m.matchId}`, { state: { puuid, region } });
 
+  // ── Solo presentación ──
+  // Carril de la partida (icono de LoL); ARAM y modos sin carriles no llevan.
+  const role = isSR && m.queueId !== 450 ? toRole(m) : null;
+  const level = m.champLevel ?? m.championLevel;
+  // El backend manda las runas en formato Match-V5 (perks.styles[]); los campos
+  // planos se siguen leyendo primero por si el payload los trae.
+  const keystoneId: number | undefined = m.perks?.keystoneId ?? m.perks?.styles?.[0]?.selections?.[0]?.perk;
+  const subStyleId: number | undefined = m.perks?.secondaryStyleId ?? m.perks?.styles?.[1]?.style;
+  const keystoneUrl = keystoneId ? keystoneIcon(keystoneId) : '';
+  const subStyleUrl = subStyleId ? runePathIcon(subStyleId) : '';
+  const duration = m.gameDuration || 0;
+  const clock = `${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')}`;
+  const items: number[] = Array.from({ length: 6 }, (_, i) => (m.items || [])[i] ?? 0);
+  const trinket: number = m.trinket ?? 0;
+  const augments: number[] = (m.playerAugments as number[] | undefined) || [];
+  const kdaTone: Tone = Number(kda) >= 3 ? 'gold' : Number(kda) >= 2 ? undefined : 'dim';
+  const queue = queueName(m.queueId, m.gameMode);
+
   return (
-    <motion.div
-      onClick={openDetail}
-      role="button"
+    <div
+      className="pf-match ax-rise"
+      style={stagger(Math.min(index, 8))}
+      data-win={win ? 'true' : 'false'}
+      role="link"
+      tabIndex={0}
       title="Ver detalle de la partida"
-      initial={{ opacity: 0, y: 14 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-40px' }}
-      transition={{ duration: 0.4, delay: Math.min(index, 8) * 0.045, ease: [0.22, 1, 0.36, 1] }}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 12, padding: '16px 14px 16px 18px',
-        boxShadow: `inset 4px 0 0 ${win ? C.win : C.loss}`,
-        borderBottom: HAIRLINE,
-        background: win ? 'rgba(11,196,227,0.025)' : 'rgba(255,90,100,0.025)',
-        flexWrap: 'wrap', cursor: 'pointer', transition: 'background .18s',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = win ? 'rgba(11,196,227,0.06)' : 'rgba(255,90,100,0.06)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = win ? 'rgba(11,196,227,0.025)' : 'rgba(255,90,100,0.025)';
-      }}
+      aria-label={`${win ? 'Victoria' : 'Derrota'} con ${c?.name || 'campeón'} · ${queue} · ${m.kills}/${m.deaths}/${m.assists}. Ver detalle de la partida`}
+      onClick={openDetail}
+      onKeyDown={(e) => { if (e.key === 'Enter' && e.target === e.currentTarget) openDetail(); }}
     >
-      {/* Champ icon + spells */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-        <div style={{ position: 'relative' }}>
-          <img src={c?.image} alt="" onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')}
-            style={{ width: 58, height: 58, borderRadius: 10, objectFit: 'cover',
-              border: `2px solid ${win ? C.win + '60' : C.loss + '50'}` }} />
-          <div style={{ position: 'absolute', bottom: 2, right: 2, background: 'rgba(0,0,0,0.75)',
-            borderRadius: 4, padding: '1px 4px', fontSize: 10, fontFamily: FONT_COND, fontWeight: 700, color: '#fff' }}>
-            {m.champLevel || ''}
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {spells.slice(0, 2).map((id, i) => {
-            const url = spellIcon(id);
-            return url
-              ? <img key={i} src={url} alt="" style={{ width: 22, height: 22, borderRadius: 4 }} />
-              : <div key={i} style={{ width: 22, height: 22, borderRadius: 4, background: 'rgba(255,255,255,0.06)' }} />;
+      {/* Campeón + hechizos + runas */}
+      <div className="pf-m-champ">
+        <span className="pf-m-portrait">
+          {c?.image ? <ChampIcon src={c.image} size={56} /> : <Skel h={56} w={56} style={{ animation: 'none' }} />}
+          {level ? <span className="pf-m-lvl td-num">{level}</span> : null}
+        </span>
+        <span className="pf-m-loadout">
+          {[0, 1].map((i) => {
+            const url = spells[i] != null ? spellIcon(spells[i]) : '';
+            return url ? <img key={i} src={url} alt="" loading="lazy" onError={hideImg} /> : <span key={i} />;
           })}
-        </div>
+          {keystoneUrl ? (
+            <Tip label={`Keystone: ${keystoneId}`}>
+              <img data-rune="main" src={keystoneUrl} alt="" loading="lazy" onError={hideImg} />
+            </Tip>
+          ) : null}
+          {subStyleUrl ? <img data-rune="sub" src={subStyleUrl} alt="" loading="lazy" onError={hideImg} /> : null}
+        </span>
       </div>
 
-      {/* Result + queue */}
-      <div style={{ width: 90, flexShrink: 0 }}>
-        <div style={{
-          display: 'inline-block', fontFamily: FONT_COND, fontWeight: 800, fontSize: 12,
-          color: win ? C.win : C.loss, textTransform: 'uppercase', letterSpacing: '0.06em',
-          background: win ? 'rgba(11,196,227,0.10)' : 'rgba(255,90,100,0.10)',
-          border: `1px solid ${win ? C.win + '40' : C.loss + '40'}`,
-          borderRadius: 5, padding: '2px 8px', marginBottom: 4,
-        }}>
-          {win ? 'Victoria' : 'Derrota'}
-        </div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{queueName(m.queueId, m.gameMode)}</div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.28)' }}>{timeAgo(m.gameStartTimestamp)}</div>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 1 }}>
-          {Math.floor((m.gameDuration || 0) / 60)}m{String(((m.gameDuration || 0) % 60)).padStart(2, '0')}s
-        </div>
+      {/* Resultado + cola */}
+      <div className="pf-m-result">
+        <span className="pf-m-outcome">{win ? 'Victoria' : 'Derrota'}</span>
+        <span className="pf-m-queue">
+          {role && <RoleIcon lane={ROLE_LANE[role]} size={16} title={role} />}
+          {queue}
+        </span>
+        <span className="pf-m-when td-num">{timeAgo(m.gameStartTimestamp)} · {clock}</span>
       </div>
 
-      {/* KDA / CS / KP */}
-      <div style={{ minWidth: 126 }}>
-        <Tip label="Asesinatos / Muertes / Asistencias (KDA)" asChild={false}>
-          <div>
-            <div style={{ fontFamily: FONT_KDA, fontWeight: 700, fontSize: 16 }}>
-              {m.kills} / <span style={{ color: C.loss }}>{m.deaths}</span> / {m.assists}
-            </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 1 }}>
-              <span style={{ fontWeight: 700, color: Number(kda) >= 3 ? C.win : Number(kda) >= 2 ? '#fff' : 'rgba(255,255,255,0.55)' }}>{kda} KDA</span>
-            </div>
-          </div>
-        </Tip>
-        <Tip label={`Súbditos por minuto${kp != null ? ' · Participación en asesinatos' : ''}`}>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 3 }}>
-            {cs} CS ({csPerMin}/min){kp != null ? ` · KP ${kp}%` : ''}
-          </div>
-        </Tip>
-      </div>
-
-      {/* Runes — keystone + secondary path */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-        {m.perks?.keystoneId ? (
-          <Tip label={`Keystone: ${m.perks.keystoneId}`} asChild={false}>
-            <div style={{ position: 'relative' }}>
-              <img
-                src={keystoneIcon(m.perks.keystoneId)} alt=""
-                onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-                style={{ width: 34, height: 34, borderRadius: '50%',
-                  background: 'rgba(0,0,0,0.5)', objectFit: 'contain',
-                  border: `1px solid ${win ? 'rgba(11,196,227,0.25)' : 'rgba(255,90,100,0.2)'}` }}
-              />
-              {m.perks?.secondaryStyleId ? (
-                <img
-                  src={runePathIcon(m.perks.secondaryStyleId)} alt=""
-                  onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-                  style={{ position: 'absolute', bottom: -4, right: -4, width: 16, height: 16,
-                    borderRadius: '50%', objectFit: 'contain', background: 'rgba(10,10,14,0.85)',
-                    border: '1px solid rgba(255,255,255,0.15)' }}
-                />
-              ) : null}
-            </div>
-          </Tip>
-        ) : (
-          <div style={{ width: 34, height: 34 }} />
-        )}
-      </div>
-
-      <div style={{ flex: 1 }} />
-
-      {/* Items — 3×2 grid + trinket */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
-        {/* Row 1: items 0-2 */}
-        <div style={{ display: 'flex', gap: 2 }}>
-          {(m.items || []).slice(0, 3).map((id: number, i: number) => (
-            id > 0 ? (
-              <img key={i} src={dd.item(id)} alt="" onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0'; }}
-                style={{ width: 28, height: 28, borderRadius: 5, border: 'none', objectFit: 'cover', flexShrink: 0 }}
-              />
-            ) : (
-              <div key={i} style={{ width: 28, height: 28, borderRadius: 5, background: 'rgba(255,255,255,0.04)', flexShrink: 0 }} />
-            )
-          ))}
+      {/* KDA */}
+      <Tip label="Asesinatos / Muertes / Asistencias (KDA)">
+        <div className="pf-m-kda">
+          <b className="td-num">{m.kills}<u>/</u><i>{m.deaths}</i><u>/</u>{m.assists}</b>
+          <span className="pf-m-sub td-num">
+            <strong className="pf-tone" data-tone={kdaTone}>{kda} KDA</strong>
+            {kp != null ? ` · KP ${kp}%` : ''}
+          </span>
         </div>
-        {/* Row 2: items 3-5 + trinket */}
-        <div style={{ display: 'flex', gap: 2 }}>
-          {[...(m.items || []).slice(3, 6), m.trinket ?? 0].map((id: number, i: number) => (
-            id > 0 ? (
-              <img key={i} src={dd.item(id)} alt="" onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0'; }}
-                style={{ width: 28, height: 28, borderRadius: 5,
-                  border: `1px solid ${i === 3 ? 'rgba(200,155,60,0.35)' : 'rgba(255,255,255,0.10)'}`,
-                  objectFit: 'cover', flexShrink: 0,
-                  opacity: i === 3 ? 0.7 : 1 }}
-              />
-            ) : (
-              <div key={i} style={{ width: 28, height: 28, borderRadius: 5, background: 'rgba(255,255,255,0.04)', flexShrink: 0 }} />
-            )
-          ))}
+      </Tip>
+
+      {/* Súbditos + oro */}
+      <Tip label={`Súbditos (por minuto)${m.gold != null ? ' · Oro obtenido' : ''}`}>
+        <div className="pf-m-farm td-num">
+          <span><UiIcon name="minion" size={18} /><b>{cs}</b> ({csPerMin}/min)</span>
+          {m.gold != null && <span><UiIcon name="gold" size={18} /><b>{fmtNumber(m.gold)}</b></span>}
         </div>
-        {/* Arena augments row (only when present) */}
-        {(m.playerAugments as number[] | undefined)?.length ? (
-          <div style={{ display: 'flex', gap: 2 }}>
-            {(m.playerAugments as number[]).map((id, i) => (
-              <div key={i} title={`Augment ${id}`}
-                style={{ width: 28, height: 14, borderRadius: 3, background: 'rgba(200,155,60,0.15)',
-                  border: '1px solid rgba(200,155,60,0.3)', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', fontSize: 7, color: C.gold, fontWeight: 800 }}>
-                A{i + 1}
-              </div>
-            ))}
-          </div>
-        ) : null}
+      </Tip>
+
+      {/* Objetos (6) + talismán; aumentos de Arena cuando existen */}
+      <div className="pf-m-items">
+        {items.map((id, i) => (
+          id > 0
+            ? <img key={i} src={dd.item(id)} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.opacity = '0'; }} />
+            : <span key={i} />
+        ))}
+        {trinket > 0
+          ? <img data-trinket src={dd.item(trinket)} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.opacity = '0'; }} />
+          : <span data-trinket />}
+        {augments.map((id, i) => (
+          <span key={`a${i}`} className="pf-m-aug" title={`Augment ${id}`}>A{i + 1}</span>
+        ))}
       </div>
 
-      {/* Team comp — champion icons + truncated names */}
+      {/* Los diez jugadores: aliados | rivales, con enlace a su perfil */}
       {isSR && (
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        <div className="pf-m-teams">
           {[team1, team2].map((teamArr, ti) => (
-            <div key={ti} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div key={ti} className="pf-m-team" data-side={ti === 0 ? 'ally' : 'enemy'}>
               {teamArr.slice(0, 5).map((p: any, i: number) => {
                 const pc = champByKey?.[String(p.championId)];
                 const isMe = p.puuid === puuid;
                 const href = profileHref(region, p.gameName ?? p.summonerName, p.tagLine);
-                const shortName = (p.gameName || p.summonerName || '').slice(0, 9);
+                const pname = p.gameName || p.summonerName || '';
                 const inner = (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <img
-                      src={pc?.image} alt="" title={p.gameName || p.summonerName}
-                      onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')}
-                      style={{ width: 18, height: 18, borderRadius: 3, objectFit: 'cover', flexShrink: 0,
-                        opacity: ti === 1 ? 0.5 : 1,
-                        outline: isMe ? `1px solid ${C.gold}` : 'none' }}
-                    />
-                    <span style={{
-                      fontSize: 9, color: isMe ? C.gold : ti === 0 ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.3)',
-                      fontWeight: isMe ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden',
-                      maxWidth: 52, textOverflow: 'ellipsis', lineHeight: 1,
-                    }}>
-                      {shortName}
-                    </span>
-                  </div>
+                  <>
+                    <img src={pc?.image} alt="" loading="lazy" onError={hideImg} />
+                    <span>{pname}</span>
+                  </>
                 );
                 return href ? (
-                  <Link key={i} to={href} onClick={(e) => e.stopPropagation()}
-                    title={`Ver perfil de ${p.gameName || p.summonerName}`}
-                    style={{ textDecoration: 'none' }}>
+                  <Link key={i} to={href} className="pf-m-player" data-me={isMe}
+                    onClick={(e) => e.stopPropagation()} title={`Ver perfil de ${pname}`}>
                     {inner}
                   </Link>
-                ) : <div key={i}>{inner}</div>;
+                ) : <div key={i} className="pf-m-player" data-me={isMe}>{inner}</div>;
               })}
             </div>
           ))}
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }
 
-// ─── Player tags ────────────────────────────────────────────────────────────
 // ─── Historial de temporadas (OP.GG MCP: elo final por season) ──────────────
 const ROMAN = ['', 'I', 'II', 'III', 'IV'];
 const TIER_ORDER: Record<string, number> = {
@@ -1637,7 +1212,6 @@ const seasonScore = (s: SeasonEntry) =>
   (TIER_ORDER[s.tier ?? ''] ?? 0) * 10_000 + (5 - (s.division ?? 4)) * 1_000 + (s.lp ?? 0);
 
 function SeasonHistory({ seasons, loading }: { seasons: SeasonEntry[]; loading: boolean }) {
-  const [hover, setHover] = useState<number | null>(null);
   const peakId = useMemo(() => {
     if (!seasons.length) return null;
     return [...seasons].sort((a, b) => seasonScore(b) - seasonScore(a))[0].season_id;
@@ -1646,60 +1220,39 @@ function SeasonHistory({ seasons, loading }: { seasons: SeasonEntry[]; loading: 
   const fmtTier = (t: string | null) => t ? t[0] + t.slice(1).toLowerCase() : '—';
 
   return (
-    <Panel style={{ padding: 26 }}>
-      <SectionTitle>Historial de temporadas</SectionTitle>
+    <Panel>
+      <SectionHead icon={<History size={15} />} title="Historial de temporadas" />
       {loading ? (
-        <div style={{ display: 'flex', gap: 10 }}>
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} h={64} w={86} style={{ borderRadius: 12 }} />)}
+        <div className="pf-seasons">
+          {Array.from({ length: 4 }).map((_, i) => <Skel key={i} h={104} w="100%" style={{ borderRadius: 8 }} />)}
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {seasons.map((s, i) => {
+        <div className="pf-seasons">
+          {seasons.map((s) => {
             const isPeak = s.season_id === peakId;
+            const tierText = `${fmtTier(s.tier)} ${ROMAN[s.division ?? 0] ?? ''}`.trim();
             return (
-              <motion.div key={s.season_id}
-                initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }} transition={{ delay: Math.min(i * 0.05, 0.4) }}
-                onMouseEnter={() => setHover(s.season_id)} onMouseLeave={() => setHover(null)}
-                style={{
-                  position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                  padding: '10px 14px', borderRadius: 12, minWidth: 84, cursor: 'default',
-                  background: isPeak ? 'linear-gradient(180deg, rgba(200,170,110,0.12), rgba(200,170,110,0.03))' : 'rgba(255,255,255,0.03)',
-                  boxShadow: isPeak ? '0 0 0 1px rgba(200,170,110,0.45), 0 0 18px rgba(200,170,110,0.15)' : undefined,
-                }}>
-                {isPeak && (
-                  <span style={{
-                    position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)',
-                    padding: '1px 8px', borderRadius: 999, fontSize: 8.5, fontWeight: 900, letterSpacing: '0.14em',
-                    background: 'linear-gradient(90deg, #c8aa6e, #e8d5a8)', color: '#1a1205',
-                  }}>PEAK</span>
-                )}
-                <span style={{ fontSize: 10, letterSpacing: '0.12em', color: isPeak ? 'rgba(232,213,168,0.8)' : 'rgba(255,255,255,0.35)', textTransform: 'uppercase' }}>
-                  S{s.display || s.season_id}
-                </span>
-                {s.tier_image_url
-                  ? <img src={s.tier_image_url} alt={s.tier ?? ''} loading="lazy" style={{ width: 34, height: 34, objectFit: 'contain' }}
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = rankEmblem(s.tier ?? ''); }} />
-                  : <img src={rankEmblem(s.tier ?? '')} alt="" style={{ width: 34, height: 34, objectFit: 'contain' }} />}
-                <span style={{ fontSize: 12, fontWeight: 700, color: isPeak ? '#e8d5a8' : 'rgba(255,255,255,0.8)' }}>
-                  {fmtTier(s.tier)} {ROMAN[s.division ?? 0] ?? ''}
-                </span>
-
-                {/* Tooltip con detalle (OP.GG solo conserva Solo/Dúo por temporada) */}
-                {hover === s.season_id && (
-                  <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                    style={{
-                      position: 'absolute', bottom: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)',
-                      zIndex: 30, whiteSpace: 'nowrap', padding: '8px 12px', borderRadius: 10,
-                      background: 'rgba(8,8,10,0.96)', boxShadow: '0 8px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08)',
-                      fontSize: 11.5, lineHeight: 1.7, textAlign: 'left',
-                    }}>
-                    <div style={{ fontWeight: 700, color: '#fff' }}>Season {s.display || s.season_id}{isPeak ? ' · 🏔 Peak histórico' : ''}</div>
-                    <div style={{ color: 'rgba(255,255,255,0.75)' }}>Solo/Dúo: <b style={{ color: '#e8d5a8' }}>{fmtTier(s.tier)} {ROMAN[s.division ?? 0] ?? ''}</b> · {s.lp ?? 0} LP</div>
-                    <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10.5 }}>Flex: sin histórico (OP.GG solo conserva Solo/Dúo)</div>
-                  </motion.div>
-                )}
-              </motion.div>
+              // Detalle en tooltip (OP.GG solo conserva Solo/Dúo por temporada)
+              <Tip
+                key={s.season_id}
+                label={
+                  <span style={{ display: 'block', lineHeight: 1.6 }}>
+                    <b>Season {s.display || s.season_id}{isPeak ? ' · Peak histórico' : ''}</b><br />
+                    Solo/Dúo: {tierText} · {s.lp ?? 0} LP<br />
+                    <span style={{ opacity: 0.6 }}>Flex: sin histórico (OP.GG solo conserva Solo/Dúo)</span>
+                  </span>
+                }
+              >
+                <div className="td-sub pf-season" data-peak={isPeak} tabIndex={0}>
+                  {isPeak && <span className="pf-season-peak">Peak</span>}
+                  <span className="td-over">S{s.display || s.season_id}</span>
+                  {s.tier_image_url
+                    ? <img src={s.tier_image_url} alt={s.tier ?? ''} loading="lazy"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = rankEmblem(s.tier ?? ''); }} />
+                    : <img src={rankEmblem(s.tier ?? '')} alt="" loading="lazy" />}
+                  <b>{tierText}</b>
+                </div>
+              </Tip>
             );
           })}
         </div>
@@ -1708,93 +1261,51 @@ function SeasonHistory({ seasons, loading }: { seasons: SeasonEntry[]; loading: 
   );
 }
 
-function PlayerTags({ tags, loading }: { tags: string[]; loading: boolean }) {
-  return (
-    <Panel style={{ padding: 26 }}>
-      <SectionTitle>Etiquetas del jugador</SectionTitle>
-      {loading ? (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} h={28} w={90} style={{ borderRadius: 999 }} />)}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-          {tags.map((t, i) => (
-            <span key={i} style={{ fontSize: 13, fontWeight: 500, padding: '6px 13px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: 'none', color: 'rgba(255,255,255,0.78)' }}>
-              {t}
-            </span>
-          ))}
-        </div>
-      )}
-    </Panel>
-  );
-}
-
-// ─── Recently played with ───────────────────────────────────────────────────
+// ─── Jugó recientemente con ─────────────────────────────────────────────────
 function RecentlyPlayedWith({ players, loading, champByKey, region }: {
   players: any[] | null; loading: boolean; champByKey: any; region: string;
 }) {
   return (
-    <Panel style={{ padding: 26 }}>
-      <SectionTitle>Jugó recientemente con</SectionTitle>
+    <Panel>
+      <SectionHead icon={<Users size={15} />} title="Jugó recientemente con" />
       {loading && !players ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} h={40} style={{ borderRadius: 8 }} />)}
+          {Array.from({ length: 5 }).map((_, i) => <Skel key={i} h={44} />)}
         </div>
       ) : !players || players.length === 0 ? (
-        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>
-          Sin compañeros recurrentes en las últimas partidas.
-        </div>
+        <p className="pf-note">Sin compañeros recurrentes en las últimas partidas.</p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div className="pf-mates">
           {players.map((p) => {
             const href = profileHref(region, p.gameName, p.tagLine);
             const wr = p.winRate;
             const topCid = p.champions?.[0]?.championId;
             const tc = topCid != null ? champByKey?.[String(topCid)] : null;
             const inner = (
-              <div
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '11px 6px',
-                  borderBottom: HAIRLINE, background: 'transparent',
-                  transition: 'background .18s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent';
-                }}
-              >
-                {tc?.image ? (
-                  <img src={tc.image} alt="" onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')}
-                    style={{ width: 30, height: 30, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
-                ) : (
-                  <div style={{ width: 30, height: 30, borderRadius: 6, background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />
-                )}
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {p.gameName}<span style={{ color: 'rgba(255,255,255,0.35)' }}>{p.tagLine ? ` #${p.tagLine}` : ''}</span>
+              <>
+                {tc?.image
+                  ? <ChampIcon src={tc.image} size={38} />
+                  : <Skel h={38} w={38} style={{ animation: 'none', flexShrink: 0 }} />}
+                <div className="pf-mate-main">
+                  <div className="pf-mate-name">
+                    {p.gameName}<span>{p.tagLine ? ` #${p.tagLine}` : ''}</span>
                   </div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
+                  <div className="pf-sub">
                     {p.games} {p.games === 1 ? 'partida' : 'partidas'} juntos
                   </div>
                 </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  {wr != null ? (
-                    <div style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 14, color: wr >= 50 ? C.win : C.loss }}>{wr}%</div>
-                  ) : (
-                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>—</div>
-                  )}
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>
-                    {p.asAlly}A · {p.asEnemy}E
-                  </div>
+                <div className="pf-mate-side">
+                  {wr != null
+                    ? <b className="td-num pf-tone" data-tone={wrTone(wr)}>{wr}%</b>
+                    : <b className="pf-tone" data-tone="dim">—</b>}
+                  <span className="pf-sub td-num">{p.asAlly} aliado · {p.asEnemy} rival</span>
                 </div>
-              </div>
+              </>
             );
             return href ? (
-              <Link key={p.puuid} to={href} style={{ textDecoration: 'none' }}>{inner}</Link>
+              <Link key={p.puuid} to={href} className="pf-mate">{inner}</Link>
             ) : (
-              <div key={p.puuid}>{inner}</div>
+              <div key={p.puuid} className="pf-mate">{inner}</div>
             );
           })}
         </div>
@@ -1803,46 +1314,55 @@ function RecentlyPlayedWith({ players, loading, champByKey, region }: {
   );
 }
 
-// ─── Role performance ───────────────────────────────────────────────────────
+// ─── Rendimiento por rol ────────────────────────────────────────────────────
 function RolePerformance({ perf, loading }: { perf: Record<Role, { games: number; wins: number }>; loading: boolean }) {
   const total = ROLES.reduce((s, r) => s + perf[r].games, 0);
   return (
-    <Panel style={{ padding: 26 }}>
-      <SectionTitle>Rendimiento por rol</SectionTitle>
+    <Panel>
+      <SectionHead icon={<Compass size={15} />} title="Rendimiento por rol" />
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} h={22} />)}
+          {Array.from({ length: 5 }).map((_, i) => <Skel key={i} h={26} />)}
         </div>
       ) : total === 0 ? (
-        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Sin datos de roles.</div>
+        <p className="pf-note">Sin datos de roles.</p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '90px 60px 1fr', fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', paddingBottom: 6, borderBottom: HAIRLINE }}>
-            <span>Rol</span><span>Partidas</span><span>Tasa de victorias</span>
-          </div>
-          {ROLES.map((r) => {
-            const d = perf[r];
-            const wr = d.games ? Math.round((d.wins / d.games) * 100) : 0;
-            return (
-              <div key={r} style={{ display: 'grid', gridTemplateColumns: '90px 60px 1fr', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{r}</span>
-                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>{d.games}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ flex: 1 }}><Bar value={wr} color={d.games ? (wr >= 50 ? C.win : C.loss) : 'rgba(255,255,255,0.15)'} /></div>
-                  <span style={{ fontSize: 12, fontWeight: 700, width: 36, textAlign: 'right', color: d.games ? (wr >= 50 ? C.win : C.loss) : 'rgba(255,255,255,0.3)' }}>
-                    {d.games ? `${wr}%` : '—'}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <table className="ax-table pf-table">
+          <thead>
+            <tr><th>Rol</th><th>Partidas</th><th>Tasa de victorias</th></tr>
+          </thead>
+          <tbody>
+            {ROLES.map((r) => {
+              const d = perf[r];
+              const wr = d.games ? Math.round((d.wins / d.games) * 100) : 0;
+              return (
+                <tr key={r}>
+                  <td>
+                    <span className="pf-role">
+                      <RoleIcon lane={ROLE_LANE[r]} size={22} style={{ opacity: d.games ? 1 : 0.45 }} />
+                      {r}
+                    </span>
+                  </td>
+                  <td className="td-num pf-tone" data-tone={d.games ? undefined : 'dim'}>{d.games}</td>
+                  <td>
+                    <div className="pf-wr">
+                      <ProgressBar kind="wr" pct={d.games ? wr : 0} />
+                      <span className="td-num pf-tone" data-tone={d.games ? wrTone(wr) : 'dim'}>
+                        {d.games ? `${wr}%` : '—'}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       )}
     </Panel>
   );
 }
 
-// ─── Champions table ────────────────────────────────────────────────────────
+// ─── Campeones de la temporada ──────────────────────────────────────────────
 function ChampionsTable({ rows, champByKey, loading, bestPlayers, region, opggChampStats, puuid }: {
   rows: any[]; champByKey: any; loading: boolean;
   bestPlayers?: Record<string, any> | null; region: string;
@@ -1911,121 +1431,131 @@ function ChampionsTable({ rows, champByKey, loading, bestPlayers, region, opggCh
   const usingOpgg = (opggChampStats?.length ?? 0) > 0;
 
   return (
-    <Panel style={{ padding: 26 }}>
-      <SectionTitle right={
-        usingOpgg ? <span style={{ fontSize: 10, color: 'rgba(11,196,227,0.6)', fontWeight: 600, letterSpacing: '0.1em' }}>TODA LA TEMPORADA</span> : undefined
-      }>
-        Campeones · {usingOpgg ? 'Clasificatoria' : 'Solo/Dúo'}
-      </SectionTitle>
+    <Panel>
+      <SectionHead
+        icon={<BarChart3 size={15} />}
+        title={`Campeones · ${usingOpgg ? 'Clasificatoria' : 'Solo/Dúo'}`}
+        right={usingOpgg ? <span className="td-over">Toda la temporada</span> : undefined}
+      />
       {loading && !displayRows.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} h={32} />)}
+          {Array.from({ length: 4 }).map((_, i) => <Skel key={i} h={40} />)}
         </div>
       ) : displayRows.length === 0 ? (
-        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Sin campeones clasificados aún.</div>
+        <p className="pf-note">Sin campeones clasificados aún.</p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 1fr 0.8fr', fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', paddingBottom: 9, borderBottom: HAIRLINE }}>
-            <span>Campeón</span><span>KDA</span><span>Partidas · WR</span><span>Mejor jug.</span>
+        <>
+          <div className="ax-table-scroll">
+            <table className="ax-table pf-table pf-champs">
+              <thead>
+                <tr><th>Campeón</th><th>KDA</th><th>Partidas · WR</th><th>Mejor jug.</th></tr>
+              </thead>
+              <tbody>
+                {visibleRows.map((r: any, idx: number) => {
+                  const c = r.champData;
+                  // Best player for this champ (from local match data — best by champion ID)
+                  const localId = c ? Object.keys(champByKey || {}).find(k => champByKey[k] === c) : null;
+                  const best = localId ? bestPlayers?.[localId] : null;
+                  const bestTier = best?.tier ? `${best.tier[0]}${best.tier.slice(1).toLowerCase()} ${best.rank || ''}`.trim() : null;
+                  const bestHref = best ? profileHref(region, best.gameName, best.tagLine) : null;
+                  const bestInner = best ? (
+                    <>
+                      <b>{best.gameName}</b>
+                      {bestTier && <small>{bestTier}</small>}
+                    </>
+                  ) : null;
+                  const ar = c?.key != null ? rankByChampId.get(Number(c.key)) : null;
+                  const top1 = !!ar && (ar.regionRank === 1 || ar.globalRank === 1);
+                  const kdaTone: Tone = r.kda === '∞' || Number(r.kda) >= 3 ? 'gold' : Number(r.kda) >= 2 ? undefined : 'dim';
+
+                  return (
+                    <tr
+                      key={r.championName + idx}
+                      data-click={c ? 'true' : undefined}
+                      title={c ? `Ver análisis de ${c.name}` : undefined}
+                      tabIndex={c ? 0 : undefined}
+                      onClick={(e) => {
+                        if ((e.target as HTMLElement).closest('a')) return; // respeta el link de "mejor jugador"
+                        if (c?.id) window.location.assign(`/champion/${c.id}`);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && e.target === e.currentTarget && c?.id) window.location.assign(`/champion/${c.id}`);
+                      }}
+                    >
+                      {/* Campeón + K/D/A medio */}
+                      <td>
+                        <div className="pf-champ-cell">
+                          {c?.image
+                            ? <ChampIcon src={c.image} size={38} />
+                            : <Skel h={38} w={38} style={{ animation: 'none', flexShrink: 0 }} />}
+                          <div>
+                            <span className="pf-champ-name">
+                              {c?.name || r.championName.toLowerCase().replace(/\b\w/g, (s: string) => s.toUpperCase()).replace(/_/g, ' ')}
+                            </span>
+                            {usingOpgg && r.avgK != null && (
+                              <span className="pf-sub td-num">{r.avgK} / <i>{r.avgD}</i> / {r.avgA}</span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* KDA */}
+                      <td className="td-num pf-tone" data-tone={kdaTone} style={{ fontSize: 15.5, fontWeight: 700 }}>{r.kda}</td>
+
+                      {/* Partidas + WR + rankings (OP.GG servidor + ranking ATAK) */}
+                      <td>
+                        <div className="td-num" style={{ whiteSpace: 'nowrap' }}>
+                          {r.play}P · <b className="pf-tone" data-tone={wrTone(r.wr)}>{r.wr}%</b>
+                        </div>
+                        {r.serverRank != null ? (
+                          <span className="pf-sub td-num">#{r.serverRank.toLocaleString()} servidor</span>
+                        ) : (
+                          <span className="pf-sub td-num">{r.win}V · {r.lose}D</span>
+                        )}
+                        {ar && (
+                          <div
+                            className="pf-atak-rank td-num"
+                            data-top={top1}
+                            title={`Ranking ATAK.GG por puntos de maestría (${ar.points.toLocaleString()} pts) entre los invocadores de la comunidad — crece con cada perfil visitado`}
+                          >
+                            {top1 && <Crown size={12} aria-hidden />}
+                            #{ar.regionRank.toLocaleString()} {region.toUpperCase().replace(/\d+$/, '')}
+                            <span style={{ opacity: 0.5 }}>·</span>
+                            #{ar.globalRank.toLocaleString()} Global
+                            <span style={{ opacity: 0.55 }}>ATAK</span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Mejor jugador con ese campeón */}
+                      <td>
+                        {bestHref ? (
+                          <Link to={bestHref} className="pf-best" title={`Mejor con ${c?.name || ''}`}>{bestInner}</Link>
+                        ) : bestInner ? (
+                          <span className="pf-best">{bestInner}</span>
+                        ) : (
+                          <span className="pf-tone" data-tone="dim">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-          {visibleRows.map((r: any, idx: number) => {
-            const c = r.champData;
-            // Best player for this champ (from local match data — best by champion ID)
-            const localId = c ? Object.keys(champByKey || {}).find(k => champByKey[k] === c) : null;
-            const best = localId ? bestPlayers?.[localId] : null;
-            const bestTier = best?.tier ? `${best.tier[0]}${best.tier.slice(1).toLowerCase()} ${best.rank || ''}`.trim() : null;
-            const bestHref = best ? profileHref(region, best.gameName, best.tagLine) : null;
-            const bestInner = best ? (
-              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, minWidth: 0 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: C.redHover, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{best.gameName}</span>
-                {bestTier && <span style={{ fontSize: 10, color: C.gold }}>{bestTier}</span>}
-              </div>
-            ) : <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>—</span>;
-
-            return (
-              <div
-                key={r.championName + idx}
-                style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 1fr 0.8fr', alignItems: 'center', gap: 8, padding: '10px 6px', borderBottom: HAIRLINE, transition: 'background .16s', cursor: c ? 'pointer' : 'default' }}
-                title={c ? `Ver análisis de ${c.name}` : undefined}
-                onClick={(e) => {
-                  if ((e.target as HTMLElement).closest('a')) return; // respeta el link de "mejor jugador"
-                  if (c?.id) window.location.assign(`/champion/${c.id}`);
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-              >
-                {/* Champion icon + name + KDA details */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                  {c?.image ? (
-                    <img src={c.image} alt="" onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')} style={{ width: 32, height: 32, borderRadius: 7, objectFit: 'cover', flexShrink: 0 }} />
-                  ) : (
-                    <div style={{ width: 32, height: 32, borderRadius: 7, background: 'rgba(255,255,255,0.06)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: 'rgba(255,255,255,0.3)' }}>?</div>
-                  )}
-                  <div style={{ minWidth: 0 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
-                      {c?.name || r.championName.toLowerCase().replace(/\b\w/g, (s: string) => s.toUpperCase()).replace(/_/g, ' ')}
-                    </span>
-                    {usingOpgg && r.avgK != null && (
-                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>
-                        {r.avgK} / <span style={{ color: C.loss }}>{r.avgD}</span> / {r.avgA}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* KDA ratio */}
-                <span style={{ fontFamily: FONT_KDA, fontSize: 13, fontWeight: 700, color: Number(r.kda) >= 3 ? C.gold : Number(r.kda) >= 2 ? '#fff' : 'rgba(255,255,255,0.6)' }}>
-                  {r.kda === '∞' ? <span style={{ color: C.teal }}>∞</span> : r.kda}
-                </span>
-
-                {/* Games + WR + rankings (OP.GG servidor + ranking ATAK) */}
-                <div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
-                    {r.play}P · <span style={{ color: r.wr >= 55 ? C.win : r.wr < 45 ? C.loss : C.gold, fontWeight: 700 }}>{r.wr}%</span>
-                  </div>
-                  {r.serverRank != null ? (
-                    <div style={{ fontSize: 10, color: C.teal, fontWeight: 700 }}>#{r.serverRank.toLocaleString()} servidor</div>
-                  ) : (
-                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>{r.win}V · {r.lose}D</div>
-                  )}
-                  {(() => {
-                    const ar = c?.key != null ? rankByChampId.get(Number(c.key)) : null;
-                    if (!ar) return null;
-                    const top1 = ar.regionRank === 1 || ar.globalRank === 1;
-                    return (
-                      <div
-                        title={`Ranking ATAK.GG por puntos de maestría (${ar.points.toLocaleString()} pts) entre los invocadores de la comunidad — crece con cada perfil visitado`}
-                        style={{ fontSize: 10, fontWeight: 700, color: top1 ? C.gold : 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center', gap: 4 }}
-                      >
-                        {top1 && <span aria-hidden>👑</span>}
-                        #{ar.regionRank.toLocaleString()} {region.toUpperCase().replace(/\d+$/, '')}
-                        <span style={{ opacity: 0.45 }}>·</span>
-                        #{ar.globalRank.toLocaleString()} Global
-                        <span style={{ opacity: 0.4, fontWeight: 600 }}>ATAK</span>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Best player */}
-                {bestHref ? (
-                  <Link to={bestHref} style={{ textDecoration: 'none', minWidth: 0 }} title={`Mejor con ${c?.name || ''}`}>{bestInner}</Link>
-                ) : bestInner}
-              </div>
-            );
-          })}
 
           {displayRows.length > 8 && (
-            <button
-              onClick={() => setShowAll(s => !s)}
-              style={{ marginTop: 10, padding: '7px 0', border: 'none', background: 'transparent', color: 'rgba(255,255,255,0.4)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; }}
-            >
-              {showAll ? '▲ Mostrar menos' : `▼ Ver todos los ${displayRows.length} campeones`}
-            </button>
+            <div className="pf-more" style={{ marginTop: 12 }}>
+              <Button
+                variant="ghost"
+                icon={showAll ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                onClick={() => setShowAll((s) => !s)}
+              >
+                {showAll ? 'Mostrar menos' : `Ver todos los ${displayRows.length} campeones`}
+              </Button>
+            </div>
           )}
-        </div>
+        </>
       )}
     </Panel>
   );

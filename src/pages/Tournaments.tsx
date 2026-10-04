@@ -1,25 +1,20 @@
-// src/pages/Tournaments.tsx — glass/space · GSAP · MySQL-backed
-import { useState, useMemo, useEffect, useRef } from 'react';
+// src/pages/Tournaments.tsx — listado de torneos (rediseño "Arena").
+// Una cartelera: el torneo que importa ahora va destacado arriba y el resto en
+// filas que se leen de un vistazo. Tokens y clases en src/styles/arena.css.
+import { useState, useMemo, useEffect, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from '@/components/ui/sonner';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { motion, AnimatePresence } from 'framer-motion';
 import { TournamentRegisterModal } from '@/components/TournamentRegisterModal';
 import { DailyTournamentsRail } from '@/components/DailyTournamentsRail';
 import { TournamentCreateModal } from '@/components/TournamentCreateModal';
-import { ScrollVideoBg } from '@/components/ScrollVideoBg';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tip } from '@/components/ui/Tip';
+import { Button, StatusChip, ProgressBar, FilterPills } from '@/components/tournament/ui';
 import { useTournaments } from '@/hooks/queries/tournaments';
 import { qk } from '@/hooks/queries/keys';
-import {
-  Trophy, Calendar, Users, Plus, ArrowRight,
-  Zap, Shield, Clock, CheckCircle, Search, X,
-} from 'lucide-react';
-
-gsap.registerPlugin(ScrollTrigger);
+import { Plus, ArrowRight, Search, X, Trophy, UserPlus, CheckCircle } from 'lucide-react';
+import '@/styles/tournament-dashboard.css';
+import '@/styles/arena.css';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Tournament {
@@ -32,255 +27,168 @@ interface Tournament {
   teamSize?: number; gameMap?: 'SR' | 'ARAM' | 'ARENA';
   isPrivate?: boolean;
 }
+type RegisterTarget = { id: string; name: string; teamSize?: number };
+type FilterKey = 'todos' | 'registration' | 'checkin' | 'active' | 'complete';
 
-const PHASE_CONFIG = {
-  registration: { label: 'Inscripciones',  dot: 'bg-green-400',  badge: 'border-green-500/40 text-green-300 bg-green-500/10',  icon: <Users className="h-3.5 w-3.5" /> },
-  checkin:      { label: 'Check-in',        dot: 'bg-yellow-400', badge: 'border-yellow-500/40 text-yellow-300 bg-yellow-500/10', icon: <CheckCircle className="h-3.5 w-3.5" /> },
-  active:       { label: 'En Curso',        dot: 'bg-teal-400',   badge: 'border-teal-500/40 text-teal-300 bg-teal-500/10',   icon: <Zap className="h-3.5 w-3.5" /> },
-  complete:     { label: 'Finalizado',      dot: 'bg-gray-500',   badge: 'border-gray-600/40 text-gray-400 bg-gray-500/10',   icon: <Shield className="h-3.5 w-3.5" /> },
-  cancelled:    { label: 'Cancelado',       dot: 'bg-gray-600',   badge: 'border-gray-700/40 text-gray-500 bg-gray-600/10',   icon: <Shield className="h-3.5 w-3.5" /> },
+const PHASE = {
+  registration: { label: 'Inscripciones', kind: 'registration' },
+  checkin:      { label: 'Check-in',      kind: 'gold' },
+  active:       { label: 'En vivo',       kind: 'live' },
+  complete:     { label: 'Finalizado',    kind: 'finished' },
+  cancelled:    { label: 'Cancelado',     kind: 'dim' },
 } as const;
 
-const FILTERS = [
+const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'todos',        label: 'Todos' },
+  { key: 'active',       label: 'En vivo' },
   { key: 'registration', label: 'Inscripción' },
   { key: 'checkin',      label: 'Check-in' },
-  { key: 'active',       label: 'En Curso' },
   { key: 'complete',     label: 'Finalizados' },
-] as const;
+];
 
-// ─── Tournament card ──────────────────────────────────────────────────────────
-function TournamentCard({
-  t, index, onRegister,
-}: {
-  t: Tournament; index: number;
-  onRegister: (t: { id: string; name: string; teamSize?: number }) => void;
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+const pctOf = (t: Tournament) =>
+  t.maxParticipants > 0 ? Math.min(100, Math.round((t.participants / t.maxParticipants) * 100)) : 0;
+const isOpen = (t: Tournament) => t.phase === 'registration' && t.participants < t.maxParticipants;
+/** Retraso escalonado de entrada (ver .ax-rise / .ax-slide). */
+const stagger = (i: number) => ({ ['--i' as string]: i }) as CSSProperties;
+
+// ─── Etiquetas de un torneo (estado + rasgos) ────────────────────────────────
+function Tags({ t }: { t: Tournament }) {
+  const phase = PHASE[t.phase] ?? PHASE.complete;
+  return (
+    <div className="ax-row-tags">
+      <StatusChip kind={phase.kind}>{phase.label}</StatusChip>
+      {t.riotTournamentId && <StatusChip kind="gold" dot={false}>Riot oficial</StatusChip>}
+      {t.isPrivate && <StatusChip kind="dim" dot={false}>Privado</StatusChip>}
+      {t.gameMap === 'ARAM' && <StatusChip kind="dim" dot={false}>ARAM</StatusChip>}
+      {t.gameMap === 'ARENA' && <StatusChip kind="dim" dot={false}>Arena ladder</StatusChip>}
+      {(t.teamSize ?? 5) !== 5 && t.gameMap !== 'ARENA' && (
+        <StatusChip kind="dim" dot={false}>{t.teamSize}v{t.teamSize}</StatusChip>
+      )}
+    </div>
+  );
+}
+
+// ─── Botón de inscripción (formulario externo de la liga o modal propio) ─────
+function RegisterAction({ t, onRegister, full }: { t: Tournament; onRegister: (t: RegisterTarget) => void; full?: boolean }) {
+  if (t.phase === 'checkin') {
+    return <Button variant="secondary" icon={<CheckCircle size={15} />} full={full}>Hacer check-in</Button>;
+  }
+  if (!isOpen(t)) return null;
+  return (
+    <span onClick={(e) => e.stopPropagation()} style={{ display: full ? 'block' : 'inline-flex' }}>
+      <Button variant="primary" icon={<UserPlus size={15} />} full={full}
+        onClick={() => (t.registrationUrl
+          ? window.open(t.registrationUrl, '_blank', 'noopener')
+          : onRegister({ id: t.id, name: t.name, teamSize: t.teamSize }))}>
+        Inscribirse
+      </Button>
+    </span>
+  );
+}
+
+// ─── Torneo destacado ────────────────────────────────────────────────────────
+function FeatureCard({ t, onOpen, onRegister }: {
+  t: Tournament; onOpen: () => void; onRegister: (t: RegisterTarget) => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
-  const phase = PHASE_CONFIG[t.phase] ?? PHASE_CONFIG.complete;
-  const pct   = Math.min(100, Math.round((t.participants / t.maxParticipants) * 100));
-  const date  = new Date(t.startDate).toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' });
-
-  useEffect(() => {
-    if (!ref.current) return;
-    gsap.fromTo(ref.current,
-      { opacity: 0, y: 40 },
-      { opacity: 1, y: 0, duration: 0.55, delay: index * 0.07, ease: 'power2.out',
-        scrollTrigger: { trigger: ref.current, start: 'top 90%', once: true } }
-    );
-  }, [index]);
-
+  const pct = pctOf(t);
   return (
-    <div ref={ref}
-      onClick={() => navigate(`/tournaments/${t.id}`)}
-      role="link" tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/tournaments/${t.id}`); }}
-      className="group relative rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer
-        hover:-translate-y-1 hover:scale-[1.012] hover:shadow-[0_16px_48px_-20px_rgba(225,36,46,0.35)]"
-      style={{
-        background:
-          'linear-gradient(180deg, rgba(16,16,20,0.45) 0%, rgba(10,10,13,0.25) 100%)',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 44px -30px rgba(0,0,0,.6)',
-      }}
+    <article
+      className="ax-feature ax-rise" style={stagger(2)}
+      role="link" tabIndex={0} aria-label={`Abrir ${t.name}`}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === 'Enter') onOpen(); }}
     >
-      {/* Subtle top glow on hover */}
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/0 to-transparent
-        group-hover:via-white/20 transition-all duration-500" />
+      <div className="ax-hero-art" aria-hidden>
+        <div className="ax-hero-slab" />
+        <div className="ax-hero-hatch" />
+        <div className="ax-sweep" />
+      </div>
 
-      <div className="p-6">
-        {/* Header row */}
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${phase.badge}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${phase.dot} animate-pulse`} />
-                {phase.icon}
-                {phase.label}
-              </span>
-              {t.riotTournamentId && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs
-                  border border-[#c8aa6e]/40 text-[#e8d5a8] bg-[#c8aa6e]/10">
-                  <Zap className="h-3 w-3" /> Riot Oficial
-                </span>
-              )}
-              {t.isPrivate && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs
-                  border border-amber-400/40 text-amber-300 bg-amber-400/10">
-                  <Shield className="h-3 w-3" /> Privado
-                </span>
-              )}
-              {t.gameMap === 'ARAM' && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs
-                  border border-cyan-400/40 text-cyan-300 bg-cyan-400/10">ARAM</span>
-              )}
-              {t.gameMap === 'ARENA' && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs
-                  border border-amber-400/40 text-amber-300 bg-amber-400/10">Arena Ladder</span>
-              )}
-              {(t.teamSize ?? 5) !== 5 && t.gameMap !== 'ARENA' && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs
-                  border border-white/[0.12] text-gray-300 bg-white/[0.05]">{t.teamSize}v{t.teamSize}</span>
-              )}
-            </div>
-            <h3 className="text-lg font-semibold text-white group-hover:text-white/80 transition-colors truncate">
-              {t.name}
-            </h3>
-            <p className="text-gray-500 text-sm mt-1 line-clamp-2">{t.description}</p>
+      <div className="ax-feature-main">
+        <Tags t={t} />
+        <h2 className="ax-feature-name">{t.name}</h2>
+        {t.description && <p className="ax-feature-desc">{t.description}</p>}
+        <dl className="ax-facts" style={{ marginBottom: 0 }}>
+          <div className="ax-fact"><dt className="td-over">Premio</dt><dd style={{ margin: 0 }}><b>{t.prize || 'Por definir'}</b></dd></div>
+          <div className="ax-fact"><dt className="td-over">Inicio</dt><dd style={{ margin: 0 }}><b>{fmtDate(t.startDate)}</b></dd></div>
+          <div className="ax-fact"><dt className="td-over">Formato</dt><dd style={{ margin: 0 }}><b>{t.format}</b></dd></div>
+        </dl>
+      </div>
+
+      <div className="ax-feature-side">
+        <div>
+          <div className="td-over">Equipos</div>
+          <div className="ax-cap-num" style={{ margin: '4px 0 10px' }}>
+            {t.participants}<small> / {t.maxParticipants}</small>
+          </div>
+          <ProgressBar kind="red" pct={pct} height={6} />
+          <div className="td-over" style={{ marginTop: 7 }}>
+            {t.participants >= t.maxParticipants ? 'Cupo lleno' : `${pct}% del cupo`}
           </div>
         </div>
-
-        {/* Stats row */}
-        <div className="grid grid-cols-3 gap-3 mb-5">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1.5 text-gray-500">
-              <Trophy className="h-3.5 w-3.5 text-red-500/70" />
-              <span className="text-xs uppercase tracking-wider">Premio</span>
-            </div>
-            <span className="text-sm font-semibold text-white truncate">{t.prize}</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1.5 text-gray-500">
-              <Calendar className="h-3.5 w-3.5 text-red-500/70" />
-              <span className="text-xs uppercase tracking-wider">Inicio</span>
-            </div>
-            <span className="text-sm font-semibold text-white">{date}</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1.5 text-gray-500">
-              <Clock className="h-3.5 w-3.5 text-red-500/70" />
-              <span className="text-xs uppercase tracking-wider">Formato</span>
-            </div>
-            <span className="text-sm font-semibold text-white truncate">{t.format.split(' ')[0]}</span>
-          </div>
-        </div>
-
-        {/* Teams + progress */}
-        <div className="mb-5">
-          <div className="flex items-center justify-between text-xs mb-1.5">
-            <span className="text-gray-500 flex items-center gap-1">
-              <Users className="h-3.5 w-3.5" />
-              {t.participants} / {t.maxParticipants} equipos
-            </span>
-            <span className={`font-bold ${pct >= 75 ? 'text-red-400' : 'text-gray-400'}`}>{pct}%</span>
-          </div>
-          <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-gradient-to-r from-white/60 to-white/80 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${pct}%` }}
-              transition={{ duration: 1, ease: 'easeOut', delay: index * 0.07 + 0.3 }}
-            />
-          </div>
-          {t.participants >= t.maxParticipants && (
-            <p className="text-xs text-red-400 mt-1">Torneo lleno</p>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <Link to={`/tournaments/${t.id}`}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
-              bg-white/[0.06] text-gray-300 hover:text-white
-              hover:bg-red-500/15 transition-all duration-200">
-            Ver detalles
-            <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-          </Link>
-
-          {t.phase === 'registration' && t.participants < t.maxParticipants && (
-            t.registrationUrl ? (
-              // Registro externo (formulario oficial de la liga)
-              <a href={t.registrationUrl} target="_blank" rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
-                  bg-foreground text-background hover:bg-foreground/90
-                  transition-all duration-200">
-                <Plus className="h-4 w-4" />
-                Inscribirse
-              </a>
-            ) : (
-              <button
-                onClick={(e) => { e.stopPropagation(); onRegister({ id: t.id, name: t.name, teamSize: t.teamSize }); }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
-                  bg-foreground text-background hover:bg-foreground/90
-                  transition-all duration-200">
-                <Plus className="h-4 w-4" />
-                Inscribirse
-              </button>
-            )
-          )}
-          {t.phase === 'checkin' && (
-            <Link to={`/tournaments/${t.id}`}
-              className="flex items-center gap-1.5 text-sm text-yellow-400 font-medium">
-              <CheckCircle className="h-4 w-4" /> Hacer check-in
-            </Link>
-          )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <RegisterAction t={t} onRegister={onRegister} full />
+          <Button variant={isOpen(t) ? 'secondary' : 'primary'} icon={<ArrowRight size={15} />} full>
+            {t.phase === 'active' ? 'Seguir el torneo' : 'Ver torneo'}
+          </Button>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 
-// ─── Card skeleton (content-shaped, matches TournamentCard layout) ──────────────
-function TournamentCardSkeleton() {
+// ─── Fila de torneo ──────────────────────────────────────────────────────────
+function TournamentRow({ t, index, onOpen, onRegister }: {
+  t: Tournament; index: number; onOpen: () => void; onRegister: (t: RegisterTarget) => void;
+}) {
+  const pct = pctOf(t);
   return (
-    <div className="rounded-2xl overflow-hidden"
-      style={{
-        background:
-          'linear-gradient(180deg, rgba(16,16,20,0.45) 0%, rgba(10,10,13,0.25) 100%)',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 44px -30px rgba(0,0,0,.6)',
-      }}>
-      <div className="p-6 space-y-4">
-        <Skeleton width={130} height={24} style={{ borderRadius: 999 }} />
-        <Skeleton width="70%" height={22} />
-        <Skeleton width="90%" height={14} />
-        <div className="grid grid-cols-3 gap-3 pt-1">
-          {[0, 1, 2].map(i => <Skeleton key={i} height={36} />)}
-        </div>
-        <Skeleton height={6} style={{ borderRadius: 999 }} />
-        <div className="flex gap-3 pt-1">
-          <Skeleton width={120} height={38} style={{ borderRadius: 12 }} />
-          <Skeleton width={120} height={38} style={{ borderRadius: 12 }} />
-        </div>
+    <article
+      className="ax-row ax-slide" data-phase={t.phase} style={stagger(Math.min(index, 8))}
+      role="link" tabIndex={0} aria-label={`Abrir ${t.name}`}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === 'Enter') onOpen(); }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <Tags t={t} />
+        <h3 className="ax-row-name">{t.name}</h3>
+        {t.description && <p className="ax-row-desc">{t.description}</p>}
       </div>
-    </div>
+
+      <dl className="ax-row-facts" style={{ margin: 0 }}>
+        <div style={{ minWidth: 0 }}><dt className="td-over">Premio</dt><dd style={{ margin: 0 }}><b>{t.prize || 'Por definir'}</b></dd></div>
+        <div style={{ minWidth: 0 }}><dt className="td-over">Inicio</dt><dd style={{ margin: 0 }}><b>{fmtDate(t.startDate)}</b></dd></div>
+        <div style={{ minWidth: 0 }}><dt className="td-over">Formato</dt><dd style={{ margin: 0 }}><b>{t.format.split(' ')[0]}</b></dd></div>
+      </dl>
+
+      <div className="ax-row-cap">
+        <div className="ax-row-cap-line">
+          <span className="td-over">Equipos</span>
+          <span className="td-num" style={{ fontSize: 15, fontWeight: 700 }}>
+            {t.participants}<span style={{ color: 'var(--td-muted)', fontWeight: 600 }}> / {t.maxParticipants}</span>
+          </span>
+        </div>
+        <ProgressBar kind={t.phase === 'complete' ? 'var(--td-muted)' : 'red'} pct={pct} height={5} />
+      </div>
+
+      <div className="ax-row-actions">
+        <RegisterAction t={t} onRegister={onRegister} />
+        <span className="ax-row-go" aria-hidden><ArrowRight size={18} /></span>
+      </div>
+    </article>
   );
 }
 
-// ─── Stats bar ────────────────────────────────────────────────────────────────
-function StatBar({ tournaments }: { tournaments: Tournament[] }) {
-  const active = tournaments.filter(t => t.phase === 'active').length;
-  const open   = tournaments.filter(t => t.phase === 'registration').length;
-  const done   = tournaments.filter(t => t.phase === 'complete').length;
-  const ref    = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!ref.current) return;
-    gsap.fromTo(ref.current.children,
-      { opacity: 0, y: 20 },
-      { opacity: 1, y: 0, stagger: 0.08, duration: 0.5, ease: 'power2.out', delay: 0.5 }
-    );
-  }, []);
+function RowSkeleton() {
   return (
-    <div ref={ref} className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-      {[
-        { label:'Total',       value: tournaments.length, color:'text-white' },
-        { label:'En curso',    value: active,             color:'text-teal-400' },
-        { label:'Inscripción', value: open,               color:'text-green-400' },
-        { label:'Finalizados', value: done,               color:'text-gray-400' },
-      ].map(s => (
-        <Tip key={s.label} label={`${s.value} ${s.label.toLowerCase()}`}>
-          <div
-            className="rounded-2xl p-5 text-center"
-            style={{
-              background:
-                'linear-gradient(180deg, rgba(16,16,20,0.45) 0%, rgba(10,10,13,0.25) 100%)',
-                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 44px -30px rgba(0,0,0,.6)',
-            }}>
-            <div className={`text-3xl font-black ${s.color}`}>{s.value}</div>
-            <div className="text-xs text-gray-600 uppercase tracking-widest mt-1">{s.label}</div>
-          </div>
-        </Tip>
-      ))}
+    <div className="ax-row" style={{ cursor: 'default' }} aria-hidden>
+      <div style={{ display: 'grid', gap: 8 }}>
+        <Skeleton width={110} height={22} /><Skeleton width="62%" height={26} />
+      </div>
+      <Skeleton height={38} /><Skeleton height={30} /><Skeleton width={40} height={40} />
     </div>
   );
 }
@@ -288,37 +196,47 @@ function StatBar({ tournaments }: { tournaments: Tournament[] }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function TournamentsPage() {
   const navigate = useNavigate();
-  const [filter,             setFilter]             = useState<string>('todos');
-  const [registerOpen,       setRegisterOpen]       = useState(false);
-  const [createOpen,         setCreateOpen]         = useState(false);
-  const [selectedTournament, setSelectedTournament] = useState<{ id:string; name:string; teamSize?:number }|null>(null);
-  const [mousePos,           setMousePos]           = useState({ x:0, y:0 });
-  const headerRef = useRef<HTMLDivElement>(null);
+  const [filter, setFilter] = useState<FilterKey>('todos');
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [selectedTournament, setSelectedTournament] = useState<RegisterTarget | null>(null);
 
   const qc = useQueryClient();
-  const { data: tournaments = [], isLoading: loading } = useTournaments();
+  const { data, isLoading: loading } = useTournaments();
+  const tournaments = useMemo(() => (data ?? []) as Tournament[], [data]);
   // After a register/create mutation, refetch the cached list.
   const refetchTournaments = () => qc.invalidateQueries({ queryKey: qk.tournaments() });
 
-  useEffect(() => {
-    if (loading || !headerRef.current) return;
-    gsap.fromTo(headerRef.current.querySelectorAll('[data-h]'),
-      { opacity: 0, y: 30 },
-      { opacity: 1, y: 0, stagger: 0.1, duration: 0.7, ease: 'power3.out' }
-    );
-  }, [loading]);
+  const counts = useMemo(() => {
+    const by = (p: Tournament['phase']) => tournaments.filter((t) => t.phase === p).length;
+    return {
+      todos: tournaments.length, active: by('active'), registration: by('registration'),
+      checkin: by('checkin'), complete: by('complete'),
+    } as Record<FilterKey, number>;
+  }, [tournaments]);
+
+  // El destacado: lo que está en juego ahora; si no, lo que admite equipos.
+  const featured = useMemo(
+    () => tournaments.find((t) => t.phase === 'active')
+      ?? tournaments.find((t) => t.phase === 'checkin')
+      ?? tournaments.find((t) => t.phase === 'registration')
+      ?? null,
+    [tournaments],
+  );
 
   // Búsqueda por texto (nombre, descripción, formato, mapa) sobre la fase elegida.
   const [q, setQ] = useState('');
+  const browsing = filter !== 'todos' || q.trim() !== '';
   const filtered = useMemo(() => {
-    const byPhase = filter === 'todos' ? tournaments : tournaments.filter(t => t.phase === filter);
+    const byPhase = filter === 'todos' ? tournaments : tournaments.filter((t) => t.phase === filter);
     const needle = q.trim().toLowerCase();
-    if (!needle) return byPhase;
-    return byPhase.filter(t =>
-      [t.name, t.description, t.format, (t as { gameMap?: string }).gameMap, t.prize]
-        .filter(Boolean).join(' ').toLowerCase().includes(needle),
-    );
-  }, [tournaments, filter, q]);
+    const list = needle
+      ? byPhase.filter((t) =>
+          [t.name, t.description, t.format, t.gameMap, t.prize].filter(Boolean).join(' ').toLowerCase().includes(needle))
+      : byPhase;
+    // Sin filtros, el destacado ya está arriba: no se repite en la lista.
+    return browsing ? list : list.filter((t) => t.id !== featured?.id);
+  }, [tournaments, filter, q, browsing, featured]);
 
   const isAuth = !!localStorage.getItem('access_token');
 
@@ -345,138 +263,104 @@ export default function TournamentsPage() {
     if (!open && deepLinkCreate) navigate('/tournaments', { replace: true });
   };
 
+  // Sin sesión, el mismo botón lleva al enlace corto, que explica y manda a login.
+  const startCreate = () => (isAuth ? setCreateOpen(true) : navigate('/crear-torneo'));
+
+  const onRegister = (sel: RegisterTarget) => {
+    if (!isAuth) {
+      toast.error('Inicia sesión para inscribir tu equipo');
+      navigate('/login');
+      return;
+    }
+    setSelectedTournament(sel);
+    setRegisterOpen(true);
+  };
+
+  const showFeatured = !loading && featured && !browsing;
+  const showToolbar = loading || tournaments.length > 1 || browsing;
+
   return (
-    <div className="min-h-screen text-white"
-      onMouseMove={e => setMousePos({ x: e.clientX, y: e.clientY })}>
+    <div className="td-root ax-canvas">
+      <div className="ax-wrap">
 
-      {/* Living scroll-scrubbed dagger background (shared) */}
-      <ScrollVideoBg />
-
-      {/* Background accents (kept translucent so the video reads through) */}
-      <div className="fixed inset-0 -z-10 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(127,29,29,0.22) 0%, transparent 70%)' }} />
-      <div className="fixed inset-0 pointer-events-none -z-10"
-        style={{ background: `radial-gradient(500px circle at ${mousePos.x}px ${mousePos.y}px, rgba(239,68,68,0.05), transparent 70%)` }} />
-      {/* Grid */}
-      <div className="fixed inset-0 -z-10 opacity-[0.025]"
-        style={{ backgroundImage:'linear-gradient(rgba(255,255,255,0.5) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.5) 1px,transparent 1px)', backgroundSize:'60px 60px' }} />
-
-      <div className="max-w-6xl mx-auto px-4 py-16 relative z-[1]">
-
-        {/* Header */}
-        <div ref={headerRef} className="text-center mb-14">
-          <div data-h className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6
-            bg-white/[0.05] backdrop-blur-md text-muted-foreground text-xs tracking-[3px] uppercase
-            shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-            <Trophy className="h-3.5 w-3.5" />
-            <span>Torneos oficiales · Riot Games</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-pulse" />
+        {/* Cabecera */}
+        <header className="ax-head">
+          <div style={{ minWidth: 0 }}>
+            <span className="td-over ax-kicker ax-rise">Competitivo · códigos oficiales Riot</span>
+            <h1 className="ax-h1 ax-rise" style={stagger(1)}>Torneos <em>ATAK</em></h1>
+            <p className="ax-lede ax-rise" style={stagger(2)}>
+              La escena competitiva de Querétaro. Brackets automáticos, resultados que se
+              detectan solos y stats en vivo de cada partida.
+            </p>
           </div>
-          <h1 data-h className="text-5xl md:text-6xl font-medium tracking-[-2px] text-white mb-4">
-            Torneos <span className="font-serif italic font-normal">ATAK.GG</span>
-          </h1>
-          <p data-h className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8 font-light leading-relaxed">
-            La escena competitiva de Querétaro. Torneos con códigos oficiales Riot, brackets automáticos y stats en vivo.
-          </p>
-          {isAuth && (
-            <button data-h
-              onClick={() => setCreateOpen(true)}
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-sm
-                bg-foreground text-background hover:bg-foreground/90
-                transition-all duration-200 transform hover:scale-[1.02]">
-              <Plus className="h-4 w-4" />
-              Crear Torneo
-            </button>
-          )}
-        </div>
+          <div className="ax-head-side ax-rise" style={stagger(2)}>
+            <div className="ax-counters" aria-label="Resumen de torneos">
+              <div className="ax-counter" data-tone="live"><b>{counts.active}</b><span className="td-over">En vivo</span></div>
+              <div className="ax-counter" data-tone="open"><b>{counts.registration + counts.checkin}</b><span className="td-over">Abiertos</span></div>
+              <div className="ax-counter"><b>{counts.complete}</b><span className="td-over">Finalizados</span></div>
+            </div>
+            <Button variant="primary" icon={<Plus size={16} />} onClick={startCreate}>Crear torneo</Button>
+          </div>
+        </header>
 
-        {/* Stats bar */}
-        <StatBar tournaments={tournaments} />
+        {showFeatured && (
+          <FeatureCard t={featured} onOpen={() => navigate(`/tournaments/${featured.id}`)} onRegister={onRegister} />
+        )}
 
         {/* Torneos diarios programados (auto-creados por el backend) */}
         <DailyTournamentsRail />
 
-        {/* Búsqueda por texto */}
-        <div className="flex justify-center mb-4">
-          <label className="relative w-full max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30 pointer-events-none" />
-            <input
-              value={q}
-              onChange={e => setQ(e.target.value)}
-              placeholder="Buscar torneo…"
-              aria-label="Buscar torneo"
-              className="w-full h-11 rounded-full pl-11 pr-10 text-sm text-white placeholder:text-white/30
-                bg-white/[0.05] border border-white/[0.08] backdrop-blur-md outline-none
-                focus:border-red-500/50 transition-colors"
+        {/* Filtros + búsqueda */}
+        {showToolbar && (
+          <div className="ax-toolbar">
+            <FilterPills<FilterKey>
+              ariaLabel="Filtrar por fase"
+              items={FILTERS.map((f) => ({ ...f, count: counts[f.key] }))}
+              value={filter} onChange={setFilter}
             />
-            {q && (
-              <button type="button" aria-label="Limpiar búsqueda" onClick={() => setQ('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center
-                  bg-white/[0.08] text-white/60 hover:bg-white/[0.15] hover:text-white transition-colors">
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </label>
-        </div>
-
-        {/* Filter pills */}
-        <div className="flex flex-wrap gap-2 justify-center mb-10">
-          {FILTERS.map(f => (
-            <Tip key={f.key} label={`Filtrar: ${f.label}`}>
-              <button
-                onClick={() => setFilter(f.key)}
-                className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                  filter === f.key
-                    ? 'bg-foreground text-background'
-                    : 'bg-white/[0.05] text-muted-foreground hover:bg-white/[0.1] hover:text-white'
-                }`}>
-                {f.label}
-                <span className={`ml-1.5 text-xs ${filter === f.key ? 'text-background/60' : 'text-white/20'}`}>
-                  {f.key === 'todos' ? tournaments.length : tournaments.filter(t => t.phase === f.key).length}
-                </span>
-              </button>
-            </Tip>
-          ))}
-        </div>
-
-        {/* Grid */}
-        <AnimatePresence mode="wait">
-          {loading ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              {Array.from({ length: 4 }).map((_, i) => <TournamentCardSkeleton key={i} />)}
-            </div>
-          ) : filtered.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              {filtered.map((t, i) => (
-                <TournamentCard key={t.id} t={t} index={i}
-                  onRegister={sel => {
-                    if (!isAuth) {
-                      toast.error('Inicia sesión para inscribir tu equipo');
-                      navigate('/login');
-                      return;
-                    }
-                    setSelectedTournament(sel);
-                    setRegisterOpen(true);
-                  }} />
-              ))}
-            </div>
-          ) : (
-            <motion.div key="empty"
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              className="text-center py-24">
-              <Trophy className="h-16 w-16 text-gray-800 mx-auto mb-5" />
-              <p className="text-gray-500 text-lg mb-3">
-                {q.trim() ? <>Ningún torneo coincide con «{q.trim()}»</> : 'No hay torneos en esta categoría'}
-              </p>
-              {(filter !== 'todos' || q.trim()) && (
-                <button onClick={() => { setFilter('todos'); setQ(''); }}
-                  className="text-red-400 text-sm hover:text-red-300 transition-colors">
-                  Ver todos los torneos →
+            <label className="td-search-wrap">
+              <Search size={16} aria-hidden />
+              <input
+                className="td-search" value={q} onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar torneo…" aria-label="Buscar torneo"
+              />
+              {q && (
+                <button type="button" className="td-search-clear" aria-label="Limpiar búsqueda" onClick={() => setQ('')}>
+                  <X size={13} />
                 </button>
               )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </label>
+          </div>
+        )}
+
+        {/* Lista */}
+        {loading ? (
+          <div className="ax-list">{Array.from({ length: 4 }).map((_, i) => <RowSkeleton key={i} />)}</div>
+        ) : filtered.length > 0 ? (
+          <div className="ax-list">
+            {filtered.map((t, i) => (
+              <TournamentRow key={t.id} t={t} index={i}
+                onOpen={() => navigate(`/tournaments/${t.id}`)} onRegister={onRegister} />
+            ))}
+          </div>
+        ) : browsing ? (
+          <div className="ax-empty">
+            <Search size={28} color="var(--td-muted)" aria-hidden />
+            <h3>{q.trim() ? `Nada coincide con «${q.trim()}»` : 'No hay torneos en esta fase'}</h3>
+            <p style={{ margin: '0 0 16px', fontSize: 14 }}>Prueba con otra fase o revisa la cartelera completa.</p>
+            <Button variant="secondary" onClick={() => { setFilter('todos'); setQ(''); }}>Ver todos los torneos</Button>
+          </div>
+        ) : (
+          // Sin más torneos que el destacado (o ninguno): el hueco es una invitación.
+          <div className="ax-empty" style={{ marginTop: showToolbar ? 0 : 40 }}>
+            <Trophy size={28} color="var(--td-gold)" aria-hidden />
+            <h3>{tournaments.length ? '¿Organizas el siguiente?' : 'Todavía no hay torneos'}</h3>
+            <p style={{ margin: '0 auto 16px', fontSize: 14, maxWidth: '46ch' }}>
+              Arma tu torneo en minutos: Grieta, ARAM o Arena, de 1v1 a 5v5, con bracket automático.
+            </p>
+            <Button variant="primary" icon={<Plus size={16} />} onClick={startCreate}>Crear torneo</Button>
+          </div>
+        )}
       </div>
 
       {/* Modals */}

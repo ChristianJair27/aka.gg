@@ -561,46 +561,35 @@ export function ShareProfileButton({ data, style }: { data: ShareProfileData; st
     }
   };
 
-  const actionBtn: React.CSSProperties = {
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-    border: 'none', borderRadius: 12, padding: '12px 22px',
-    fontFamily: FONT_COND, fontWeight: 700, fontSize: 14, letterSpacing: 0.4,
-    cursor: 'pointer',
-  };
-
+  // Botones del sistema "Arena" (.td-btn en arena.css). El disparador vive dentro
+  // del .td-root del perfil; el modal va en un portal, así que lleva su propio
+  // .td-root (el fondo en línea gana al del lienzo).
   return (
     <>
       <button
+        type="button"
         onClick={onGenerate}
         disabled={busy}
         title="Genera una imagen de tu perfil para compartir en Instagram, TikTok o WhatsApp"
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          background: busy ? 'rgba(225,36,46,0.35)' : RED,
-          color: '#fff', border: 'none', borderRadius: 999,
-          padding: '9px 18px', fontFamily: FONT_COND, fontWeight: 700, fontSize: 14,
-          cursor: busy ? 'wait' : 'pointer', letterSpacing: 0.4,
-          transition: 'background 160ms ease, transform 120ms ease',
-          ...style,
-        }}
-        onMouseEnter={(e) => { if (!busy) (e.currentTarget as HTMLButtonElement).style.background = '#ff5a64'; }}
-        onMouseLeave={(e) => { if (!busy) (e.currentTarget as HTMLButtonElement).style.background = RED; }}
+        className="td-btn td-btn--primary"
+        style={{ cursor: busy ? 'wait' : undefined, ...style }}
       >
-        <Share2 size={16} />
+        <Share2 size={15} />
         {busy ? 'Generando…' : 'Compartir'}
       </button>
 
-      {/* Portal a <body>: los paneles del perfil animan con filter/transform
-          (framer-motion) y eso convierte position:fixed en relativo al panel —
-          sin portal, el modal quedaba atrapado DENTRO de la card. */}
+      {/* Portal a <body>: un ancestro con transform convierte position:fixed en
+          relativo a él — sin portal, el modal quedaba atrapado DENTRO del panel. */}
       {preview && createPortal(
         <div
+          className="td-root"
           onClick={closePreview}
           role="dialog"
+          aria-modal="true"
           aria-label="Vista previa de tu card"
           style={{
             position: 'fixed', inset: 0, zIndex: 9999,
-            background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)',
+            background: 'rgba(0,0,0,0.86)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
           }}
         >
@@ -609,24 +598,24 @@ export function ShareProfileButton({ data, style }: { data: ShareProfileData; st
               src={preview.url}
               alt={`Card de ${data.gameName}`}
               style={{
-                maxHeight: '72vh', maxWidth: '92vw', borderRadius: 16,
-                boxShadow: '0 24px 80px -20px rgba(225,36,46,0.45), 0 8px 40px rgba(0,0,0,0.8)',
+                maxHeight: '72vh', maxWidth: '92vw', borderRadius: 10,
+                boxShadow: '0 24px 80px -20px rgba(232,50,60,0.45), 0 8px 40px rgba(0,0,0,0.8)',
               }}
             />
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
               {canNativeShare && (
-                <button onClick={onNativeShare} style={{ ...actionBtn, background: RED, color: '#fff' }}>
-                  <Share2 size={16} /> Compartir
+                <button type="button" onClick={onNativeShare} className="td-btn td-btn--primary">
+                  <Share2 size={15} /> Compartir
                 </button>
               )}
-              <button onClick={onDownload} style={{ ...actionBtn, background: canNativeShare ? 'rgba(255,255,255,0.12)' : RED, color: '#fff' }}>
+              <button type="button" onClick={onDownload} className={`td-btn ${canNativeShare ? 'td-btn--secondary' : 'td-btn--primary'}`}>
                 Descargar PNG
               </button>
-              <button onClick={closePreview} style={{ ...actionBtn, background: 'transparent', color: 'rgba(255,255,255,0.55)' }}>
+              <button type="button" onClick={closePreview} className="td-btn td-btn--secondary">
                 Cerrar
               </button>
             </div>
-            <div style={{ fontFamily: FONT_COND, fontSize: 13, color: 'rgba(255,255,255,0.45)', textAlign: 'center' }}>
+            <div style={{ fontSize: 14, color: 'var(--td-text-2)', textAlign: 'center' }}>
               Súbela a tu historia o post y etiqueta a ATAK.GG
             </div>
           </div>

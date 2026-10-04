@@ -4,64 +4,56 @@
 // "la1"), equipo, posición en el ranking del torneo con su puntuación, y rango
 // solo/dúo. Enlaza a la pestaña de estadísticas del torneo. Si no está en
 // ninguno, no se pinta nada: el perfil no gana nada con un panel vacío.
+//
+// Visual: sistema "Arena" (td-panel / td-sub / StatusChip). Requiere un
+// ancestro .td-root y las clases pf-tourney* de src/styles/pages/profile.css.
 import { Link } from 'react-router-dom';
 import { Trophy, ArrowUpRight } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Tip } from '@/components/ui/Tip';
 import { usePlayerTournaments } from '@/hooks/queries/tournaments';
 import { regionLabel } from '@/lib/regions';
 import { Ring, TierEmblem } from '@/components/tournament/MicroViz';
+import { SectionHead, StatusChip } from '@/components/tournament/ui';
+import '@/styles/pages/profile.css';
 
-const RED = '#e1242e';
 const GOLD = '#c8aa6e';
 
 const PHASE_ES: Record<string, string> = { active: 'En curso', complete: 'Finalizado', checkin: 'Check-in', registration: 'Inscripciones' };
+const PHASE_KIND: Record<string, 'live' | 'registration' | 'gold' | 'finished'> = {
+  active: 'live', registration: 'registration', checkin: 'gold', complete: 'finished',
+};
 
 export function PlayerTournamentsCard({ riotId, style }: { riotId?: string; style?: React.CSSProperties }) {
   const { data, isLoading } = usePlayerTournaments(riotId);
 
   if (!riotId) return null;
-  if (isLoading) {
-    return (
-      <div style={style}>
-        <Skeleton variant="block" height={88} count={1} style={{ borderRadius: 14 }} />
-      </div>
-    );
-  }
+  // Mientras carga no se reserva hueco: casi ningún perfil tiene torneos y un
+  // esqueleto que luego desaparece movía toda la página.
+  if (isLoading) return null;
   if (!data?.length) return null;
 
   return (
-    <div style={style}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <Trophy size={14} color={RED} />
-        <span style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>
-          Torneos
-        </span>
-      </div>
+    <section className="td-panel" style={{ padding: 18, ...style }} aria-label="Torneos del jugador">
+      <SectionHead icon={<Trophy size={15} />} title="Torneos" />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div>
         {data.map((t) => {
-          const podium = t.rank === 1 ? GOLD : t.rank === 2 ? '#e5e7eb' : t.rank === 3 ? '#d9a066' : '#fff';
+          const podium = t.rank === 1 ? GOLD : t.rank === 2 ? '#d7d9de' : t.rank === 3 ? '#b9794a' : '#f5f5f6';
           return (
             <Link
               key={t.tournamentId}
               to={`/tournaments/${t.tournamentId}?tab=stats`}
-              className="group"
-              style={{
-                display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr) auto', gap: 14, alignItems: 'center',
-                padding: '12px 14px', borderRadius: 14, textDecoration: 'none',
-                background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-              }}
+              className="td-sub td-hoverable pf-tourney"
             >
               {/* Posición */}
               <Tip label={t.rank
                 ? `Puesto ${t.rank} de ${t.rankedPlayers} · ${t.score} pts (promedio de los 8 ejes del radar, 3+ partidas)`
                 : 'Sin posición todavía: necesita 3 partidas'}>
-                <div style={{ textAlign: 'center', minWidth: 62, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                <div className="pf-tourney-pos">
                   {t.rank
-                    ? <Ring value={t.score ?? 0} size={46} stroke={4} color={podium} label={`#${t.rank}`} />
-                    : <span style={{ fontSize: 22, fontWeight: 900, color: 'rgba(255,255,255,0.3)' }}>—</span>}
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
+                    ? <Ring value={t.score ?? 0} size={48} stroke={4} color={podium} label={`#${t.rank}`} />
+                    : <span style={{ fontFamily: 'var(--td-font-display)', fontSize: 26, fontWeight: 700, color: 'var(--td-disabled)' }}>—</span>}
+                  <div className="td-num" style={{ fontSize: 12.5, color: 'var(--td-muted)' }}>
                     {t.rank ? `de ${t.rankedPlayers}` : `${t.gamesPlayed} PJ`}
                   </div>
                 </div>
@@ -69,36 +61,31 @@ export function PlayerTournamentsCard({ riotId, style }: { riotId?: string; styl
 
               {/* Torneo · región · equipo */}
               <div style={{ minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 14.5, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {t.name}
-                  </span>
+                <div className="pf-tourney-head">
+                  <span className="pf-tourney-name">{t.name}</span>
                   <Tip label={`Región del torneo: ${regionLabel(t.region)}`}>
-                    <span style={{
-                      fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', padding: '2px 7px', borderRadius: 999,
-                      color: GOLD, border: `1px solid ${GOLD}66`, background: `${GOLD}14`,
-                    }}>
-                      {regionLabel(t.region)}
+                    <span style={{ display: 'inline-flex' }}>
+                      <StatusChip kind="gold" dot={false}>{regionLabel(t.region)}</StatusChip>
                     </span>
                   </Tip>
-                  <span style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.4)' }}>{PHASE_ES[t.phase] ?? t.phase}</span>
+                  <StatusChip kind={PHASE_KIND[t.phase] ?? 'dim'}>{PHASE_ES[t.phase] ?? t.phase}</StatusChip>
                 </div>
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div className="td-num" style={{ fontSize: 14, color: 'var(--td-text-2)', marginTop: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {t.team}
                   {t.gamesPlayed > 0 && ` · ${t.gamesPlayed} PJ · WR ${t.winrate}% · KDA ${t.avgKda != null && t.avgKda > 20 ? '20+' : t.avgKda}`}
                 </div>
               </div>
 
               {/* Rango solo/dúo + flecha */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                {t.soloTier && <TierEmblem tier={t.soloTier} division={t.soloDivision} size={60} />}
-                <ArrowUpRight size={16} color="rgba(255,255,255,0.35)" className="group-hover:text-white transition-colors" />
+              <div className="pf-tourney-side">
+                {t.soloTier && <TierEmblem tier={t.soloTier} division={t.soloDivision} size={56} />}
+                <ArrowUpRight size={18} aria-hidden />
               </div>
             </Link>
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }
 

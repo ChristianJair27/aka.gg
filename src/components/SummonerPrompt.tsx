@@ -16,6 +16,7 @@ import { dd } from '@/lib/dataDragon';
 // dashboard). Se reexporta para no tocar quien ya importa REGIONS desde aquí.
 export { REGIONS } from '@/lib/regions';
 import { REGIONS } from '@/lib/regions';
+import '@/styles/summoner-prompt.css';
 
 // ── Recientes (compartido con /stats) ────────────────────────────────────────
 const RECENT_KEY = 'atakgg_recent_searches';
@@ -223,22 +224,9 @@ export function SummonerPrompt({
   };
 
   return (
-    <div ref={rootRef} className={`relative w-full max-w-2xl mx-auto ${className}`}>
-      <form
-        onSubmit={submit}
-        className="relative rounded-[28px] border transition-all duration-300"
-        style={{
-          background: 'rgba(255,255,255,0.035)',
-          backdropFilter: 'blur(18px) saturate(140%)',
-          WebkitBackdropFilter: 'blur(18px) saturate(140%)',
-          // Foco: hairline dorado y un halo rojo muy suave — el mismo lenguaje
-          // que el resto de la página. Nada de recuadro de outline del sistema.
-          borderColor: focused ? 'rgba(200,170,110,0.42)' : 'rgba(255,255,255,0.09)',
-          boxShadow: focused
-            ? 'inset 0 1px 0 rgba(255,255,255,0.10), 0 24px 64px rgba(0,0,0,0.55), 0 0 60px rgba(239,68,68,0.10)'
-            : 'inset 0 1px 0 rgba(255,255,255,0.08), 0 24px 64px rgba(0,0,0,0.45)',
-        }}
-      >
+    <div ref={rootRef} className={`sp-root ${className}`}>
+      {/* El foco lo marca el borde de la caja (.sp-box[data-focused]). */}
+      <form onSubmit={submit} className="sp-box" data-focused={focused}>
         <label htmlFor="atak-summoner-prompt" className="sr-only">Riot ID del invocador</label>
         <input
           id="atak-summoner-prompt"
@@ -261,26 +249,22 @@ export function SummonerPrompt({
           autoComplete="off"
           spellCheck={false}
           placeholder={`Busca un invocador… ${PLACEHOLDERS[phIndex]}`}
-          // El outline global (:focus-visible) pintaba un rectángulo rojo de
-          // esquinas rectas sobre la caja redondeada; el foco lo marca el borde.
-          style={{ outline: 'none', boxShadow: 'none' }}
-          className="w-full bg-transparent px-6 pt-6 pb-4 text-lg md:text-xl font-light tracking-tight
-            text-white placeholder:text-white/25"
+          className="sp-input"
         />
 
-        <div className="flex items-center gap-2 px-4 pb-4 flex-wrap">
+        <div className="sp-bar">
           {/* Región */}
           <div ref={dropRef} className="relative">
             <button
               type="button"
               onClick={() => setRegionOpen(v => !v)}
               aria-expanded={regionOpen}
-              className="flex items-center gap-2 h-9 px-3.5 rounded-full border border-white/[0.09]
-                bg-white/[0.03] text-sm text-white/70 hover:text-white hover:border-white/20 transition-all"
+              aria-label={`Región: ${selectedRegion.name}`}
+              className="sp-chip"
             >
-              <span className="text-base leading-none">{selectedRegion.flag}</span>
-              <span className="font-medium">{selectedRegion.label}</span>
-              <ChevronDown className={`h-3.5 w-3.5 text-white/40 transition-transform ${regionOpen ? 'rotate-180' : ''}`} />
+              <span className="text-base leading-none" aria-hidden>{selectedRegion.flag}</span>
+              <span>{selectedRegion.label}</span>
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${regionOpen ? 'rotate-180' : ''}`} aria-hidden />
             </button>
             <AnimatePresence>
               {regionOpen && (
@@ -289,21 +273,18 @@ export function SummonerPrompt({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -6, scale: 0.97 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute bottom-full left-0 mb-2 w-56 max-h-72 overflow-y-auto z-50
-                    rounded-2xl border border-white/10 bg-black/95 backdrop-blur-xl shadow-2xl py-1"
+                  className="sp-drop sp-drop--regions"
                 >
                   {REGIONS.map(r => (
                     <button
                       key={r.value}
                       type="button"
                       onClick={() => { setRegion(r.value); setRegionOpen(false); }}
-                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm text-left transition-colors ${
-                        r.value === region ? 'text-white bg-white/[0.07]' : 'text-white/60 hover:text-white hover:bg-white/[0.05]'
-                      }`}
+                      className="sp-opt" aria-selected={r.value === region}
                     >
-                      <span className="text-base leading-none">{r.flag}</span>
-                      <span className="font-medium w-11">{r.label}</span>
-                      <span className="text-xs text-white/35 truncate">{r.name}</span>
+                      <span className="text-base leading-none" aria-hidden>{r.flag}</span>
+                      <span className="sp-opt-main" style={{ width: 44, flex: 'none' }}>{r.label}</span>
+                      <span className="sp-opt-sub truncate">{r.name}</span>
                     </button>
                   ))}
                 </motion.div>
@@ -321,13 +302,9 @@ export function SummonerPrompt({
                 type="button"
                 onClick={() => setMode(m.value)}
                 aria-pressed={active}
-                className={`flex items-center gap-2 h-9 px-3.5 rounded-full border text-sm transition-all ${
-                  active
-                    ? 'border-red-500/40 bg-red-500/10 text-white'
-                    : 'border-white/[0.09] bg-white/[0.03] text-white/55 hover:text-white hover:border-white/20'
-                }`}
+                className="sp-chip" data-active={active}
               >
-                <Icon className={`h-3.5 w-3.5 ${active ? 'text-red-400' : 'text-white/40'}`} />
+                <Icon className="h-3.5 w-3.5" aria-hidden />
                 {m.label}
               </button>
             );
@@ -338,10 +315,7 @@ export function SummonerPrompt({
             type="submit"
             disabled={busy}
             aria-label="Analizar invocador"
-            className="ml-auto flex items-center justify-center h-11 w-11 rounded-full bg-red-600
-              hover:bg-red-500 disabled:opacity-60 text-white transition-all duration-200
-              hover:scale-105 active:scale-95"
-            style={{ boxShadow: '0 0 24px rgba(239,68,68,0.30)' }}
+            className="sp-go"
           >
             {busy
               ? <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
@@ -360,14 +334,11 @@ export function SummonerPrompt({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-0 right-0 top-full mt-2 z-40 overflow-hidden rounded-2xl
-              border border-white/[0.08] bg-black/90 backdrop-blur-xl shadow-2xl"
+            className="sp-drop sp-drop--list"
           >
             {champMatches.length > 0 && (
               <>
-                <div className="px-4 pt-3 pb-2 text-[10px] uppercase tracking-[0.24em] text-white/25">
-                  Campeones
-                </div>
+                <div className="sp-group td-over">Campeones</div>
                 {champMatches.map((c, i) => (
                   <button
                     key={`ch-${c.id}`}
@@ -376,19 +347,15 @@ export function SummonerPrompt({
                     aria-selected={i === highlight}
                     onMouseEnter={() => setHighlight(i)}
                     onMouseDown={(e) => { e.preventDefault(); pickChamp(c); }}
-                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                      i === highlight ? 'bg-white/[0.07]' : ''
-                    }`}
+                    className="sp-opt"
                   >
                     <img
                       src={c.image} alt="" loading="lazy"
-                      className="h-8 w-8 rounded-lg object-cover flex-shrink-0 ring-1 ring-white/10"
+                      className="sp-opt-img"
                       onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
                     />
-                    <span className="text-sm text-white/85">{c.name}</span>
-                    <span className="ml-auto text-[10px] uppercase tracking-wider text-[#c8aa6e]/70 flex-shrink-0">
-                      Análisis del campeón
-                    </span>
+                    <span className="sp-opt-main">{c.name}</span>
+                    <span className="sp-opt-tag">Análisis del campeón</span>
                   </button>
                 ))}
               </>
@@ -396,33 +363,26 @@ export function SummonerPrompt({
 
             {visibleRecent.length > 0 && (
               <>
-                <div className="flex items-center gap-2 px-4 pt-3 pb-2 text-[10px] uppercase tracking-[0.24em] text-white/25">
-                  <Clock className="h-3 w-3" />
-                  Recientes
-                </div>
+                <div className="sp-group td-over"><Clock className="h-3 w-3" aria-hidden />Recientes</div>
                 {visibleRecent.map((r, ri) => { const i = champMatches.length + ri; return (
                   <div
                     key={`${r.id}-${r.region}`}
                     role="option"
                     aria-selected={i === highlight}
                     onMouseEnter={() => setHighlight(i)}
-                    className={`group flex items-center gap-3 px-4 py-2.5 transition-colors ${
-                      i === highlight ? 'bg-white/[0.06]' : ''
-                    }`}
+                    className="sp-opt sp-opt--row"
                   >
                     <button
                       type="button"
                       // mousedown: el click llegaría después del blur del input.
                       onMouseDown={(e) => { e.preventDefault(); pickRecent(r); }}
-                      className="flex flex-1 items-center gap-3 text-left min-w-0"
+                      className="sp-opt-btn"
                     >
-                      <span className="text-base leading-none">
+                      <span className="text-base leading-none" aria-hidden>
                         {REGIONS.find(rg => rg.value === r.region)?.flag}
                       </span>
-                      <span className="text-sm text-white/70 group-hover:text-white transition-colors truncate">
-                        {r.id}
-                      </span>
-                      <span className="ml-auto text-[11px] text-white/25">
+                      <span className="sp-opt-main truncate">{r.id}</span>
+                      <span className="sp-opt-sub" style={{ marginLeft: 'auto' }}>
                         {REGIONS.find(rg => rg.value === r.region)?.label}
                       </span>
                     </button>
@@ -430,9 +390,9 @@ export function SummonerPrompt({
                       type="button"
                       aria-label={`Quitar ${r.id} de recientes`}
                       onMouseDown={(e) => { e.preventDefault(); dropRecent(r.id); }}
-                      className="text-white/20 hover:text-red-400 transition-colors"
+                      className="sp-opt-x"
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <X className="h-3.5 w-3.5" aria-hidden />
                     </button>
                   </div>
                 );})}
@@ -441,9 +401,7 @@ export function SummonerPrompt({
 
             {visiblePlayers.length > 0 && (
               <>
-                <div className="px-4 pt-3 pb-2 text-[10px] uppercase tracking-[0.24em] text-white/25">
-                  Jugadores
-                </div>
+                <div className="sp-group td-over">Jugadores</div>
                 {visiblePlayers.map((p, idx) => {
                   const i = champMatches.length + visibleRecent.length + idx;
                   return (
@@ -454,30 +412,28 @@ export function SummonerPrompt({
                       aria-selected={i === highlight}
                       onMouseEnter={() => setHighlight(i)}
                       onMouseDown={(e) => { e.preventDefault(); pickPlayer(p); }}
-                      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                        i === highlight ? 'bg-white/[0.06]' : ''
-                      }`}
+                      className="sp-opt"
                     >
                       {p.profileIconId ? (
                         <img
                           src={dd.profileIcon(p.profileIconId)}
                           alt=""
                           loading="lazy"
-                          className="h-8 w-8 rounded-full object-cover flex-shrink-0 ring-1 ring-white/10"
+                          className="sp-opt-img"
                           onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
                         />
                       ) : (
-                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-red-700/50 to-red-900/50 text-xs font-bold text-red-200 flex-shrink-0">
+                        <span className="sp-opt-img sp-opt-img--mono">
                           {p.gameName[0]?.toUpperCase() || '?'}
                         </span>
                       )}
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm text-white/80 truncate">
-                          {p.gameName}<span className="text-white/35">#{p.tagLine}</span>
+                        <span className="sp-opt-main block truncate">
+                          {p.gameName}<span className="sp-opt-sub">#{p.tagLine}</span>
                         </span>
-                        {p.level ? <span className="block text-[10px] text-white/30">Nivel {p.level}</span> : null}
+                        {p.level ? <span className="sp-opt-sub block">Nivel {p.level}</span> : null}
                       </span>
-                      <span className="text-[11px] text-white/25 uppercase flex-shrink-0">
+                      <span className="sp-opt-sub" style={{ textTransform: 'uppercase', flexShrink: 0 }}>
                         {REGIONS.find(rg => rg.value === p.platform)?.label || p.platform}
                       </span>
                     </button>
@@ -496,7 +452,8 @@ export function SummonerPrompt({
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="mt-3 text-center text-sm text-red-400/90"
+            role="alert"
+            className="sp-error td-error"
           >
             {error}
           </motion.p>
@@ -505,13 +462,14 @@ export function SummonerPrompt({
 
       {/* Ejemplos */}
       {quickLookups && quickLookups.length > 0 && (
-        <div className="mt-4 flex items-center justify-center gap-x-4 gap-y-2 flex-wrap">
+        <div className="sp-quick">
+          <span className="td-over">Prueba con</span>
           {quickLookups.map(q => (
             <button
               key={q}
               type="button"
               onClick={() => fill(q)}
-              className="text-xs text-white/35 hover:text-white/80 transition-colors"
+              className="sp-quick-btn"
             >
               {q}
             </button>
@@ -520,7 +478,7 @@ export function SummonerPrompt({
       )}
 
       {caption && (
-        <p className="mt-3 text-center text-xs text-white/25 font-light">{caption}</p>
+        <p className="sp-caption td-help">{caption}</p>
       )}
     </div>
   );

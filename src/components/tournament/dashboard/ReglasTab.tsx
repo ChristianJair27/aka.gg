@@ -1,10 +1,10 @@
 // ATAK.GG — Dashboard de torneo (extraído del componente único original).
 // Sin cambios de comportamiento.
 
-import { Trophy, Users, Swords, ScrollText, Calendar, Clock, AlertTriangle, Lock, BarChart3 } from 'lucide-react';
-import { Button, StatusChip, SectionHead } from '@/components/tournament/ui';
+import { ScrollText } from 'lucide-react';
+import { Button, SectionHead } from '@/components/tournament/ui';
 import type { TdBoardPayload } from '@/hooks/queries/tournaments';
-import { BLUE, RED, Card, EmptyState } from './shared';
+import { Card } from './shared';
 
 export function ReglasTab({ data }: { data: TdBoardPayload }) {
   const t = data.tournament as any;
@@ -81,23 +81,35 @@ export function ReglasTab({ data }: { data: TdBoardPayload }) {
   return (
     <Card>
       <SectionHead
-        icon={<BarChart3 size={14} color={RED} />}
-        title="REGLAS DEL TORNEO"
+        icon={<ScrollText size={15} />}
+        title="Reglas del torneo"
         right={t.rulesUrl ? (
           <Button variant="secondary" icon={<ScrollText size={14} />}
             onClick={() => window.open(t.rulesUrl!, '_blank', 'noopener')}>
-            ABRIR PDF
+            Abrir PDF
           </Button>
         ) : undefined}
       />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {lines.map((l, i) => (
-          <p key={i} style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: 'var(--td-text-2)' }}>{l}</p>
-        ))}
-      </div>
+      {/* Cada regla: número + concepto en negrita. Línea de ~75 caracteres para
+          que se lea como un reglamento y no como un muro de texto. */}
+      <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 14, maxWidth: '78ch' }}>
+        {lines.map((l, i) => {
+          const cut = l.indexOf(':');
+          const hasLead = cut > 0 && cut <= 34;
+          return (
+            <li key={i} style={{ display: 'grid', gridTemplateColumns: '26px minmax(0, 1fr)', gap: 14, alignItems: 'start' }}>
+              <span className="ax-pos" aria-hidden>{i + 1}</span>
+              <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: 'var(--td-text-2)' }}>
+                {hasLead && <strong style={{ color: 'var(--td-text)', fontWeight: 700 }}>{l.slice(0, cut + 1)}</strong>}
+                {hasLead ? l.slice(cut + 1) : l}
+              </p>
+            </li>
+          );
+        })}
+      </ol>
       {/* Reglamento oficial embebido (PDF) */}
       {t.rulesUrl && (
-        <div style={{ marginTop: 16, borderRadius: 12, overflow: 'hidden', background: '#1a1a20' }}>
+        <div style={{ marginTop: 20, borderRadius: 8, overflow: 'hidden', background: '#1a1a20', border: '1px solid var(--td-border)' }}>
           <iframe
             src={`${t.rulesUrl}#view=FitH`}
             title="Reglamento oficial"

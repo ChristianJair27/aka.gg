@@ -1,0 +1,342 @@
+/* ============================================================================
+   ATAK.GG — "Arena": formularios y modales de torneo.
+   Lo importa src/components/tournament/forms.tsx (y por él: el panel de la
+   portada, el asistente de creación, la inscripción, el análisis de equipo y el
+   panel del organizador). Todo bajo .td-root; los tokens vienen de arena.css.
+
+   Donde se retoca una clase compartida (td-seg-item, ax-artcard, td-select…)
+   el selector lleva una clase propia delante (tf-*) para no depender del orden
+   de carga de las hojas.
+   ========================================================================== */
+
+/* ── Carcasa de modal (AtakModalContent + className="td-root tf-modal") ───── */
+.td-root.tf-modal {
+  background: var(--td-card); color: var(--td-text);
+  border: 1px solid var(--td-border); border-radius: var(--td-r-panel);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 32px 80px -24px rgba(0, 0, 0, 0.95);
+}
+/* El riel de cristal pasa a ser el tramo crimson de "aquí empieza un bloque". */
+.td-root.tf-modal .atak-modal-frame {
+  opacity: 1; border-radius: 0;
+  background: linear-gradient(var(--td-red), var(--td-red)) left top / 88px 2px no-repeat;
+}
+.td-root.tf-modal .atak-modal-x {
+  top: 16px; right: 16px; width: 40px; height: 40px;
+  border-radius: var(--td-r-ctl); border: 1px solid var(--td-border);
+  background: var(--td-strip); color: var(--td-text-2);
+  transition: color var(--td-dur) var(--td-ease), border-color var(--td-dur) var(--td-ease), background var(--td-dur) var(--td-ease);
+}
+.td-root.tf-modal .atak-modal-x:hover { transform: none; color: #fff; border-color: var(--td-red); background: var(--td-red-wash); }
+.td-root.tf-modal .atak-modal-x:disabled { opacity: 0.4; }
+.td-root.tf-modal .atak-modal-head { padding: 22px 68px 18px 24px; background: none; border-bottom: 1px solid var(--td-border); }
+.td-root.tf-modal .atak-modal-head[data-rail='true'] { padding-bottom: 0; }
+.td-root.tf-modal .atak-modal-body { padding: 22px 24px 24px; scrollbar-color: var(--td-sunken-2) transparent; }
+.td-root.tf-modal .atak-modal-foot { padding: 14px 24px 16px; background: var(--td-strip); border-top: 1px solid var(--td-border); }
+@media (pointer: coarse) { .td-root.tf-modal .atak-modal-x { width: 44px; height: 44px; top: 12px; right: 12px; } }
+@media (max-width: 560px) {
+  .td-root.tf-modal { border-radius: var(--td-r-panel); }
+  .td-root.tf-modal .atak-modal-head { padding: 18px 64px 16px 16px; }
+  .td-root.tf-modal .atak-modal-body { padding: 18px 16px 20px; }
+  .td-root.tf-modal .atak-modal-foot { padding: 12px 16px 14px; }
+}
+
+.td-root .tf-title {
+  margin: 8px 0 0; font-family: var(--td-font-display); font-weight: 800; font-style: italic; text-transform: uppercase;
+  font-size: clamp(26px, 3.6vw, 34px); line-height: 0.98; letter-spacing: 0.3px; color: var(--td-text); text-wrap: balance;
+}
+.td-root .tf-title em { font-style: inherit; color: var(--td-red); }
+.td-root .tf-desc { margin: 8px 0 0; max-width: 68ch; font-size: 14.5px; line-height: 1.5; color: var(--td-text-2); }
+.td-root .tf-foot-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.td-root .tf-spin { animation: tf-spin 0.8s linear infinite; }
+@keyframes tf-spin { to { transform: rotate(360deg); } }
+
+/* ── Riel de pasos ─────────────────────────────────────────────────────────── */
+/* El riel recupera el hueco que la cabecera reserva a la X: llega al mismo margen que el cuerpo. */
+.td-root .tf-steps { list-style: none; margin: 18px -44px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.td-root .tf-step {
+  position: relative; display: flex; align-items: center; gap: 11px; width: 100%; min-height: 56px;
+  padding: 6px 4px 13px 0; background: none; border: none; text-align: left; cursor: pointer;
+  color: var(--td-muted); font: inherit;
+}
+.td-root .tf-step:disabled { cursor: default; }
+.td-root .tf-step::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--td-sunken-2);
+  transition: background var(--td-dur) var(--td-ease);
+}
+.td-root .tf-step .ax-pos { flex-shrink: 0; width: 30px; height: 30px; font-size: 18px; transition: background var(--td-dur) var(--td-ease), color var(--td-dur) var(--td-ease); }
+.td-root .tf-step-text { min-width: 0; }
+.td-root .tf-step-label {
+  display: block; font-family: var(--td-font-display); font-size: 18px; font-weight: 700; line-height: 1.1;
+  letter-spacing: 1px; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.td-root .tf-step-hint { display: block; margin-top: 1px; font-size: 13px; line-height: 1.3; color: var(--td-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .tf-step[data-state='active'] { color: #fff; }
+.td-root .tf-step[data-state='active']::after { background: var(--td-red); }
+.td-root .tf-step[data-state='active'] .ax-pos { background: var(--td-red); color: #fff; }
+.td-root .tf-step[data-state='done'] { color: var(--td-text-2); }
+.td-root .tf-step[data-state='done']::after { background: var(--td-red-deep); }
+.td-root .tf-step[data-state='done'] .ax-pos { background: var(--td-red-wash); color: var(--td-red-hover); }
+.td-root .tf-step[data-state='done']:hover { color: #fff; }
+.td-root .tf-step[data-state='done']:hover::after { background: var(--td-red); }
+@media (max-width: 600px) {
+  .td-root .tf-steps { gap: 8px; margin: 14px -48px 0 0; }
+  .td-root .tf-step { gap: 8px; min-height: 48px; padding-bottom: 11px; }
+  .td-root .tf-step .ax-pos { width: 26px; height: 26px; font-size: 16px; }
+  .td-root .tf-step-label { font-size: 15.5px; letter-spacing: 0.6px; }
+  .td-root .tf-step-hint { display: none; }
+}
+
+/* ── Campos ────────────────────────────────────────────────────────────────── */
+.td-root .tf-form { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.td-root .td-field > p { margin: 0; }
+.td-root .tf-req { margin-left: 4px; color: var(--td-red-hover); }
+.td-root .tf-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.td-root .tf-span-2 { grid-column: 1 / -1; }
+@media (max-width: 600px) { .td-root .tf-grid-2 { grid-template-columns: minmax(0, 1fr); } }
+.td-root .td-input.tf-date { color-scheme: dark; min-width: 0; }
+.td-root .td-input.tf-mono { font-family: var(--td-font-mono); letter-spacing: 0.3px; }
+.td-root .td-input:disabled, .td-root .td-select:disabled { opacity: 0.6; cursor: not-allowed; }
+.td-root .td-select.tf-select {
+  color-scheme: dark; appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 40px; text-overflow: ellipsis;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b6b6c0' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 13px center; background-size: 16px 16px;
+}
+.td-root .td-select.tf-select option { background: #121216; color: #f5f5f6; }
+.td-root .td-input.tf-has-ico { padding-left: 40px; }
+.td-root .tf-ico-wrap { position: relative; display: block; }
+.td-root .tf-ico-wrap > svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--td-muted); pointer-events: none; }
+
+/* Control segmentado a lo ancho del campo (tamaño de equipo, formato, series) */
+.td-root .td-seg.tf-seg { display: flex; }
+.td-root .tf-seg .td-seg-item { flex: 1 1 auto; justify-content: center; height: 38px; padding: 0 10px; min-width: 0; }
+.td-root .tf-seg .td-seg-item:disabled { opacity: 0.32; cursor: not-allowed; background: transparent; color: var(--td-text-2); }
+.td-root .tf-seg[data-fit='true'] { display: inline-flex; }
+.td-root .tf-seg[data-fit='true'] .td-seg-item { flex: 0 0 auto; padding: 0 12px; }
+@media (pointer: coarse) { .td-root .tf-seg .td-seg-item { height: 44px; } }
+
+/* ── Selector de mapa con arte de LoL ──────────────────────────────────────── */
+.td-root .tf-maps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.td-root .ax-artcard.tf-map {
+  min-height: 108px; padding: 12px; border-radius: 8px; align-items: flex-start; text-align: left;
+  cursor: pointer; font: inherit; background: var(--td-strip);
+  transition: border-color var(--td-dur) var(--td-ease), transform var(--td-dur) var(--td-ease), box-shadow var(--td-dur) var(--td-ease);
+}
+.td-root .tf-maps[data-size='lg'] .ax-artcard.tf-map { min-height: 148px; padding: 14px; }
+/* Los fondos de mapa vienen muy oscuros de origen: se aclaran para que se lean como arte. */
+.td-root .ax-artcard.tf-map > img.ax-artcard-img { opacity: 0.85; object-position: var(--pos, 50% 50%); filter: brightness(1.55) saturate(1.2); }
+/* Velo: el texto vive en la mitad baja, que queda casi opaca (≥ 4.5:1). */
+.td-root .ax-artcard.tf-map::before {
+  background: linear-gradient(180deg, rgba(10, 10, 12, 0.18) 0%, rgba(10, 10, 12, 0.62) 44%, rgba(10, 10, 12, 0.93) 100%);
+}
+.td-root .ax-artcard.tf-map:hover { transform: translateY(-2px); border-color: var(--td-border-hov2); }
+.td-root .ax-artcard.tf-map[data-active='true'] { border-color: var(--td-red); box-shadow: inset 0 0 0 1px var(--td-red), 0 10px 24px -16px var(--td-red-glow); }
+.td-root .ax-artcard.tf-map[data-active='true'] > img.ax-artcard-img { opacity: 1; }
+.td-root .tf-map-check {
+  position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 22px; height: 22px;
+  border-radius: var(--td-r-chip); background: var(--td-red); color: #fff;
+  opacity: 0; transform: scale(0.7); transition: opacity var(--td-dur) var(--td-ease), transform var(--td-dur) var(--td-ease);
+}
+.td-root .tf-map[data-active='true'] .tf-map-check { opacity: 1; transform: none; }
+.td-root .tf-map-name {
+  display: block; font-family: var(--td-font-display); font-size: 21px; font-weight: 700; line-height: 1.02;
+  letter-spacing: 0.5px; text-transform: uppercase; color: #fff;
+}
+.td-root .tf-map-sub { display: block; margin-top: 3px; font-size: 13px; line-height: 1.25; color: #c9c9d2; }
+.td-root .tf-maps[data-size='lg'] .tf-map-name { font-size: 24px; }
+@media (max-width: 600px) {
+  .td-root .tf-maps[data-size='lg'] .ax-artcard.tf-map { min-height: 132px; padding: 11px; }
+  .td-root .tf-maps[data-size='lg'] .tf-map-name { font-size: 20px; }
+}
+
+/* ── Tarjeta de opción (visibilidad, códigos, ajustes del organizador) ────── */
+.td-root .tf-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 480px) { .td-root .tf-opts { grid-template-columns: minmax(0, 1fr); } }
+.td-root .tf-optrow { display: flex; flex-wrap: wrap; gap: 8px; }
+.td-root .tf-optrow > .tf-opt { flex: 1 1 168px; }
+.td-root .tf-opt {
+  display: flex; align-items: flex-start; gap: 11px; min-width: 0; min-height: 60px; padding: 11px 14px;
+  text-align: left; cursor: pointer; font: inherit; color: var(--td-text-2);
+  background: var(--td-strip); border: 1px solid var(--td-border); border-radius: var(--td-r-ctl);
+  transition: border-color var(--td-dur) var(--td-ease), background var(--td-dur) var(--td-ease);
+}
+.td-root .tf-opt:hover:not(:disabled) { border-color: var(--td-border-hov2); }
+.td-root .tf-opt:disabled { cursor: progress; opacity: 0.7; }
+.td-root .tf-opt[data-active='true'] { border-color: var(--td-red); background: var(--td-red-wash); }
+.td-root .tf-opt-ico { display: inline-flex; flex-shrink: 0; margin-top: 2px; color: var(--td-muted); }
+.td-root .tf-opt[data-active='true'] .tf-opt-ico { color: var(--td-red-hover); }
+.td-root .tf-opt-dot { flex-shrink: 0; width: 10px; height: 10px; margin-top: 6px; border-radius: 2px; background: var(--td-sunken-2); }
+.td-root .tf-opt[data-active='true'] .tf-opt-dot { background: var(--td-red); }
+.td-root .tf-opt-body { min-width: 0; }
+.td-root .tf-opt-title {
+  display: block; font-family: var(--td-font-mono); font-size: 14px; font-weight: 700; line-height: 1.3;
+  letter-spacing: 0.7px; text-transform: uppercase; color: var(--td-text);
+}
+.td-root .tf-opt-sub { display: block; margin-top: 2px; font-size: 13px; line-height: 1.4; color: var(--td-text-2); }
+
+/* ── Aviso ─────────────────────────────────────────────────────────────────── */
+.td-root .tf-note {
+  --c: var(--td-border-hov2);
+  display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px 12px 16px;
+  border-radius: var(--td-r-ctl); background: var(--td-subcard); border: 1px solid var(--td-border-soft);
+  box-shadow: inset 3px 0 0 var(--c); font-size: 14px; line-height: 1.5; color: var(--td-text-2);
+}
+.td-root .tf-note[data-tone='warn'] { --c: var(--td-amber); }
+.td-root .tf-note[data-tone='ok'] { --c: var(--td-green); }
+.td-root .tf-note[data-tone='gold'] { --c: var(--td-gold); }
+.td-root .tf-note-ico { display: inline-flex; flex-shrink: 0; margin-top: 2px; color: var(--td-text-2); }
+.td-root .tf-note[data-tone='warn'] .tf-note-ico { color: var(--td-amber); }
+.td-root .tf-note[data-tone='ok'] .tf-note-ico { color: var(--td-green); }
+.td-root .tf-note[data-tone='gold'] .tf-note-ico { color: var(--td-gold-bright); }
+.td-root .tf-note-body { min-width: 0; }
+.td-root .tf-note-title {
+  margin: 0 0 2px; font-family: var(--td-font-mono); font-size: 14px; font-weight: 700; letter-spacing: 0.7px;
+  text-transform: uppercase; color: var(--td-text);
+}
+.td-root .tf-note a { color: var(--td-red-hover); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.td-root .tf-note a:hover { color: #fff; }
+.td-root .tf-note strong { color: var(--td-text); font-weight: 600; }
+
+/* Botón de texto con área táctil completa (Más opciones, Quitar suplente…) */
+.td-root .tf-linkbtn {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 2px; border: none; background: none; cursor: pointer;
+  font-family: var(--td-font-mono); font-size: 13.5px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--td-text-2); transition: color var(--td-dur) var(--td-ease);
+}
+.td-root .tf-linkbtn:hover:not(:disabled) { color: #fff; }
+.td-root .tf-linkbtn[data-tone='danger']:hover:not(:disabled) { color: var(--td-neg); }
+.td-root .tf-linkbtn:disabled { color: var(--td-disabled); cursor: not-allowed; }
+
+/* Botón cuadrado de icono (cerrar el análisis de equipo) */
+.td-root .tf-iconbtn {
+  display: inline-grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; cursor: pointer;
+  border-radius: var(--td-r-ctl); border: 1px solid var(--td-border); background: var(--td-strip); color: var(--td-text-2);
+  transition: color var(--td-dur) var(--td-ease), border-color var(--td-dur) var(--td-ease), background var(--td-dur) var(--td-ease);
+}
+.td-root .tf-iconbtn:hover { color: #fff; border-color: var(--td-red); background: var(--td-red-wash); }
+@media (pointer: coarse) { .td-root .tf-iconbtn { width: 44px; height: 44px; } }
+
+/* ── Vista previa del torneo (hermana pequeña de .ax-feature) ──────────────── */
+.td-root .tf-preview {
+  position: relative; isolation: isolate; overflow: hidden;
+  border: 1px solid var(--td-border); border-radius: var(--td-r-panel);
+  background: var(--td-strip); box-shadow: var(--td-shadow);
+}
+.td-root .tf-preview-art { position: absolute; inset: 0 0 auto 0; height: 190px; z-index: -1; pointer-events: none; }
+.td-root .tf-preview-art img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; opacity: 0.95; filter: brightness(1.5) saturate(1.2); }
+.td-root .tf-preview-art::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(14, 14, 17, 0.5) 0%, rgba(14, 14, 17, 0.74) 52%, var(--td-strip) 100%);
+}
+.td-root .tf-preview-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 14px;
+  border-bottom: 1px solid var(--td-border-soft); background: rgba(10, 10, 12, 0.7);
+}
+.td-root .tf-preview-main { padding: 14px 16px 16px; }
+.td-root .tf-preview-name {
+  margin: 12px 0 6px; font-family: var(--td-font-display); font-weight: 800; font-style: italic; text-transform: uppercase;
+  font-size: 32px; line-height: 0.94; color: var(--td-text); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.td-root .tf-preview-name[data-empty='true'] { color: var(--td-muted); }
+.td-root .tf-preview-format { margin: 0; font-family: var(--td-font-mono); font-size: 13.5px; font-weight: 600; letter-spacing: 0.7px; text-transform: uppercase; color: var(--td-red-hover); }
+.td-root .tf-preview-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; margin: 16px 0 0; }
+.td-root .tf-preview-facts dd { margin: 2px 0 0; font-family: var(--td-font-display); font-size: 19px; font-weight: 700; line-height: 1.15; color: var(--td-text); overflow-wrap: anywhere; }
+.td-root .tf-preview-side { padding: 14px 16px 16px; border-top: 1px solid var(--td-border-soft); background: rgba(10, 10, 12, 0.55); }
+.td-root .tf-preview-side .ax-cap-num { font-size: 34px; margin: 2px 0 10px; }
+.td-root .tf-preview-extra { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: 13.5px; color: var(--td-text-2); }
+.td-root .tf-preview-extra svg { flex-shrink: 0; color: var(--td-muted); }
+
+/* ── Entrega de códigos ────────────────────────────────────────────────────── */
+.td-root .tf-done-name { margin: 4px 0 0; font-family: var(--td-font-display); font-size: 26px; font-weight: 800; font-style: italic; line-height: 1; text-transform: uppercase; color: var(--td-text); overflow-wrap: anywhere; }
+.td-root .tf-codes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; scrollbar-color: var(--td-sunken-2) transparent; }
+.td-root .tf-code {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; min-height: 44px; padding: 0 12px;
+  background: var(--td-strip); border: 1px solid var(--td-border); border-radius: var(--td-r-ctl); cursor: pointer; text-align: left;
+  font-family: var(--td-font-mono); font-size: 14px; letter-spacing: 0.3px; color: var(--td-text);
+  transition: border-color var(--td-dur) var(--td-ease), background var(--td-dur) var(--td-ease);
+}
+.td-root .tf-code:hover { border-color: var(--td-red); background: var(--td-red-wash); }
+.td-root .tf-code > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .tf-code > svg { flex-shrink: 0; color: var(--td-muted); }
+.td-root .tf-code[data-copied='true'] > svg { color: var(--td-green); }
+
+/* ── Panel "Crea tu torneo" de la portada ──────────────────────────────────── */
+.td-root.tf-home { background: transparent; container-type: inline-size; text-align: left; }
+.td-root .td-panel.tf-home-panel {
+  position: relative; padding: 24px;
+  background: linear-gradient(var(--td-red), var(--td-red)) left top / 88px 2px no-repeat, var(--td-card);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 30px 70px -34px rgba(0, 0, 0, 0.95);
+}
+.td-root .tf-home-title {
+  margin: 10px 0 0; font-family: var(--td-font-display); font-weight: 800; font-style: italic; text-transform: uppercase;
+  font-size: 40px; line-height: 0.92; letter-spacing: 0.2px; color: var(--td-text);
+}
+.td-root .tf-home-title em { font-style: inherit; color: var(--td-red); }
+.td-root .tf-home-lede { margin: 8px 0 0; font-size: 14.5px; line-height: 1.45; color: var(--td-text-2); }
+.td-root .tf-home-form { display: flex; flex-direction: column; gap: 16px; margin-top: 18px; }
+.td-root .tf-home-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 16px 12px; }
+.td-root .tf-home-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: -6px; font-size: 13px; color: var(--td-muted); }
+.td-root .tf-home-actions { display: flex; gap: 10px; margin-top: 16px; }
+.td-root .tf-home-actions > .td-btn--primary { flex: 1; text-decoration: none; }
+@container (max-width: 430px) {
+  .td-root .td-panel.tf-home-panel { padding: 20px 16px; }
+  .td-root .tf-home-title { font-size: 34px; }
+  .td-root .tf-home-grid { grid-template-columns: minmax(0, 1fr); }
+  .td-root .tf-home-panel .tf-map-sub { font-size: 12.5px; }
+  .td-root .tf-home-panel .ax-artcard.tf-map { padding: 10px; }
+  .td-root .tf-home-panel .tf-map-name { font-size: 19px; }
+  .td-root .tf-home-actions { flex-direction: column; }
+}
+
+/* ── Inscripción: roster ───────────────────────────────────────────────────── */
+.td-root .tf-sechead.td-sechead { margin-bottom: 12px; }
+.td-root .tf-roster { display: flex; flex-direction: column; gap: 10px; }
+.td-root .tf-player { padding: 12px 14px 14px; }
+.td-root .tf-player-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 40px; margin-bottom: 10px; }
+.td-root .tf-player-head .tf-seg { margin-left: auto; }
+.td-root .tf-player-foot { display: flex; justify-content: flex-end; margin: 4px 0 -8px; }
+.td-root .tf-account { display: flex; align-items: center; gap: 12px; }
+.td-root .tf-account-id { margin: 2px 0 0; font-family: var(--td-font-mono); font-size: 16px; font-weight: 600; color: var(--td-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Análisis de equipo ────────────────────────────────────────────────────── */
+/* .td-team-cols está definida dos veces en tournament-dashboard.css (modal y
+   pestaña Equipos) y gana la segunda; aquí se fija la rejilla del modal. */
+.td-root .td-team-cols.tf-team-cols { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 18px 16px; }
+@media (max-width: 760px) { .td-root .td-team-cols.tf-team-cols { grid-template-columns: minmax(0, 1fr); } }
+
+/* ── Panel del organizador ─────────────────────────────────────────────────── */
+.td-root .tf-admin-grid { display: grid; gap: 18px; }
+.td-root .tf-admin-grid:empty { display: none; }
+.td-root .tf-admin-block { margin-top: 18px; }
+.td-root .tf-admin-grid:empty + .tf-admin-block { margin-top: 4px; }
+.td-root .tf-admin-block > .td-over { display: block; margin-bottom: 8px; line-height: 1.6; }
+.td-root .tf-admin-block > .td-over > svg { display: inline; vertical-align: -2px; margin-right: 7px; }
+.td-root .tf-admin-block > .td-over > .td-chip { margin-left: 8px; vertical-align: middle; }
+.td-root .tf-admin-sub { margin-left: 6px; color: var(--td-muted); font-weight: 500; letter-spacing: 0.4px; text-transform: none; font-size: 13px; }
+.td-root .tf-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.td-root .tf-inline > .td-input, .td-root .tf-inline > .td-select { flex: 1 1 200px; width: auto; min-width: 0; height: 44px; }
+.td-root .tf-inline > .td-btn { height: 44px; }
+@media (max-width: 600px) { .td-root .tf-inline > svg { display: none; } }
+.td-root .tf-admin-block > .td-help { margin: 8px 0 0; max-width: 90ch; }
+.td-root .tf-admin-block > .td-help[data-tone='ok'] { color: var(--td-green); }
+.td-root .tf-admin-block > .td-help svg { display: inline; vertical-align: -2px; margin-right: 5px; }
+.td-root .tf-invites { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.td-root .tf-invite {
+  display: inline-flex; align-items: center; gap: 7px; max-width: 100%; min-height: 28px; padding: 3px 10px;
+  border-radius: var(--td-r-chip); border: 1px solid var(--td-border); background: var(--td-subcard);
+  font-size: 13px; color: var(--td-text); overflow-wrap: anywhere;
+}
+.td-root .tf-invite i { flex-shrink: 0; width: 8px; height: 8px; border-radius: 2px; background: var(--td-amber); }
+.td-root .tf-invite[data-status='accepted'] i { background: var(--td-green); }
+.td-root .tf-invite[data-status='declined'] i { background: var(--td-neg); }
+.td-root .tf-invite small { font-size: 13px; color: var(--td-text-2); }
+.td-root .td-collapse-trigger.tf-admin-trigger { min-height: 44px; font-size: 13.5px; letter-spacing: 1px; }
+.td-root .tf-admin-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--td-border); }
+
+@media (prefers-reduced-motion: reduce) {
+  .td-root .tf-spin { animation-duration: 2.4s; }
+  .td-root .ax-artcard.tf-map, .td-root .tf-map-check, .td-root .tf-opt, .td-root .tf-code, .td-root .tf-step::after,
+  .td-root .tf-step .ax-pos, .td-root .tf-linkbtn, .td-root.tf-modal .atak-modal-x { transition: none; }
+  .td-root .ax-artcard.tf-map:hover { transform: none; }
+}

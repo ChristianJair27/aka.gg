@@ -13,8 +13,9 @@
 // manda a registrarse. Al volver, el formulario aparece relleno.
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Check, Loader2, Mountain, Settings2, Snowflake, Swords, Trophy } from 'lucide-react';
-import { Field, OptionCard, PillGroup, fieldCls } from '@/components/ui/form-bits';
+import { ArrowRight, Check, Loader2, Plus, Settings2, Trophy } from 'lucide-react';
+import { Button } from '@/components/tournament/ui';
+import { Field, MapPicker, Notice, Seg, type MapOption } from '@/components/tournament/forms';
 import { CodesPanel } from '@/components/tournament/create/CodesPanel';
 import { useCreateTournament } from '@/hooks/queries/tournaments';
 import { useAuth } from '@/features/auth/useAuth';
@@ -23,10 +24,11 @@ import {
   clearDraft, readDraft, saveDraft, type QuickTournamentDraft,
 } from './quickTournamentDraft';
 
-const MAPS = [
-  { key: 'SR' as const, label: 'La Grieta', sub: 'Códigos de Riot', Icon: Mountain },
-  { key: 'ARAM' as const, label: 'ARAM', sub: 'Abismo', Icon: Snowflake },
-  { key: 'ARENA' as const, label: 'Arena', sub: 'Ladder 2v2', Icon: Swords },
+// El arte de cada tarjeta sale del propio mapa (ver MapPicker → lol.map).
+const MAPS: MapOption[] = [
+  { key: 'SR', label: 'La Grieta', sub: 'Códigos de Riot' },
+  { key: 'ARAM', label: 'ARAM', sub: 'Abismo' },
+  { key: 'ARENA', label: 'Arena', sub: 'Ladder 2v2' },
 ];
 
 const BRACKETS = [
@@ -125,21 +127,16 @@ export function HomeCreateTournament({ onExpand }: {
           codes={result.riotCodes ?? []}
           skippedReason={result.riotSkippedReason}
         />
-        <div className="mt-4 flex gap-2">
-          <Link
-            to={`/tournaments/${result.id}`}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white"
-            style={{ background: 'linear-gradient(135deg,#ef4444,#b91c1c)' }}
-          >
-            Abrir mi torneo <ArrowRight className="h-4 w-4" />
+        <div className="tf-home-actions">
+          <Link to={`/tournaments/${result.id}`} className="td-btn td-btn--primary">
+            Abrir mi torneo <ArrowRight size={16} aria-hidden />
           </Link>
-          <button
-            type="button"
+          <Button
+            variant="secondary" icon={<Plus size={15} aria-hidden />}
             onClick={() => { setResult(null); setForm({ ...EMPTY, startDate: tomorrow() }); }}
-            className="rounded-2xl border border-white/[0.12] bg-white/[0.04] px-4 text-sm font-semibold text-gray-300 hover:text-white"
           >
             Crear otro
-          </button>
+          </Button>
         </div>
       </Panel>
     );
@@ -147,58 +144,39 @@ export function HomeCreateTournament({ onExpand }: {
 
   return (
     <Panel>
-      <div className="flex items-start gap-3">
-        <span
-          className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl border border-red-500/30"
-          style={{ background: 'linear-gradient(160deg, rgba(225,36,46,0.26), rgba(225,36,46,0.05))' }}
-        >
-          <Trophy className="h-5 w-5 text-red-300" />
-        </span>
-        <div className="min-w-0">
-          <h2 className="font-serif text-xl font-normal leading-tight text-white sm:text-2xl">
-            Crea tu torneo
-          </h2>
-          <p className="mt-0.5 text-[12.5px] leading-snug text-white/45">
-            Códigos oficiales de Riot, bracket automático y resultados que se detectan solos.
-          </p>
-        </div>
-      </div>
+      <span className="td-over ax-kicker">Organiza · gratis</span>
+      <h2 className="tf-home-title">Crea tu <em>torneo</em></h2>
+      <p className="tf-home-lede">
+        Códigos oficiales de Riot, bracket automático y resultados que se detectan solos.
+      </p>
 
       {resumed && (
-        <p className="mt-3 flex items-center gap-2 rounded-xl border border-green-500/25 bg-green-500/[0.08] px-3 py-2 text-[12px] text-green-200">
-          <Check className="h-3.5 w-3.5 flex-shrink-0" />
+        <Notice tone="ok" icon={<Check size={16} />} className="mt-4">
           Recuperamos lo que habías escrito. Revisa y publica.
-        </p>
+        </Notice>
       )}
 
-      <form onSubmit={submit} className="mt-4 flex flex-col gap-4">
-        <Field label="Nombre del torneo" required error={nameError}>
+      <form onSubmit={submit} className="tf-home-form">
+        <Field label="Nombre del torneo" required error={nameError} htmlFor="hct-name">
           <input
+            id="hct-name"
             value={form.name}
             onChange={(e) => set('name', e.target.value)}
             placeholder="Ej: Copa Querétaro Verano"
-            className={fieldCls}
+            className="td-input"
+            aria-invalid={nameError ? true : undefined}
+            autoComplete="off"
           />
         </Field>
 
         <Field label="Mapa y modo">
-          <div className="grid grid-cols-3 gap-2">
-            {MAPS.map(({ key, label, sub, Icon }) => (
-              <OptionCard
-                key={key}
-                icon={<Icon />}
-                title={label}
-                sub={sub}
-                active={form.gameMap === key}
-                onClick={() => set('gameMap', key)}
-              />
-            ))}
-          </div>
+          <MapPicker value={form.gameMap} onChange={(m) => set('gameMap', m)} options={MAPS} />
         </Field>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="tf-home-grid">
           <Field label="Equipos de" hint={isArena ? 'Arena es en duplas' : undefined}>
-            <PillGroup
+            <Seg
+              ariaLabel="Tamaño de equipo"
               value={effTeamSize}
               options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: `${n}v${n}` }))}
               disabledOf={(n) => isArena && n !== 2}
@@ -206,110 +184,71 @@ export function HomeCreateTournament({ onExpand }: {
             />
           </Field>
 
-          <Field label="Arranca el">
+          {!isArena && (
+            <Field label="Series">
+              <Seg
+                ariaLabel="Series por enfrentamiento"
+                value={form.seriesTo}
+                options={[{ value: '1', label: 'Bo1' }, { value: '2', label: 'Bo3' }]}
+                onChange={(v) => set('seriesTo', v)}
+              />
+            </Field>
+          )}
+
+          {!isArena && (
+            <Field label="Formato">
+              <Seg
+                ariaLabel="Formato del torneo"
+                value={form.bracketType}
+                options={BRACKETS}
+                onChange={(v) => set('bracketType', v)}
+              />
+            </Field>
+          )}
+
+          <Field label="Arranca el" htmlFor="hct-date">
             <input
+              id="hct-date"
               type="date"
               value={form.startDate}
               onChange={(e) => set('startDate', e.target.value)}
-              className={`${fieldCls} [color-scheme:dark]`}
+              className="td-input tf-date"
             />
           </Field>
         </div>
 
-        {!isArena && (
-          <Field label="Formato">
-            <div className="flex flex-wrap gap-2">
-              {BRACKETS.map((b) => (
-                <button
-                  key={b.value}
-                  type="button"
-                  aria-pressed={form.bracketType === b.value}
-                  onClick={() => set('bracketType', b.value)}
-                  className={`rounded-xl border px-3 py-2 text-[12.5px] font-semibold transition-all ${
-                    form.bracketType === b.value
-                      ? 'border-red-500/60 bg-red-500/15 text-red-300'
-                      : 'border-white/[0.08] bg-white/[0.04] text-gray-300 hover:border-white/20'
-                  }`}
-                >
-                  {b.label}
-                </button>
-              ))}
-              <span className="mx-1 self-center text-white/15">|</span>
-              {[['1', 'Bo1'], ['2', 'Bo3']].map(([v, label]) => (
-                <button
-                  key={v}
-                  type="button"
-                  aria-pressed={form.seriesTo === v}
-                  onClick={() => set('seriesTo', v)}
-                  className={`rounded-xl border px-3 py-2 text-[12.5px] font-semibold transition-all ${
-                    form.seriesTo === v
-                      ? 'border-red-500/60 bg-red-500/15 text-red-300'
-                      : 'border-white/[0.08] bg-white/[0.04] text-gray-300 hover:border-white/20'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </Field>
-        )}
-
-        <button
-          type="submit"
-          disabled={create.isPending}
-          className="mt-1 inline-flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white transition-transform duration-200 hover:scale-[1.01] disabled:opacity-60 disabled:hover:scale-100"
-          style={{
-            background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
-            boxShadow: '0 12px 34px -14px rgba(225,36,46,0.95)',
-          }}
+        <Button
+          type="submit" variant="primary" full disabled={create.isPending}
+          icon={create.isPending
+            ? <Loader2 size={16} className="tf-spin" aria-hidden />
+            : isAuthenticated ? <Trophy size={16} aria-hidden /> : undefined}
         >
           {create.isPending
-            ? <><Loader2 className="h-4 w-4 animate-spin" /> Creando…</>
+            ? 'Creando…'
             : isAuthenticated
-              ? <><Trophy className="h-4 w-4" /> Crear torneo</>
-              : <>Crear cuenta y publicar <ArrowRight className="h-4 w-4" /></>}
-        </button>
+              ? 'Crear torneo'
+              : <>Crear cuenta y publicar <ArrowRight size={16} aria-hidden /></>}
+        </Button>
 
-        <div className="flex items-center justify-between gap-3 text-[11.5px]">
-          <button
-            type="button"
-            onClick={() => onExpand(form)}
-            className="inline-flex items-center gap-1.5 text-gray-400 transition-colors hover:text-white"
-          >
-            <Settings2 className="h-3.5 w-3.5" /> Más opciones
+        <div className="tf-home-foot">
+          <button type="button" onClick={() => onExpand(form)} className="tf-linkbtn">
+            <Settings2 size={15} aria-hidden /> Más opciones
           </button>
-          <span className="text-white/30">
-            {isAuthenticated ? '16 equipos · público' : 'Gratis, sin tarjeta'}
-          </span>
+          <span>{isAuthenticated ? '16 equipos · público' : 'Gratis, sin tarjeta'}</span>
         </div>
       </form>
     </Panel>
   );
 }
 
-/** Cristal de la portada. Aislado para que el éxito y el formulario compartan piel. */
+/**
+ * Piel del panel. Lleva su propio `td-root` (tokens y clases Arena) para no
+ * depender de dónde lo monte la portada; opaco, con hairline y el tramo crimson.
+ */
 function Panel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -inset-px rounded-[30px] opacity-60 blur-[26px]"
-        style={{ background: 'radial-gradient(70% 110% at 50% 0%, rgba(225,36,46,0.5), transparent 72%)' }}
-      />
-      <div
-        className="relative rounded-[26px] border border-white/[0.10] p-5 text-left sm:p-6"
-        style={{
-          background:
-            // Casi opaco a propósito: con más transparencia el humo rojo del video se
-            // veía a través y los campos costaba leerlos.
-            'linear-gradient(180deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.015) 38%, rgba(0,0,0,0) 100%), rgba(11,11,14,0.86)',
-          backdropFilter: 'blur(22px) saturate(140%)',
-          WebkitBackdropFilter: 'blur(22px) saturate(140%)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.10), 0 30px 80px -44px rgba(0,0,0,0.95)',
-        }}
-      >
-        {children}
-      </div>
+    <div className="td-root tf-home">
+      <div className="td-panel tf-home-panel">{children}</div>
     </div>
   );
 }

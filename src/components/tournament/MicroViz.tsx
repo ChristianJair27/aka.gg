@@ -3,6 +3,7 @@
 // Un número suelto en una tabla de 109 filas no se compara de un vistazo; una
 // barra o un anillo sí. Cada pieza mantiene el valor exacto (en texto pequeño
 // o en el Tip): el gráfico ayuda a comparar, nunca sustituye al dato.
+import { Flame } from 'lucide-react';
 import { Tip } from '@/components/ui/Tip';
 import { rankEmblem, tierColor, tierLabel } from '@/lib/ranks';
 
@@ -13,9 +14,9 @@ export function MiniBar({ value, max, color = '#e5e7eb', label, width = 46, tip 
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
   const body = (
     <span className="inline-flex flex-col items-center gap-[3px]" style={{ width }}>
-      <span className="text-[10px] font-semibold leading-none tabular-nums" style={{ color }}>{label ?? value}</span>
-      <span className="block h-[5px] w-full rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
-        <span className="block h-full rounded-full" style={{ width: `${pct}%`, background: color, transition: 'width .4s ease' }} />
+      <span className="text-[12.5px] font-bold leading-none tabular-nums" style={{ color, fontFamily: 'var(--td-font-mono, inherit)' }}>{label ?? value}</span>
+      <span className="block h-[4px] w-full rounded-[2px] overflow-hidden" style={{ background: 'rgba(255,255,255,0.09)' }}>
+        <span className="block h-full rounded-[2px]" style={{ width: `${pct}%`, background: color, transition: 'width .4s ease' }} />
       </span>
     </span>
   );
@@ -36,7 +37,7 @@ export function Ring({ value, size = 30, stroke = 3, color = '#e1242e', label, t
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
           strokeLinecap="round" strokeDasharray={`${(c * v) / 100} ${c}`} style={{ transition: 'stroke-dasharray .5s ease' }} />
       </svg>
-      <span className="absolute font-black tabular-nums leading-none" style={{ fontSize: Math.max(8, size * 0.32), color: '#fff' }}>
+      <span className="absolute font-bold tabular-nums leading-none" style={{ fontSize: Math.max(11, size * 0.42), color: '#fff', fontFamily: 'var(--td-font-display, inherit)' }}>
         {label ?? Math.round(v)}
       </span>
     </span>
@@ -49,7 +50,7 @@ export function Dots({ count, max = 8, color = '#e5e7eb', tip }: { count: number
   const n = Math.min(count, max);
   const body = (
     <span className="inline-flex flex-col items-center gap-[3px]">
-      <span className="text-[10px] font-semibold leading-none tabular-nums text-white/70">{count}</span>
+      <span className="text-[12.5px] font-bold leading-none tabular-nums text-white/80" style={{ fontFamily: 'var(--td-font-mono, inherit)' }}>{count}</span>
       <span className="inline-flex gap-[3px]">
         {Array.from({ length: max }).map((_, i) => (
           <span key={i} className="block w-[5px] h-[5px] rounded-full"
@@ -70,15 +71,15 @@ export function KdaSplit({ k, d, a, width = 68 }: { k: number; d: number; a: num
   return (
     <Tip label={`${k} kills · ${d} muertes · ${a} asistencias`}>
       <span className="inline-flex flex-col items-center gap-[3px]" style={{ width }}>
-        <span className="text-[10px] font-semibold leading-none tabular-nums">
-          <span className="text-[#2fbf8a]">{k}</span>
-          <span className="text-white/30"> / </span>
-          <span className="text-[#ff5a64]">{d}</span>
-          <span className="text-white/30"> / </span>
+        <span className="text-[12.5px] font-bold leading-none tabular-nums" style={{ fontFamily: 'var(--td-font-mono, inherit)' }}>
+          <span className="text-[#3ddc97]">{k}</span>
+          <span className="text-white/35"> / </span>
+          <span className="text-[#ff6b76]">{d}</span>
+          <span className="text-white/35"> / </span>
           <span className="text-[#60a5fa]">{a}</span>
         </span>
-        <span className="flex h-[5px] w-full rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
-          {seg(k, '#2fbf8a')}{seg(d, '#ff5a64')}{seg(a, '#60a5fa')}
+        <span className="flex h-[4px] w-full rounded-[2px] overflow-hidden" style={{ background: 'rgba(255,255,255,0.09)' }}>
+          {seg(k, '#3ddc97')}{seg(d, '#ff6b76')}{seg(a, '#60a5fa')}
         </span>
       </span>
     </Tip>
@@ -106,7 +107,7 @@ export function TierEmblem({ tier, division, lp, size = 48, showLabel = true }: 
             style={{ width: size, height: size, background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.25)', fontSize: Math.max(9, size * 0.2) }}>
             —
           </span>
-          {showLabel && <span className="text-[9px] leading-none text-white/25">Sin rango</span>}
+          {showLabel && <span className="text-[11px] leading-none text-white/45">Sin rango</span>}
         </span>
       </Tip>
     );
@@ -130,7 +131,7 @@ export function TierEmblem({ tier, division, lp, size = 48, showLabel = true }: 
             }} />
         </span>
         {showLabel && (
-          <span className="font-black leading-none tracking-wide" style={{ color: tierColor(tier), fontSize: Math.max(9, Math.round(size * 0.2)) }}>
+          <span className="font-black leading-none tracking-wide" style={{ color: tierColor(tier), fontSize: Math.max(11, Math.round(size * 0.24)), fontFamily: 'var(--td-font-mono, inherit)' }}>
             {label}
           </span>
         )}
@@ -145,8 +146,8 @@ export function PentaBadge({ count }: { count: number }) {
   return (
     <Tip label={`${count} pentakill${count > 1 ? 's' : ''}`}>
       <span className="inline-flex items-center gap-[2px]">
-        {Array.from({ length: Math.min(count, 3) }).map((_, i) => <span key={i} style={{ fontSize: 12 }}>🔥</span>)}
-        {count > 3 && <span className="text-[10px] font-black text-[#e1242e]">×{count}</span>}
+        {Array.from({ length: Math.min(count, 3) }).map((_, i) => <Flame key={i} size={14} color="#f5a524" fill="#f5a524" aria-hidden />)}
+        {count > 3 && <span className="text-[12px] font-black text-[#f5a524]">×{count}</span>}
       </span>
     </Tip>
   );

@@ -29,7 +29,7 @@ export function EquiposTab({ id, region, standings }: {
   if (!regs.length) {
     return (
       <Card>
-        <SectionHead icon={<Users size={14} color={RED} />} title="EQUIPOS INSCRITOS" />
+        <SectionHead icon={<Users size={15} />} title="Equipos inscritos" />
         <EmptyState>Aún no hay equipos inscritos</EmptyState>
       </Card>
     );
@@ -100,10 +100,10 @@ function TeamsBoard({ regs, id, region, standings }: {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           <span className="td-ico" style={{ color: RED }}><Users size={16} /></span>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--td-text)' }}>
+            <div style={{ fontFamily: 'var(--td-font-display)', fontSize: 20, fontWeight: 700, lineHeight: 1.1, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--td-text)' }}>
               {regs.length} equipos inscritos
             </div>
-            <div style={{ fontSize: 11.5, color: 'var(--td-muted)' }}>
+            <div style={{ fontSize: 13, color: 'var(--td-muted)' }}>
               {ready} con check-in · {totalPlayers} jugadores registrados
             </div>
           </div>
@@ -113,28 +113,15 @@ function TeamsBoard({ regs, id, region, standings }: {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Buscar equipo, capitán o jugador…"
-          className="td-teams-search"
-          style={{
-            height: 38, borderRadius: 999, padding: '0 16px', minWidth: 0,
-            background: 'var(--td-subcard)', border: '1px solid var(--td-border)',
-            color: 'var(--td-text)', fontSize: 13, fontFamily: 'var(--td-font-ui)', outline: 'none',
-          }}
+          aria-label="Buscar equipo, capitán o jugador"
+          className="td-search td-teams-search"
+          style={{ maxWidth: 'none', paddingLeft: 14 }}
         />
 
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        <div className="td-seg" role="group" aria-label="Ordenar equipos" style={{ flexShrink: 0 }}>
           {SORTS.map((s) => (
-            <button
-              key={s.k}
-              onClick={() => setSort(s.k)}
-              style={{
-                height: 32, padding: '0 13px', borderRadius: 999, cursor: 'pointer',
-                fontSize: 12, fontWeight: 600, fontFamily: 'var(--td-font-ui)',
-                background: sort === s.k ? 'rgba(232,50,60,0.12)' : 'transparent',
-                color: sort === s.k ? '#fff' : 'var(--td-text-2)',
-                border: `1px solid ${sort === s.k ? 'var(--td-red-glow)' : 'var(--td-border)'}`,
-                transition: 'background .15s, border-color .15s, color .15s',
-              }}
-            >
+            <button key={s.k} type="button" className="td-seg-item" data-active={sort === s.k} aria-pressed={sort === s.k}
+              onClick={() => setSort(s.k)}>
               {s.label}
             </button>
           ))}
@@ -179,7 +166,7 @@ function TeamsBoard({ regs, id, region, standings }: {
                     <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--td-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {r.teamName}
                     </div>
-                    <div style={{ fontSize: 11.5, color: 'var(--td-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 13, color: 'var(--td-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       Capitán · {r.captainRiotId || '—'} · <span style={{ color: RED }}>ver análisis →</span>
                     </div>
                   </div>
@@ -209,7 +196,7 @@ function TeamsBoard({ regs, id, region, standings }: {
                       const icon = iconFor(iconMap, p.riotId);
                       return (
                         <div key={i} className="td-roster-row">
-                          <span className="td-num" style={{ fontSize: 11, color: 'var(--td-muted)', width: 16, flexShrink: 0 }}>
+                          <span className="td-num" style={{ fontSize: 12.5, color: 'var(--td-muted)', width: 16, flexShrink: 0 }}>
                             {i + 1}
                           </span>
                           {/* Icono de invocador de LoL; el punto de estado pasa a badge encima */}
@@ -228,7 +215,7 @@ function TeamsBoard({ regs, id, region, standings }: {
                               <span style={{
                                 width: 24, height: 24, borderRadius: 7, display: 'flex', alignItems: 'center',
                                 justifyContent: 'center', background: 'var(--td-sunken)',
-                                fontSize: 10, fontWeight: 700, color: 'var(--td-muted)',
+                                fontSize: 11.5, fontWeight: 700, color: 'var(--td-muted)',
                               }}>
                                 {(p.riotId || p.name || '?')[0]?.toUpperCase()}
                               </span>
@@ -248,7 +235,7 @@ function TeamsBoard({ regs, id, region, standings }: {
                             {p.riotId || p.name}
                           </span>
                           {pending && (
-                            <span style={{ fontSize: 10.5, color: 'var(--td-amber)', flexShrink: 0 }}>pendiente</span>
+                            <span style={{ fontSize: 12, color: 'var(--td-amber)', flexShrink: 0 }}>pendiente</span>
                           )}
                         </div>
                       );

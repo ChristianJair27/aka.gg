@@ -9,6 +9,9 @@ type ChampEntry = {
   id: string;    // slug (p.ej. "Pantheon")
   name: string;  // nombre localizado
   image: string; // URL a la imagen de icono
+  title?: string;                 // "la Hoja Siniestra"
+  tags?: string[];                // clases en inglés: Assassin, Mage…
+  stats?: Record<string, number>; // estadísticas base (hp, armor, attackdamage…)
 };
 
 type ChampMaps = {
@@ -42,6 +45,9 @@ export function useChampions() {
           id: c.id,              // slug
           name: c.name,          // nombre localizado
           image: `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${c.id}.png`,
+          title: c.title,
+          tags: c.tags,
+          stats: c.stats,
         };
         byKey[c.key] = entry;
         byId[c.id] = entry;

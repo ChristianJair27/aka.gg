@@ -1,22 +1,22 @@
 // src/pages/MatchDetailPage.tsx
-// Rich solo match detail — reuses the tournament <MatchStatsDetail/> (KDA tables,
-// damage/gold charts, objectives, top performers) fed by /api/stats/match-stats.
-// ATAK.GG dark red/black brand. Players link to their profile.
+// Detalle de una partida suelta: marcador de retransmisión + scoreboard + gráficos
+// (<MatchStatsDetail/>, alimentado por /api/stats/match-stats), repetición 2D y
+// lista de jugadores con enlace a su perfil. Sistema "Arena": el fondo es el
+// splash del campeón del jugador enfocado (o del MVP del equipo ganador).
 import { useMemo } from 'react';
 import { useLocation, useParams, useNavigate, Link } from 'react-router-dom';
 import { MatchStatsDetail } from '@/components/MatchStatsDetail';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, ChevronRight, Users, Clock } from 'lucide-react';
 import { KataLoaderOverlay } from '@/components/KataLoader';
 import { useMatchStats } from '@/hooks/queries/stats';
 import { useAiMatchTags, type AiMatchData } from '@/hooks/queries/ai';
 import AiTags from '@/components/ai/AiTags';
 import MatchReplay2D from '@/components/MatchReplay2D';
-
-const C = {
-  bg: '#0a0a0c', panel: '#131316', border: 'rgba(255,255,255,0.07)',
-  red: '#e1242e', redHover: '#ff5a64', win: '#2fbf8a', loss: '#ff5a64', gold: '#c8aa6e',
-};
-const FONT_COND = "'Saira Condensed', 'Saira', sans-serif";
+import { ArenaPage, SplashBackdrop, ChampIcon, RoleIcon, stagger } from '@/components/arena/primitives';
+import { Button, SectionHead } from '@/components/tournament/ui';
+import { LANE_LABELS, normalizeLane } from '@/lib/lolAssets';
+import { dd, fmtDuration } from '@/lib/dataDragon';
+import '@/styles/pages/match.css';
 
 const QUEUE_NAMES: Record<number, string> = {
   400: 'Normal Draft', 420: 'Solo/Dúo', 430: 'Normal Blind', 440: 'Flex',
@@ -30,6 +30,8 @@ function profileHref(region: string, gameName?: string, tagLine?: string) {
   if (!g || !t) return null;
   return `/profile/${region}/${encodeURIComponent(g)}-${encodeURIComponent(t)}`;
 }
+
+const mvpScore = (p: any) => (p.kills + p.assists - p.deaths);
 
 export default function MatchDetailPage() {
   const { regional, matchId } = useParams<{ regional: string; matchId: string }>();
@@ -53,13 +55,30 @@ export default function MatchDetailPage() {
     return [...stats.blueTeam, ...stats.redTeam];
   }, [stats]);
 
+  // Jugador enfocado: quien abrió la partida desde su historial (puuid en el
+  // estado de la ruta). Los participantes traen puuid en runtime aunque el tipo
+  // no lo declare.
+  const me = useMemo<any | null>(() => {
+    if (!state?.puuid) return null;
+    return roster.find((p: any) => p.puuid === state.puuid) ?? null;
+  }, [roster, state?.puuid]);
+
+  // Arte de fondo: el campeón del jugador enfocado; si no hay, el MVP del
+  // equipo ganador (o el primer jugador si la partida no tiene ganador).
+  const heroChampion = useMemo<string | null>(() => {
+    if (me) return me.championName;
+    if (!stats) return null;
+    const winners = stats.winner === 'red' ? stats.redTeam : stats.blueTeam;
+    const mvp = [...winners].sort((a, b) => mvpScore(b) - mvpScore(a))[0];
+    return mvp?.championName ?? roster[0]?.championName ?? null;
+  }, [me, stats, roster]);
+
   // ── ATAK AI match tags ─────────────────────────────────────────────────────
   // Build the payload from the searched player's participant. The match detail is
   // opened with the player's `puuid` in route state, so we match on that (the
   // parsed participants carry puuid at runtime even though the type omits it).
   const matchData = useMemo<AiMatchData | null>(() => {
     if (!stats || !state?.puuid) return null;
-    const me = roster.find((p: any) => p.puuid === state.puuid);
     if (!me) return null;
     return {
       matchId: stats.matchId,
@@ -72,33 +91,66 @@ export default function MatchDetailPage() {
       assists: me.assists,
       championName: me.championName,
     };
-  }, [stats, roster, state?.puuid]);
+  }, [stats, me, state?.puuid]);
 
   const matchTagsQ = useAiMatchTags(matchData);
   const aiLoading = matchData ? matchTagsQ.isPending : loading;
 
+  const playedOn = stats?.gameStartTimestamp
+    ? new Date(stats.gameStartTimestamp).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
+  const meLane = me?.teamPosition ? normalizeLane(me.teamPosition) : 'fill';
+  const meKda = me ? (me.deaths === 0 ? (me.kills + me.assists).toFixed(1) : ((me.kills + me.assists) / me.deaths).toFixed(2)) : null;
+
+  const rosterItem = (p: any, i: number) => {
+    const href = profileHref(region, p.summonerName, p.tagLine);
+    const lane = p.teamPosition ? normalizeLane(p.teamPosition) : 'fill';
+    const content = (
+      <>
+        <ChampIcon src={dd.champion(p.championName)} name={p.championName} size={36} />
+        {lane !== 'fill' && <RoleIcon lane={p.teamPosition} size={16} />}
+        <span className="mx-roster-name">
+          {p.summonerName}{p.tagLine ? <small> #{p.tagLine}</small> : ''}
+        </span>
+        <span className="mx-roster-champ">{p.championName}</span>
+        {href && <ChevronRight size={16} className="mx-roster-go" aria-hidden />}
+      </>
+    );
+    const side = p.teamId === 100 ? 'blue' : 'red';
+    return href ? (
+      <Link key={i} to={href} className="mx-roster-item" data-side={side} title={`Ver perfil de ${p.summonerName}`}>{content}</Link>
+    ) : (
+      <div key={i} className="mx-roster-item" data-side={side}>{content}</div>
+    );
+  };
+
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, color: '#e8e8ea', fontFamily: "'Saira', system-ui, sans-serif" }}>
+    <ArenaPage
+      width="wide"
+      backdrop={<SplashBackdrop champion={heroChampion} opacity={0.42} side="right" position="50% 16%" />}
+    >
       {/* 3D Katarina loader while the match detail loads. */}
       {loading && !stats && <KataLoaderOverlay show label="Cargando partida" />}
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '22px 18px 80px' }}>
-        <button
-          onClick={() => navigate(-1)}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8, background: 'transparent',
-            border: 'none', color: C.redHover, fontSize: 15, fontWeight: 600, cursor: 'pointer', marginBottom: 16,
-          }}
-        >
-          <ArrowLeft size={18} /> Volver
-        </button>
 
-        <div style={{ marginBottom: 16 }}>
-          <h1 style={{ fontFamily: FONT_COND, fontWeight: 800, fontSize: 26, margin: 0, color: '#fff' }}>
-            Detalle de partida
+      <button type="button" className="mx-back" onClick={() => navigate(-1)}>
+        <ArrowLeft size={16} aria-hidden /> Volver
+      </button>
+
+      <header className="mx-head" data-solo={me ? undefined : 'true'}>
+        <div style={{ minWidth: 0 }}>
+          <span className="td-over ax-kicker ax-rise">{queueLabel}</span>
+          <h1 className="ax-pagehero-title ax-rise" data-size="md" style={stagger(1)}>
+            Detalle de <em>partida</em>
           </h1>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
-            {queueLabel}{matchId ? ` · ${matchId}` : ''}
-          </div>
+          <p className="ax-meta ax-rise" style={{ marginTop: 12, ...stagger(2) }}>
+            {stats && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Clock size={14} aria-hidden /><span className="td-num">{fmtDuration(stats.gameDuration)}</span>
+              </span>
+            )}
+            {playedOn && <span><i aria-hidden>/</i>{playedOn}</span>}
+            {matchId && <span>{stats && <i aria-hidden>/</i>}<span className="mx-id">{matchId}</span></span>}
+          </p>
 
           {/* ATAK AI — compact per-match tags for the searched player */}
           <AiTags
@@ -106,70 +158,86 @@ export default function MatchDetailPage() {
             tags={matchTagsQ.data?.tags ?? []}
             loading={aiLoading}
             unavailable={matchTagsQ.data?.unavailable}
-            style={{ marginTop: 10 }}
+            style={{ marginTop: 14 }}
           />
         </div>
 
-        {/* Rich stats (tables + charts + objectives + top performers) */}
-        <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 18 }}>
-          <MatchStatsDetail
-            stats={stats}
-            loading={loading}
-            error={error}
-            bracketMatchId={matchId || ''}
-            gameId={(stats as any)?.gameId ?? (stats ? 1 : undefined)}
-            team1="Equipo Azul"
-            team2="Equipo Rojo"
-          />
-        </div>
-
-        {/* Repetición 2D estilo broadcast (Match-V5 Timeline oficial) */}
-        {roster.length > 0 && (
-          <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 18, marginTop: 16 }}>
-            <MatchReplay2D
-              regional={regional}
-              matchId={matchId}
-              roster={roster as any}
-              queueId={(stats as any)?.queueId}
-              highlightPuuid={state?.puuid}
-            />
-          </div>
+        {me && (
+          <aside className="td-panel mx-me ax-rise" data-win={me.win ? 'true' : 'false'} style={stagger(2)}
+            aria-label={`Resultado de ${me.summonerName}`}>
+            <ChampIcon src={dd.champion(me.championName)} name={me.championName} size={64} />
+            <div className="mx-me-body">
+              <span className="mx-result" data-win={me.win ? 'true' : 'false'}>{me.win ? 'Victoria' : 'Derrota'}</span>
+              <div className="mx-me-name">{me.summonerName}</div>
+              <div className="mx-me-sub">
+                {meLane !== 'fill' && <RoleIcon lane={me.teamPosition} size={15} />}
+                <span>{me.championName}{meLane !== 'fill' ? ` · ${LANE_LABELS[meLane]}` : ''}</span>
+              </div>
+            </div>
+            <div className="mx-me-kda">
+              <b>{me.kills}<i>/</i><em>{me.deaths}</em><i>/</i>{me.assists}</b>
+              <span className="td-over">{meKda} KDA</span>
+            </div>
+          </aside>
         )}
+      </header>
 
-        {/* Clickable roster — jump to any player's profile */}
-        {roster.length > 0 && (
-          <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 18, marginTop: 16 }}>
-            <h2 style={{ fontFamily: FONT_COND, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: 14, color: '#fff', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ width: 4, height: 16, background: C.red, borderRadius: 2, display: 'inline-block' }} />
-              Jugadores
-            </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
-              {roster.map((p: any, i: number) => {
-                const href = profileHref(region, p.summonerName, p.tagLine);
-                const content = (
-                  <div
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                      padding: '8px 10px', borderRadius: 8, border: `1px solid ${C.border}`,
-                      background: p.teamId === 100 ? 'rgba(59,130,246,0.06)' : 'rgba(225,36,46,0.06)',
-                    }}
-                  >
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {p.summonerName}{p.tagLine ? <span style={{ color: 'rgba(255,255,255,0.35)' }}> #{p.tagLine}</span> : ''}
-                    </span>
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', flexShrink: 0 }}>{p.championName}</span>
-                  </div>
-                );
-                return href ? (
-                  <Link key={i} to={href} style={{ textDecoration: 'none' }} title={`Ver perfil de ${p.summonerName}`}>{content}</Link>
-                ) : (
-                  <div key={i}>{content}</div>
-                );
-              })}
+      {/* Sin datos por error: estado claro con salida (antes quedaba "Sin partida vinculada"). */}
+      {error && !stats && (
+        <div className="ax-empty" role="alert">
+          <AlertTriangle size={40} aria-hidden style={{ color: 'var(--td-amber)' }} />
+          <h3>No se pudo cargar la partida</h3>
+          <p style={{ margin: 0 }}>{error}</p>
+          <div className="mx-empty-actions">
+            <Button variant="secondary" icon={<ArrowLeft size={15} />} onClick={() => navigate(-1)}>Volver</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Marcador + scoreboard + gráficos + objetivos + destacados */}
+      {stats && (
+        <MatchStatsDetail
+          stats={stats}
+          loading={loading}
+          error={error}
+          bracketMatchId={matchId || ''}
+          gameId={(stats as any)?.gameId ?? (stats ? 1 : undefined)}
+          team1="Equipo Azul"
+          team2="Equipo Rojo"
+          queueLabel={queueLabel}
+          highlightPuuid={state?.puuid}
+        />
+      )}
+
+      {/* Repetición 2D estilo broadcast (Match-V5 Timeline oficial) */}
+      {roster.length > 0 && (
+        <section className="td-panel ax-card" style={{ marginTop: 40 }}>
+          <MatchReplay2D
+            regional={regional}
+            matchId={matchId}
+            roster={roster as any}
+            queueId={(stats as any)?.queueId}
+            highlightPuuid={state?.puuid}
+          />
+        </section>
+      )}
+
+      {/* Jugadores — salto al perfil de cualquiera de los diez */}
+      {roster.length > 0 && stats && (
+        <section style={{ marginTop: 40 }}>
+          <SectionHead size="lg" icon={<Users size={18} />} title="Jugadores" />
+          <div className="mx-roster">
+            <div className="mx-roster-col">
+              <span className="td-over" data-side="blue" style={{ color: 'var(--side-text)' }}>Equipo Azul</span>
+              {stats.blueTeam.map(rosterItem)}
+            </div>
+            <div className="mx-roster-col">
+              <span className="td-over" data-side="red" style={{ color: 'var(--side-text)' }}>Equipo Rojo</span>
+              {stats.redTeam.map(rosterItem)}
             </div>
           </div>
-        )}
-      </div>
-    </div>
+        </section>
+      )}
+    </ArenaPage>
   );
 }

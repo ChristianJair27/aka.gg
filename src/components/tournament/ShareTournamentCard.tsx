@@ -246,15 +246,11 @@ export function ShareTournamentButton({ data, className }: {
 
   return (
     <>
-      <button type="button" onClick={onGenerate} disabled={busy} className={className}
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          width: '100%', padding: '10px 14px', borderRadius: 12, cursor: busy ? 'wait' : 'pointer',
-          border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)',
-          color: '#fff', fontSize: 12, fontWeight: 700, letterSpacing: '1.4px',
-        }}>
+      <button type="button" onClick={onGenerate} disabled={busy}
+        className={`td-btn td-btn--secondary${className ? ` ${className}` : ''}`} data-full="true"
+        style={{ cursor: busy ? 'wait' : undefined }}>
         {busy ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
-        {busy ? 'GENERANDO…' : 'COMPARTIR PÓSTER'}
+        {busy ? 'Generando…' : 'Compartir póster'}
       </button>
 
       {preview && createPortal(

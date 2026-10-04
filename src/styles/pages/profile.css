@@ -1,0 +1,366 @@
+/* ============================================================================
+   ATAK.GG — Perfil de invocador (/stats/:region/:name · /profile/:region/:name)
+   Capa de página del sistema "Arena" (design-system/atak-gg/MASTER.md).
+   Todo vive bajo .td-root y usa los tokens de arena.css; aquí solo hay lo que
+   el perfil necesita y el sistema compartido no trae.
+   ========================================================================== */
+
+/* ── Esqueleto de carga (solo opacidad) ────────────────────────────────────── */
+@keyframes pf-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.9; } }
+.td-root .pf-skel {
+  display: block; border-radius: var(--td-r-ctl); background: var(--td-sunken);
+  animation: pf-pulse 1.4s ease-in-out infinite;
+}
+
+/* ── Héroe ─────────────────────────────────────────────────────────────────── */
+/* Sin caja: el nombre va sobre el splash del campeón principal y el modelo 3D
+   se apoya a la derecha, en la misma línea de suelo que la tira de datos. */
+.td-root .pf-hero {
+  position: relative; display: grid; align-items: end; gap: 24px;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 31vw, 480px);
+}
+.td-root .pf-hero-main { min-width: 0; padding-bottom: 6px; }
+.td-root .pf-eyebrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.td-root .pf-eyebrow a { display: inline-flex; text-decoration: none; }
+.td-root .pf-fav { color: var(--td-gold); opacity: 0.85; flex-shrink: 0; }
+
+.td-root .pf-id { display: flex; align-items: center; gap: clamp(14px, 2vw, 26px); margin-top: 16px; }
+.td-root .pf-avatar { position: relative; flex-shrink: 0; width: clamp(68px, 8vw, 108px); aspect-ratio: 1; }
+.td-root .pf-avatar > img, .td-root .pf-avatar > .pf-skel {
+  width: 100%; height: 100%; object-fit: cover; border-radius: var(--td-r-panel); background: var(--td-sunken);
+}
+.td-root .pf-avatar > img { box-shadow: 0 0 0 2px var(--td-red), 0 16px 32px -16px rgba(0, 0, 0, 0.95); }
+.td-root .pf-level {
+  position: absolute; left: 50%; bottom: -10px; transform: translateX(-50%);
+  padding: 1px 9px; border-radius: var(--td-r-chip); white-space: nowrap;
+  background: var(--td-bg); border: 1px solid var(--td-border-hov);
+  font-size: 13px; font-weight: 700; color: var(--td-gold-bright);
+}
+.td-root .pf-name.ax-pagehero-title { margin: 0; min-width: 0; }
+.td-root .pf-tag {
+  display: inline-block; margin-left: 0.28em; font-size: 0.4em; font-weight: 700; letter-spacing: 0.5px;
+  color: var(--td-text-2); vertical-align: 0.5em;
+}
+
+.td-root .pf-insights { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 26px; }
+.td-root .pf-insights-label { display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; color: var(--td-text-2); }
+.td-root .pf-insights-label svg { color: var(--td-red); }
+.td-root .pf-insights .td-chip .ax-lolicon { margin-left: -2px; }
+
+.td-root .pf-mastery { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.td-root .pf-mastery-item { position: relative; display: block; width: 44px; height: 44px; }
+.td-root .pf-mastery-item .ax-champ { box-shadow: 0 0 0 1px var(--td-border-hov); }
+.td-root .pf-mastery-lvl {
+  position: absolute; right: -5px; bottom: -5px; min-width: 22px; padding: 0 4px; height: 18px;
+  display: grid; place-items: center; border-radius: var(--td-r-chip);
+  background: var(--td-bg); border: 1px solid var(--td-border-hov);
+  font-size: 12px; font-weight: 700; line-height: 1; color: var(--td-text);
+}
+.td-root .pf-mastery-item[data-top='true'] .pf-mastery-lvl { background: var(--td-gold); border-color: var(--td-gold); color: #17130a; }
+.td-root .pf-mastery-item[data-top='true'] .ax-champ { box-shadow: 0 0 0 1px var(--td-gold); }
+
+.td-root .pf-actions.ax-pagehero-actions { margin-top: 24px; }
+.td-root .pf-spin { animation: pf-spin 0.9s linear infinite; }
+@keyframes pf-spin { to { transform: rotate(360deg); } }
+
+/* Escenario 3D */
+.td-root .pf-hero-stage { min-width: 0; }
+.td-root .pf-stage { height: clamp(330px, 30vw, 430px); margin: -44px 0 -10px; }
+/* El modelo vive en la parte alta del escenario; el rótulo, debajo de sus pies. */
+.td-root .pf-stage .ax-stage-canvas { bottom: 58px; }
+.td-root .pf-stage .ax-stage-floor { bottom: calc(58px + 3%); }
+.td-root .pf-stage-label { padding-bottom: 14px; opacity: 0; transition: opacity 0.7s var(--td-ease); }
+.td-root .pf-stage[data-ready='true'] .pf-stage-label { opacity: 1; }
+.td-root .pf-stage-label b {
+  display: block; margin-top: 2px; font-family: var(--td-font-display); font-size: 24px; font-weight: 800; font-style: italic;
+  line-height: 1; letter-spacing: 0.4px; text-transform: uppercase; color: var(--td-text);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
+}
+.td-root .pf-stage-label small { display: block; margin-top: 3px; font-size: 13px; color: var(--td-text-2); }
+
+@media (max-width: 900px) {
+  .td-root .pf-hero { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  /* En móvil el modelo se queda detrás del nombre, como en un cartel: no ocupa
+     alto y, si el dispositivo no lo carga, no deja hueco. */
+  .td-root .pf-hero-stage {
+    position: absolute; z-index: -1; right: -16px; top: -58px; width: min(50%, 260px); height: 250px;
+    opacity: 0.8; pointer-events: none;
+    -webkit-mask-image: linear-gradient(180deg, #000 58%, transparent 94%);
+            mask-image: linear-gradient(180deg, #000 58%, transparent 94%);
+  }
+  .td-root .pf-stage { height: 100%; margin: 0; }
+  .td-root .pf-stage .ax-stage-canvas { bottom: 0; }
+  .td-root .pf-stage .ax-stage-floor { bottom: 5%; }
+  .td-root .pf-stage-label { display: none; }
+  .td-root .pf-fav { display: none; }
+  .td-root .pf-name.ax-pagehero-title { text-shadow: 0 2px 16px rgba(10, 10, 12, 0.7); }
+  .td-root .pf-insights { margin-top: 22px; }
+  .td-root .pf-actions.ax-pagehero-actions > * { flex: 1 1 150px; }
+  .td-root .pf-actions .td-btn { width: 100%; }
+}
+
+/* ── Tira de datos clave ───────────────────────────────────────────────────── */
+.td-root .pf-bug.ax-bug { margin: 0; overflow: hidden; background: rgba(14, 14, 17, 0.9); }
+.td-root .pf-bug dd { margin-left: 0; }
+.td-root .pf-bug-hint { margin-top: 5px; font-size: 13px; color: var(--td-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .pf-bug-rank { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.td-root .pf-bug-rank > div { min-width: 0; }
+@media (max-width: 900px) { .td-root .pf-bug-hint { white-space: normal; } }
+/* Tono semántico de una cifra: victoria / derrota / honor / neutro. */
+.td-root .pf-tone[data-tone='pos'] { color: var(--td-green); }
+.td-root .pf-tone[data-tone='neg'] { color: var(--td-neg); }
+.td-root .pf-tone[data-tone='gold'] { color: var(--td-gold-bright); }
+.td-root .pf-tone[data-tone='dim'] { color: var(--td-text-2); }
+
+/* ── Rejilla principal ─────────────────────────────────────────────────────── */
+.td-root .pf-block { margin-top: 16px; }
+.td-root .pf-grid { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 16px; align-items: start; margin-top: 16px; }
+.td-root .pf-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.td-root .pf-panel { padding: 18px; min-width: 0; }
+.td-root .pf-note { margin: 0; font-size: 14px; color: var(--td-muted); }
+@media (max-width: 1100px) {
+  /* Una columna: las columnas se disuelven para poder ordenar los paneles
+     (rango → partidas → resto) sin duplicar marcado. */
+  .td-root .pf-grid { grid-template-columns: minmax(0, 1fr); }
+  .td-root .pf-col { display: contents; }
+  .td-root .pf-grid > .pf-col > * { order: 3; }
+  .td-root .pf-grid > .pf-col > .pf-order-1 { order: 1; }
+  .td-root .pf-grid > .pf-col > .pf-order-2 { order: 2; }
+}
+@media (max-width: 480px) { .td-root .pf-panel { padding: 14px; } }
+
+/* ── Puntuación personal (rango) ───────────────────────────────────────────── */
+.td-root .pf-rank { display: flex; align-items: center; gap: 18px; }
+.td-root .pf-rank-info { min-width: 0; flex: 1; }
+.td-root .pf-rank-tier {
+  font-family: var(--td-font-display); font-size: clamp(30px, 3.4vw, 40px); font-weight: 800; font-style: italic;
+  line-height: 0.95; letter-spacing: 0.3px; text-transform: uppercase; color: var(--td-gold-bright);
+}
+.td-root .pf-rank-lp { margin-top: 4px; font-family: var(--td-font-display); font-size: 22px; font-weight: 700; line-height: 1.1; color: var(--td-text); }
+.td-root .pf-rank-meta { display: flex; gap: 4px 14px; flex-wrap: wrap; margin-top: 4px; font-size: 13.5px; color: var(--td-muted); }
+.td-root .pf-rank-meta b { color: var(--td-text); font-weight: 600; }
+.td-root .pf-wl { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 14.5px; font-weight: 700; }
+.td-root .pf-wl .td-bar { flex: 1; min-width: 40px; max-width: 220px; }
+
+.td-root .pf-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 12px 18px; margin-top: 16px; padding: 14px 16px; }
+.td-root .pf-fact { min-width: 0; }
+.td-root .pf-fact[data-wide] { grid-column: 1 / -1; }
+.td-root .pf-fact b { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px;
+  font-family: var(--td-font-display); font-size: 21px; font-weight: 700; line-height: 1.15; color: var(--td-text); }
+.td-root .pf-fact b small { font-family: var(--td-font-mono); font-size: 13.5px; font-weight: 600; color: var(--td-muted); }
+.td-root .pf-fact b small.pf-tone[data-tone] { color: inherit; }
+.td-root .pf-fact-chips { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+.td-root .pf-rank-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--td-border-soft); }
+.td-root .pf-minirank { display: flex; align-items: center; gap: 12px; margin-top: 10px; min-width: 0; }
+.td-root .pf-minirank-tier { font-family: var(--td-font-display); font-size: 21px; font-weight: 700; line-height: 1.1; text-transform: uppercase; letter-spacing: 0.3px; color: var(--td-text); }
+.td-root .pf-minirank-sub { margin-top: 2px; font-size: 13px; color: var(--td-muted); }
+@media (max-width: 420px) { .td-root .pf-rank-duo { grid-template-columns: minmax(0, 1fr); } }
+
+/* ── Historial de partidas ─────────────────────────────────────────────────── */
+.td-root .pf-recap { display: grid; grid-template-columns: auto auto minmax(140px, 1fr); gap: 14px 28px; align-items: end; margin-bottom: 16px; }
+.td-root .pf-recap-value { margin-top: 3px; font-family: var(--td-font-display); font-size: 22px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+.td-root .pf-recap-value small { font-family: var(--td-font-mono); font-size: 14px; font-weight: 600; color: var(--td-muted); }
+.td-root .pf-recap-bar { padding-bottom: 6px; }
+@media (max-width: 620px) {
+  .td-root .pf-recap { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .td-root .pf-recap-bar { grid-column: 1 / -1; }
+  /* Los filtros bajan a su propia línea, alineados con el título. */
+  .td-root .pf-games .td-sechead-right { margin-left: 0; width: 100%; }
+}
+
+.td-root .pf-matches { container: pfm / inline-size; display: flex; flex-direction: column; gap: 6px; }
+.td-root .pf-match {
+  --rail: var(--td-neg);
+  position: relative; display: grid; align-items: center; gap: 8px 12px;
+  grid-template-columns: auto 104px minmax(100px, 1fr) auto auto 190px;
+  grid-template-areas: 'champ result kda farm items teams';
+  padding: 10px 14px 10px 18px; min-height: 76px; cursor: pointer;
+  border: 1px solid var(--td-border-soft); border-radius: 8px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rail) 9%, var(--td-subcard)) 0%, var(--td-subcard) 42%);
+  transition: border-color var(--td-dur) var(--td-ease);
+}
+.td-root .pf-match[data-win='true'] { --rail: var(--td-green); }
+.td-root .pf-match::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--rail); }
+.td-root .pf-match:hover { border-color: var(--td-border-hov); box-shadow: inset 0 0 0 100px rgba(255, 255, 255, 0.025); }
+
+.td-root .pf-m-champ { grid-area: champ; display: flex; align-items: center; gap: 6px; }
+.td-root .pf-m-portrait { position: relative; display: block; }
+.td-root .pf-m-lvl {
+  position: absolute; right: -3px; bottom: -3px; min-width: 20px; height: 18px; padding: 0 4px; display: grid; place-items: center;
+  border-radius: var(--td-r-chip); background: var(--td-bg); border: 1px solid var(--td-border-hov);
+  font-size: 12px; font-weight: 700; line-height: 1; color: var(--td-text);
+}
+.td-root .pf-m-loadout { display: grid; grid-template-columns: repeat(2, 24px); grid-auto-rows: 24px; gap: 3px; }
+.td-root .pf-m-loadout img, .td-root .pf-m-loadout span { width: 24px; height: 24px; border-radius: var(--td-r-chip); background: var(--td-sunken); object-fit: cover; display: block; }
+.td-root .pf-m-loadout img[data-rune] { border-radius: 50%; background: #0a0a0c; object-fit: contain; }
+.td-root .pf-m-loadout img[data-rune='sub'] { padding: 4px; }
+
+.td-root .pf-m-result { grid-area: result; min-width: 0; }
+.td-root .pf-m-outcome { display: block; font-family: var(--td-font-display); font-size: 19px; font-weight: 700; line-height: 1.05; letter-spacing: 0.6px; text-transform: uppercase; color: var(--rail); }
+.td-root .pf-m-queue { display: flex; align-items: center; gap: 5px; margin-top: 3px; font-size: 13.5px; font-weight: 600; color: var(--td-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-root .pf-m-when { display: block; margin-top: 1px; font-size: 12.5px; color: var(--td-muted); white-space: nowrap; }
+
+.td-root .pf-m-kda { grid-area: kda; min-width: 0; }
+.td-root .pf-m-kda b { display: block; font-size: 18px; font-weight: 700; line-height: 1.15; white-space: nowrap; color: var(--td-text); }
+.td-root .pf-m-kda b i { font-style: normal; color: var(--td-neg); }
+.td-root .pf-m-kda b u { text-decoration: none; color: var(--td-disabled); font-weight: 500; margin: 0 2px; }
+.td-root .pf-m-sub { display: block; margin-top: 2px; font-size: 13px; color: var(--td-muted); white-space: nowrap; }
+.td-root .pf-m-sub strong { font-weight: 700; }
+
+.td-root .pf-m-farm { grid-area: farm; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; color: var(--td-text-2); white-space: nowrap; }
+.td-root .pf-m-farm span { display: inline-flex; align-items: center; gap: 6px; }
+.td-root .pf-m-farm b { font-weight: 700; color: var(--td-text); }
+
+.td-root .pf-m-items { grid-area: items; display: grid; grid-template-columns: repeat(4, 28px); grid-auto-rows: 28px; gap: 3px; align-content: center; }
+.td-root .pf-m-items img, .td-root .pf-m-items span { width: 28px; height: 28px; border-radius: var(--td-r-chip); background: rgba(255, 255, 255, 0.05); object-fit: cover; display: block; }
+.td-root .pf-m-items [data-trinket] { grid-column: 4; grid-row: 1; border-radius: 50%; }
+.td-root .pf-m-items .pf-m-aug {
+  height: 18px; display: grid; place-items: center; background: color-mix(in srgb, var(--td-gold) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--td-gold) 40%, transparent);
+  font-family: var(--td-font-mono); font-size: 11.5px; font-weight: 700; line-height: 1; color: var(--td-gold-bright);
+}
+
+.td-root .pf-m-teams { grid-area: teams; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 8px; }
+.td-root .pf-m-team { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.td-root .pf-m-player { display: flex; align-items: center; gap: 5px; min-width: 0; height: 17px; text-decoration: none; font-size: 12px; line-height: 1; color: var(--td-text-2); }
+.td-root .pf-m-player img { width: 16px; height: 16px; border-radius: 3px; object-fit: cover; flex-shrink: 0; background: var(--td-sunken); }
+.td-root .pf-m-player span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .pf-m-team[data-side='enemy'] .pf-m-player { color: var(--td-muted); }
+.td-root .pf-m-team[data-side='enemy'] .pf-m-player img { opacity: 0.7; }
+.td-root .pf-m-player[data-me='true'] { color: var(--td-gold-bright); font-weight: 700; }
+.td-root .pf-m-player[data-me='true'] img { box-shadow: 0 0 0 1px var(--td-gold); opacity: 1; }
+.td-root a.pf-m-player:hover { color: #fff; }
+
+/* Sin sitio para los diez jugadores: se quitan antes que cualquier dato propio. */
+@container pfm (max-width: 809px) {
+  .td-root .pf-match { grid-template-columns: auto 104px minmax(100px, 1fr) auto auto; grid-template-areas: 'champ result kda farm items'; gap: 8px 16px; }
+  .td-root .pf-m-teams { display: none; }
+}
+@container pfm (max-width: 599px) {
+  .td-root .pf-match {
+    grid-template-columns: auto minmax(0, 1fr) auto; padding: 12px 12px 12px 16px;
+    grid-template-areas: 'champ result kda' 'items items farm';
+  }
+  .td-root .pf-m-kda { text-align: right; }
+  .td-root .pf-m-farm { align-items: flex-end; gap: 2px; }
+  .td-root .pf-m-items { grid-template-columns: repeat(7, 26px); grid-auto-rows: 26px; }
+  .td-root .pf-m-items img, .td-root .pf-m-items span { width: 26px; height: 26px; }
+  .td-root .pf-m-items [data-trinket] { grid-column: 7; }
+  .td-root .pf-m-items .pf-m-aug { height: 18px; }
+  .td-root .pf-match:hover { transform: none; }
+}
+@container pfm (max-width: 379px) {
+  .td-root .pf-m-loadout { grid-template-columns: 22px; grid-auto-rows: 22px; }
+  .td-root .pf-m-loadout img, .td-root .pf-m-loadout span { width: 22px; height: 22px; }
+  .td-root .pf-m-loadout [data-rune] { display: none; }
+  .td-root .pf-m-kda b { font-size: 17px; }
+  .td-root .pf-m-items { grid-template-columns: repeat(7, 24px); grid-auto-rows: 24px; }
+  .td-root .pf-m-items img, .td-root .pf-m-items span { width: 24px; height: 24px; }
+}
+.td-root .pf-more { display: flex; justify-content: center; margin-top: 16px; }
+
+/* ── Tablas del lateral ────────────────────────────────────────────────────── */
+.td-root .pf-table.ax-table th:first-child, .td-root .pf-table.ax-table td:first-child { padding-left: 4px; }
+.td-root .pf-table.ax-table th:last-child, .td-root .pf-table.ax-table td:last-child { padding-right: 4px; }
+.td-root .pf-table.ax-table tbody tr:last-child td { border-bottom: none; }
+.td-root .pf-role { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; }
+.td-root .pf-wr { display: flex; align-items: center; gap: 10px; min-width: 110px; }
+.td-root .pf-wr .td-bar { flex: 1; }
+.td-root .pf-wr span { width: 44px; text-align: right; font-size: 14.5px; font-weight: 700; }
+
+.td-root .pf-panel .ax-table-scroll { scrollbar-width: thin; scrollbar-color: var(--td-sunken-2) transparent; }
+.td-root .pf-champs { min-width: 430px; }
+.td-root .pf-champs tr[data-click='true'] { cursor: pointer; }
+.td-root .pf-champ-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.td-root .pf-champ-cell > div { min-width: 0; }
+.td-root .pf-champ-name { display: block; font-weight: 600; color: var(--td-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .pf-sub { display: block; font-size: 12.5px; line-height: 1.35; color: var(--td-muted); white-space: nowrap; }
+.td-root .pf-sub i { font-style: normal; color: var(--td-neg); }
+.td-root .pf-atak-rank { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 12.5px; line-height: 1.35; font-weight: 600; color: var(--td-text-2); }
+.td-root .pf-atak-rank[data-top='true'] { color: var(--td-gold-bright); }
+.td-root .pf-best { display: flex; flex-direction: column; min-width: 0; max-width: 120px; line-height: 1.25; text-decoration: none; }
+.td-root .pf-best b { font-size: 13.5px; font-weight: 600; color: var(--td-red-hover); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root a.pf-best:hover b { color: #fff; }
+.td-root .pf-best small { font-size: 12.5px; color: var(--td-gold); white-space: nowrap; }
+
+/* ── Historial de temporadas ───────────────────────────────────────────────── */
+.td-root .pf-seasons { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 12px 10px; padding-top: 6px; }
+.td-root .pf-season {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  min-width: 0; padding: 12px 8px; cursor: default; text-align: center;
+}
+.td-root .pf-season img { width: 44px; height: 44px; object-fit: contain; }
+.td-root .pf-season b { font-family: var(--td-font-mono); font-size: 14px; font-weight: 700; color: var(--td-text); white-space: nowrap; }
+.td-root .pf-season[data-peak='true'] { border-color: color-mix(in srgb, var(--td-gold) 55%, transparent); background: color-mix(in srgb, var(--td-gold) 8%, var(--td-subcard)); }
+.td-root .pf-season[data-peak='true'] b { color: var(--td-gold-bright); }
+.td-root .pf-season-peak {
+  position: absolute; top: -9px; left: 50%; transform: translateX(-50%); padding: 1px 8px; border-radius: var(--td-r-chip);
+  background: var(--td-gold); color: #17130a; font-family: var(--td-font-mono); font-size: 11.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+}
+
+/* ── Jugó recientemente con ────────────────────────────────────────────────── */
+.td-root .pf-mates { display: flex; flex-direction: column; }
+.td-root .pf-mate {
+  display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 6px; text-decoration: none; color: inherit;
+  border-bottom: 1px solid var(--td-border-soft); border-radius: var(--td-r-chip);
+  transition: background var(--td-dur) var(--td-ease);
+}
+.td-root .pf-mate:last-child { border-bottom: none; }
+.td-root a.pf-mate { cursor: pointer; }
+.td-root a.pf-mate:hover { background: rgba(255, 255, 255, 0.045); }
+.td-root .pf-mate-main { min-width: 0; flex: 1; }
+.td-root .pf-mate-name { font-size: 14.5px; font-weight: 600; color: var(--td-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .pf-mate-name span { color: var(--td-muted); font-weight: 500; }
+.td-root .pf-mate-side { flex-shrink: 0; text-align: right; }
+.td-root .pf-mate-side b { display: block; font-family: var(--td-font-display); font-size: 20px; font-weight: 700; line-height: 1.1; }
+
+/* ── Torneos del jugador ───────────────────────────────────────────────────── */
+.td-root .pf-tourney {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 16px; align-items: center;
+  padding: 12px 16px; text-decoration: none; color: inherit; cursor: pointer;
+}
+.td-root .pf-tourney + .pf-tourney { margin-top: 8px; }
+.td-root .pf-tourney-pos { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 64px; }
+.td-root .pf-tourney-name { font-family: var(--td-font-display); font-size: 21px; font-weight: 700; line-height: 1.1; letter-spacing: 0.3px; text-transform: uppercase; color: var(--td-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-root .pf-tourney-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.td-root .pf-tourney-side { display: flex; align-items: center; gap: 12px; flex-shrink: 0; color: var(--td-muted); }
+.td-root .pf-tourney:hover .pf-tourney-side > svg { color: #fff; }
+@media (max-width: 480px) {
+  .td-root .pf-tourney { grid-template-columns: auto minmax(0, 1fr); }
+  .td-root .pf-tourney-side { display: none; }
+  .td-root .pf-tourney-name { white-space: normal; }
+}
+
+/* ── Comentarios ───────────────────────────────────────────────────────────── */
+.td-root .pf-compose { margin-bottom: 16px; }
+.td-root .pf-compose-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.td-root .pf-login-note { margin: 0 0 16px; padding: 14px 16px; font-size: 14.5px; color: var(--td-text-2); text-align: center; }
+.td-root .pf-comments { display: flex; flex-direction: column; gap: 8px; }
+.td-root .pf-comment { display: flex; gap: 12px; padding: 14px 16px; }
+.td-root .pf-comment-avatar {
+  flex-shrink: 0; width: 40px; height: 40px; display: grid; place-items: center; border-radius: var(--td-r-ctl);
+  background: var(--td-red-wash); border: 1px solid var(--td-red-glow);
+  font-family: var(--td-font-display); font-size: 17px; font-weight: 700; color: var(--td-red-hover);
+}
+.td-root .pf-comment-body { min-width: 0; flex: 1; }
+.td-root .pf-comment-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.td-root .pf-comment-head b { font-size: 14.5px; font-weight: 600; color: var(--td-text); }
+.td-root .pf-comment-head span { font-size: 12.5px; color: var(--td-muted); }
+.td-root .pf-comment-text { margin: 4px 0 0; font-size: 15px; line-height: 1.55; color: var(--td-text-2); overflow-wrap: anywhere; }
+.td-root .pf-comment-actions { display: flex; align-items: center; gap: 6px; margin-top: 6px; margin-left: -8px; }
+.td-root .pf-comment-btn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 8px; border: none; background: none; cursor: pointer;
+  border-radius: var(--td-r-chip); font-family: var(--td-font-mono); font-size: 13px; font-weight: 600; color: var(--td-muted);
+  transition: color var(--td-dur) var(--td-ease), background var(--td-dur) var(--td-ease);
+}
+.td-root .pf-comment-btn:hover { color: var(--td-red-hover); background: rgba(255, 255, 255, 0.04); }
+.td-root .pf-comment-btn[data-on='true'] { color: var(--td-red-hover); }
+@media (pointer: coarse) { .td-root .pf-comment-btn { min-height: 44px; padding: 0 12px; } }
+.td-root .pf-comments-more { display: flex; justify-content: center; margin-top: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .td-root .pf-skel, .td-root .pf-spin { animation: none; }
+  .td-root .pf-match, .td-root .pf-mate, .td-root .pf-stage-label { transition: none; }
+  .td-root .pf-match:hover { transform: none; }
+}

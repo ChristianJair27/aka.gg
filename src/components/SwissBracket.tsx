@@ -97,7 +97,7 @@ function SwissMatchCard({
       aria-expanded={open}
     >
       {/* Cinta de estado */}
-      <div className={`px-3.5 py-1.5 flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wider ${ribbon.cls}`}>
+      <div className={`px-3.5 py-1.5 flex items-center justify-between text-[11.5px] font-bold uppercase tracking-wider ${ribbon.cls}`}>
         <span className="flex items-center gap-1.5">
           {m.matchStatus === 'active' && <Radio className="h-2.5 w-2.5 animate-pulse" />}
           {ribbon.txt}
@@ -245,18 +245,18 @@ export function SwissBracket({
 
   return (
     <div className="td-panel" style={{ padding: 20 }}>
-      <div className="flex items-center gap-2.5 mb-5">
-        <Trophy className="h-5 w-5 text-red-400" />
-        <h2 className="text-lg font-bold text-white">
+      <div className="td-sechead" data-size="lg">
+        <span className="td-sechead-ico" aria-hidden><Trophy size={19} /></span>
+        <h2 className="td-sechead-title" style={{ margin: 0 }}>
           Bracket {bracketType === 'round_robin' ? '· Liga' : '· Suizo'}
         </h2>
-        <span className="text-xs text-gray-500 hidden sm:inline">
-          — pareos por récord cada ronda, clic en una serie para ver sus stats
+        <span className="hidden sm:inline" style={{ fontSize: 13.5, color: 'var(--td-muted)' }}>
+          Pareos por récord cada ronda. Clic en una serie para ver sus stats.
         </span>
         {links.length > 0 && (
           <span className="td-swiss-legend hidden md:inline-flex">
-            <i><b style={{ background: '#2fbf8a' }} /> ganó y avanza</i>
-            <i><b style={{ background: '#ff5a64' }} /> perdió y avanza</i>
+            <i><b style={{ background: '#3ddc97' }} /> ganó y avanza</i>
+            <i><b style={{ background: '#ff6b76' }} /> perdió y avanza</i>
             <i className="opacity-60">pasa el ratón por una serie</i>
           </span>
         )}

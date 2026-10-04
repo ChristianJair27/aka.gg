@@ -1,45 +1,40 @@
-// src/pages/StatsSearch.tsx — búsqueda de invocador · prompt minimalista
-// Misma barra que el hero de Home (SummonerPrompt) sobre el video de marca:
-// una sola caja flotante, y debajo solo lo que ayuda a buscar (recientes,
-// jugadores populares). Sin tarjetas apiladas ni orbes: aire y contraste.
+// src/pages/StatsSearch.tsx — búsqueda de invocador (rediseño "Arena").
+// Misma barra que el héroe de la portada (SummonerPrompt) y, debajo, solo lo que
+// ayuda a buscar: tus recientes y jugadores conocidos con su carril.
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ScrollVideoBg } from '@/components/ScrollVideoBg';
 import {
   SummonerPrompt,
   REGIONS,
   getRecentSearches,
   removeRecentSearch,
 } from '@/components/SummonerPrompt';
-import { BarChart3, Trophy, Target, Zap, TrendingUp, Users, X } from 'lucide-react';
+import { ArrowRight, BarChart3, Trophy, Radio, Sparkles, History, X } from 'lucide-react';
+import { ArenaPage, SplashBackdrop, PageHero, Champion3D, RoleIcon, SectionHead, stagger } from '@/components/arena';
+import '@/styles/pages/stats-search.css';
 
 const POPULAR = [
-  { id: 'Faker#KR1',      region: 'kr',   label: 'Faker',      role: 'Mid · Challenger' },
-  { id: 'Caps#EUW',       region: 'euw1', label: 'Caps',       role: 'Mid · Challenger' },
-  { id: 'Doublelift#NA1', region: 'na1',  label: 'Doublelift', role: 'ADC · Challenger' },
-  { id: 'Rekkles#EUW',    region: 'euw1', label: 'Rekkles',    role: 'ADC · Grandmaster' },
-  { id: 'Perkz#EUW',      region: 'euw1', label: 'Perkz',      role: 'Mid · Challenger' },
-  { id: 'Ruler#KR1',      region: 'kr',   label: 'Ruler',      role: 'ADC · Challenger' },
+  { id: 'Faker#KR1',      region: 'kr',   label: 'Faker',      lane: 'middle', rank: 'Challenger' },
+  { id: 'Caps#EUW',       region: 'euw1', label: 'Caps',       lane: 'middle', rank: 'Challenger' },
+  { id: 'Doublelift#NA1', region: 'na1',  label: 'Doublelift', lane: 'bottom', rank: 'Challenger' },
+  { id: 'Rekkles#EUW',    region: 'euw1', label: 'Rekkles',    lane: 'bottom', rank: 'Grandmaster' },
+  { id: 'Perkz#EUW',      region: 'euw1', label: 'Perkz',      lane: 'middle', rank: 'Challenger' },
+  { id: 'Ruler#KR1',      region: 'kr',   label: 'Ruler',      lane: 'bottom', rank: 'Challenger' },
 ];
 
 const FEATURES = [
-  { icon: BarChart3,  label: 'Stats detalladas' },
-  { icon: Trophy,     label: 'Rank tracking' },
-  { icon: Target,     label: 'Campeón 3D' },
-  { icon: Zap,        label: 'AI Insights' },
-  { icon: TrendingUp, label: 'Historial' },
-  { icon: Users,      label: 'Torneos' },
+  { icon: BarChart3, label: 'Rango, win rate y KDA' },
+  { icon: History,   label: 'Historial partida a partida' },
+  { icon: Radio,     label: 'Partida en vivo' },
+  { icon: Sparkles,  label: 'Insights con IA' },
+  { icon: Trophy,    label: 'Torneos jugados' },
 ];
 
-const profileHref = (id: string, region: string) =>
-  `/stats/${region}/${encodeURIComponent(id)}`;
+// El campeón de la página: Twisted Fate, el que revela el destino de cualquiera.
+const STAGE = { slug: 'TwistedFate', id: 4 };
 
-const fadeUp = (delay: number) => ({
-  initial: { opacity: 0, y: 18 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] as const },
-});
+const profileHref = (id: string, region: string) => `/stats/${region}/${encodeURIComponent(id)}`;
+const regionLabel = (region: string) => REGIONS.find((rg) => rg.value === region)?.label;
 
 export default function StatsSearch() {
   const [recent, setRecent] = useState(getRecentSearches);
@@ -50,115 +45,65 @@ export default function StatsSearch() {
   };
 
   return (
-    <div className="min-h-screen text-white relative overflow-hidden">
-      {/* ── Fondo: negro + video de marca + un solo halo rojo ─────────────── */}
-      <div className="fixed inset-0 bg-black -z-20" />
-      <ScrollVideoBg peakOpacity={0.45} floorOpacity={0.28} />
-      <div
-        className="fixed inset-0 -z-10 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse 70% 55% at 50% -10%, rgba(185,28,28,0.22) 0%, transparent 70%)' }}
-      />
-
-      <div className="relative min-h-screen flex flex-col items-center justify-center px-5 py-28">
-        {/* ── Encabezado ──────────────────────────────────────────────────── */}
-        <motion.div {...fadeUp(0)} className="text-center mb-10 flex flex-col items-center gap-4">
-          <img
-            src="/atak-logo-mark.png"
-            alt="ATAK.GG"
-            className="h-10 w-10 opacity-90"
-            style={{ objectFit: 'contain' }}
-            draggable={false}
-          />
-          <span className="text-[11px] uppercase tracking-[0.28em] text-white/35 font-medium">
-            Stats en tiempo real · API oficial de Riot
-          </span>
-          <h1
-            className="font-serif font-normal text-4xl sm:text-5xl md:text-6xl tracking-[-0.02em] leading-[1.05]"
-            style={{ textWrap: 'balance' }}
-          >
-            Busca tu <span className="italic text-red-500">perfil</span>
-          </h1>
-        </motion.div>
-
-        {/* ── Prompt ──────────────────────────────────────────────────────── */}
-        <motion.div {...fadeUp(0.12)} className="w-full">
+    <ArenaPage
+      className="ss-page"
+      backdrop={<SplashBackdrop champion={STAGE.slug} opacity={0.36} side="right" position="62% 14%" />}
+    >
+      <PageHero
+        kicker="Stats en tiempo real · API oficial de Riot"
+        title={<>Busca tu <em>perfil</em></>}
+        lede="Escribe tu Riot ID (Nombre#Tag) y elige si quieres ver el perfil o entrar directo a la partida en curso."
+        aside={<Champion3D slug={STAGE.slug} champId={STAGE.id} clip="idle" art="none" facing={-0.3} className="ss-stage" />}
+      >
+        <div className="ss-prompt ax-rise" style={stagger(3)}>
           {/* Sin desplegable: esta página ya lista los recientes debajo. */}
-          <SummonerPrompt autoFocus quickLookups={null} showRecent={false} />
-        </motion.div>
+          <SummonerPrompt autoFocus quickLookups={null} showRecent={false} className="ss-prompt-box" />
+        </div>
+        <ul className="ss-features ax-rise" style={stagger(4)}>
+          {FEATURES.map((f) => {
+            const Icon = f.icon;
+            return <li key={f.label}><Icon size={15} aria-hidden />{f.label}</li>;
+          })}
+        </ul>
+      </PageHero>
 
-        {/* ── Recientes ───────────────────────────────────────────────────── */}
+      <div className="ss-cols">
         {recent.length > 0 && (
-          <motion.div {...fadeUp(0.24)} className="w-full max-w-2xl mx-auto mt-10">
-            <p className="text-[10px] uppercase tracking-[0.28em] text-white/25 mb-3 text-center">
-              Recientes
-            </p>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {recent.map(r => (
-                <div
-                  key={r.id}
-                  className="group flex items-center gap-2 h-9 pl-3.5 pr-2 rounded-full
-                    border border-white/[0.08] bg-white/[0.02] hover:border-red-500/30 transition-all"
-                >
-                  <Link
-                    to={profileHref(r.id, r.region)}
-                    className="text-sm text-white/55 group-hover:text-white transition-colors"
-                  >
-                    {r.id}
-                    <span className="ml-1.5 text-[11px] text-white/25">
-                      {REGIONS.find(rg => rg.value === r.region)?.label}
-                    </span>
+          <section className="td-panel ax-card ax-rise" style={stagger(5)}>
+            <SectionHead icon={<History size={15} />} title="Tus búsquedas recientes" />
+            <ul className="ss-list">
+              {recent.map((r) => (
+                <li key={r.id} className="ss-item">
+                  <Link to={profileHref(r.id, r.region)} className="ss-item-link">
+                    <span className="ss-item-name">{r.id}</span>
+                    <span className="td-over">{regionLabel(r.region)}</span>
                   </Link>
-                  <button
-                    type="button"
-                    aria-label={`Quitar ${r.id} de recientes`}
-                    onClick={() => drop(r.id)}
-                    className="text-white/20 hover:text-red-400 transition-colors"
-                  >
-                    <X className="h-3.5 w-3.5" />
+                  <button type="button" className="ss-item-x" aria-label={`Quitar ${r.id} de recientes`} onClick={() => drop(r.id)}>
+                    <X size={15} aria-hidden />
                   </button>
-                </div>
+                </li>
               ))}
-            </div>
-          </motion.div>
+            </ul>
+          </section>
         )}
 
-        {/* ── Jugadores populares ─────────────────────────────────────────── */}
-        <motion.div {...fadeUp(0.32)} className="w-full max-w-2xl mx-auto mt-12">
-          <p className="text-[10px] uppercase tracking-[0.28em] text-white/25 mb-4 text-center">
-            Jugadores populares
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10">
-            {POPULAR.map(p => (
-              <Link
-                key={p.id}
-                to={profileHref(p.id, p.region)}
-                className="group flex items-baseline gap-3 py-3 border-b border-white/[0.05]"
-              >
-                <span className="text-[15px] text-white/70 group-hover:text-white transition-colors">
-                  {p.label}
-                </span>
-                <span className="text-xs text-white/25 truncate">{p.role}</span>
-                <span className="ml-auto text-[11px] text-white/20 group-hover:text-red-400 transition-colors">
-                  {REGIONS.find(rg => rg.value === p.region)?.label}
-                </span>
-              </Link>
+        <section className="td-panel ax-card ax-rise" style={stagger(6)}>
+          <SectionHead icon={<Trophy size={15} />} title="Jugadores populares" />
+          <ul className="ss-list ss-list--two">
+            {POPULAR.map((p) => (
+              <li key={p.id} className="ss-item">
+                <Link to={profileHref(p.id, p.region)} className="ss-item-link">
+                  <RoleIcon lane={p.lane} size={22} label />
+                  <span className="ss-item-name">{p.label}</span>
+                  <span className="ss-item-sub">{p.rank}</span>
+                  <span className="td-over ss-item-region">{regionLabel(p.region)}</span>
+                  <ArrowRight size={15} aria-hidden className="ss-item-go" />
+                </Link>
+              </li>
             ))}
-          </div>
-        </motion.div>
-
-        {/* ── Qué encuentras dentro ───────────────────────────────────────── */}
-        <motion.div {...fadeUp(0.42)} className="mt-12 flex flex-wrap gap-x-6 gap-y-3 justify-center max-w-2xl">
-          {FEATURES.map(f => {
-            const Icon = f.icon;
-            return (
-              <span key={f.label} className="flex items-center gap-2 text-xs text-white/30">
-                <Icon className="h-3.5 w-3.5 text-red-500/50" />
-                {f.label}
-              </span>
-            );
-          })}
-        </motion.div>
+          </ul>
+        </section>
       </div>
-    </div>
+    </ArenaPage>
   );
 }

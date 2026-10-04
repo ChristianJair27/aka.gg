@@ -10,16 +10,16 @@ import { useTournamentDashboard } from '@/hooks/queries/tournaments';
 import {
   DiscoveryBanner, GuiaRapidaButton, type DiscoverySamplesData,
 } from '@/components/tournament/DiscoveryHints';
-import Aurora from '@/components/Aurora';
 import { TournamentRegisterModal } from '@/components/TournamentRegisterModal';
 import {
   ErrorCard, type Tab,
-  Hero, Tiles, Breadcrumbs, BroadcastBanner,
-  SideNav, BottomNav,
+  Hero, Breadcrumbs, BroadcastBanner,
+  TabBar, BottomNav,
   ResumenGrid, BracketTab, EquiposTab, PartidasTab, StatsTab, ReglasTab,
   AdminPanel, DashboardSkeleton, ResponsiveStyles,
 } from '@/components/tournament/dashboard';
 import '@/styles/tournament-dashboard.css';
+import '@/styles/arena.css';
 
 export default function TournamentDashboardPage() {
   const { id = '' } = useParams();
@@ -66,32 +66,9 @@ export default function TournamentDashboardPage() {
   }, [data, params]);
 
   return (
-    <div
-      className="td-root"
-      style={{
-        position: 'relative', minHeight: '100vh',
-        // Lienzo "vision": negro profundo con sangrado crimson y toque de oro,
-        // el mismo lenguaje que el dashboard de usuario.
-        background:
-          'radial-gradient(1200px 700px at 85% -10%, rgba(225,36,46,0.15), transparent 60%),' +
-          'radial-gradient(900px 600px at -10% 30%, rgba(120,20,30,0.18), transparent 60%),' +
-          'radial-gradient(1000px 500px at 50% 115%, rgba(200,170,110,0.06), transparent 60%),' +
-          'linear-gradient(180deg, #08070a 0%, #0b070b 48%, #060608 100%)',
-      }}
-    >
-      {/* Aurora crimson→oro (React Bits, WebGL) respirando tras el glass */}
-      <div aria-hidden style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', opacity: 0.5 }}>
-        <Aurora colorStops={['#7a1d24', '#e8323c', '#c8aa6e']} amplitude={1.1} blend={0.55} speed={0.55} />
-      </div>
-      <div
-        aria-hidden
-        style={{
-          position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-          background: 'linear-gradient(180deg, rgba(8,7,10,0.05) 0%, rgba(8,7,10,0.40) 45%, rgba(6,6,8,0.72) 100%)',
-        }}
-      />
+    <div className="td-root ax-canvas">
       <ResponsiveStyles />
-      <div className="td-dash" style={{ position: 'relative', zIndex: 1, maxWidth: 1560, margin: '0 auto', padding: '80px 24px 96px' }}>
+      <div className="td-dash" style={{ position: 'relative', maxWidth: 1480, margin: '0 auto', padding: '92px 24px 96px' }}>
         {isError ? (
           <ErrorCard
             message={(error as any)?.response?.data?.error ?? (error as any)?.message ?? 'No se pudo cargar el torneo'}
@@ -106,7 +83,6 @@ export default function TournamentDashboardPage() {
             {/* Descubrimiento: banner descartable con muestras reales (no bloquea) */}
             <DiscoveryBanner tournamentId={id} data={discovery} />
             <BroadcastBanner channel={id} navigate={go} />
-            <Tiles t={data.tournament} />
             {data.viewerAccess === 'owner' && (
               <AdminPanel id={id} phase={data.tournament.phase} bracketType={data.tournament.bracketType}
                 seriesTo={data.tournament.seriesTo} finalSeriesTo={data.tournament.finalSeriesTo}
@@ -115,38 +91,37 @@ export default function TournamentDashboardPage() {
                 discordWebhookUrl={(data.tournament as any).discordWebhookUrl}
                 playoffsSize={(data.tournament as any).playoffsSize} />
             )}
-            <div className="td-shell">
-              <aside className="td-side">
-                <SideNav value={tab} onChange={setTab} live={data.tournament.status === 'live'} />
-              </aside>
-              <main style={{ minWidth: 0 }}>
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={tab}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                  >
-                    {tab === 'resumen' && (
-                      <ResumenGrid data={data} id={id} navigate={go} onStats={() => setTab('stats')}
-                        onRound={(r) => setParams((prev) => {
-                          const p = new URLSearchParams(prev); p.set('tab', 'partidas'); p.set('round', r); return p;
-                        }, { replace: true })} />
-                    )}
-                    {tab === 'bracket' && <BracketTab id={id} data={data} />}
-                    {tab === 'equipos' && (
-                      <EquiposTab id={id} region={data.tournament.region} standings={data.standings} />
-                    )}
-                    {tab === 'partidas' && <PartidasTab id={id} swissRounds={data.tournament.swissRounds ?? null} />}
-                    {tab === 'stats' && (
-                      <StatsTab id={id} name={data.tournament.name} standings={data.standings} region={data.tournament.region} />
-                    )}
-                    {tab === 'reglas' && <ReglasTab data={data} />}
-                  </motion.div>
-                </AnimatePresence>
-              </main>
+            {/* Pestañas pegajosas: la sección activa sigue a la vista al hacer scroll */}
+            <div className="td-tabs-desktop">
+              <TabBar value={tab} onChange={setTab} live={data.tournament.status === 'live'} />
             </div>
+            <main style={{ minWidth: 0, marginTop: 18 }}>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={tab}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  {tab === 'resumen' && (
+                    <ResumenGrid data={data} id={id} navigate={go} onStats={() => setTab('stats')}
+                      onRound={(r) => setParams((prev) => {
+                        const p = new URLSearchParams(prev); p.set('tab', 'partidas'); p.set('round', r); return p;
+                      }, { replace: true })} />
+                  )}
+                  {tab === 'bracket' && <BracketTab id={id} data={data} />}
+                  {tab === 'equipos' && (
+                    <EquiposTab id={id} region={data.tournament.region} standings={data.standings} />
+                  )}
+                  {tab === 'partidas' && <PartidasTab id={id} swissRounds={data.tournament.swissRounds ?? null} />}
+                  {tab === 'stats' && (
+                    <StatsTab id={id} name={data.tournament.name} standings={data.standings} region={data.tournament.region} />
+                  )}
+                  {tab === 'reglas' && <ReglasTab data={data} />}
+                </motion.div>
+              </AnimatePresence>
+            </main>
             {/* Nav flotante inferior (móvil / tablet) */}
             <BottomNav value={tab} onChange={setTab} live={data.tournament.status === 'live'} />
             {/* Reabre las muestras a petición del jugador — nunca solo */}

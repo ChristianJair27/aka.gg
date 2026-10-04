@@ -1,13 +1,19 @@
 // src/components/LiveGameVisualizer.tsx
-// Clean, modern, stats-focused Live Game Visualizer
-// Uses Spectator v5 data + smart frontend simulation for cooldowns & objectives
+// Visualizador de partida en vivo (Spectator v5) con el sistema "Arena":
+// marcador de retransmisión (azul · reloj · rojo), los dos equipos con elo,
+// hechizos, runas y afinidad con el campeón, bloqueos y tiempos estimados de
+// objetivos. Lo visual vive en src/styles/pages/match.css.
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Clock, RefreshCw, Play, Copy, Check, Users, Target, Sword,
-  AlertCircle, ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, Flame, ExternalLink,
 } from 'lucide-react';
+import { ChampIcon, DragonIcon, UiIcon } from '@/components/arena/primitives';
+import { Button, StatusChip } from '@/components/tournament/ui';
+import { BanTile, Slot } from '@/components/match/parts';
+import '@/styles/pages/match.css';
 
 interface Participant {
   summonerName: string;
@@ -120,17 +126,18 @@ const fmtPts = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1).replace('.0', '')}M`
   : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n);
 
+type TagKind = 'gold' | 'pos' | 'dim';
 // Etiquetas que cruzan al JUGADOR con el CAMPEÓN de esta partida.
-function championTags(p: Participant): Array<{ text: string; cls: string }> {
-  const tags: Array<{ text: string; cls: string }> = [];
+function championTags(p: Participant): Array<{ text: string; kind: TagKind; streak?: boolean }> {
+  const tags: Array<{ text: string; kind: TagKind; streak?: boolean }> = [];
   const m = p.mastery;
   if (m) {
-    if (m.points >= 300_000) tags.push({ text: `Main · ${fmtPts(m.points)} pts`, cls: 'text-amber-300 border-amber-400/30 bg-amber-400/10' });
-    else if (m.points >= 60_000) tags.push({ text: `Experimentado · ${fmtPts(m.points)}`, cls: 'text-emerald-300 border-emerald-400/25 bg-emerald-400/10' });
-    else if (m.points > 0 && m.points < 6_000) tags.push({ text: 'Poco jugado', cls: 'text-white/55 border-white/15 bg-white/5' });
-    else if (m.points === 0) tags.push({ text: 'Primera vez', cls: 'text-sky-300 border-sky-400/25 bg-sky-400/10' });
+    if (m.points >= 300_000) tags.push({ text: `Main · ${fmtPts(m.points)} pts`, kind: 'gold' });
+    else if (m.points >= 60_000) tags.push({ text: `Experimentado · ${fmtPts(m.points)}`, kind: 'pos' });
+    else if (m.points > 0 && m.points < 6_000) tags.push({ text: 'Poco jugado', kind: 'dim' });
+    else if (m.points === 0) tags.push({ text: 'Primera vez', kind: 'dim' });
   }
-  if (p.rank?.hotStreak) tags.push({ text: '🔥 Racha', cls: 'text-red-300 border-red-400/30 bg-red-400/10' });
+  if (p.rank?.hotStreak) tags.push({ text: 'Racha', kind: 'gold', streak: true });
   return tags.slice(0, 2);
 }
 
@@ -160,16 +167,21 @@ function calculateObjectiveTimers(gameLength: number) {
 
   // Baron
   if (gameLength >= OBJECTIVE_TIMINGS.baron) {
-    timers.push({ name: 'Baron', time: 0, status: 'active' });
+    timers.push({ name: 'Barón', time: 0, status: 'active' });
   } else {
-    timers.push({ name: 'Baron', time: OBJECTIVE_TIMINGS.baron - gameLength, status: 'spawns' });
+    timers.push({ name: 'Barón', time: OBJECTIVE_TIMINGS.baron - gameLength, status: 'spawns' });
   }
 
   return timers;
 }
 
+const objectiveIcon = (name: string) =>
+  name === 'Dragón' ? <DragonIcon dragon="elder" size={20} />
+  : name === 'Heraldo' ? <UiIcon name="rift_herald" size={22} />
+  : <UiIcon name="nashor" size={22} />;
+
 function PlayerRow({
-  p, side, champs, version, runes, spells, isMe, platform, augmentMode,
+  p, side, champs, version, runes, isMe, platform, augmentMode,
 }: {
   p: Participant; side: 'blue' | 'red'; champs: any; version: string;
   runes?: any; spells?: any; isMe: boolean; platform?: string; augmentMode?: boolean;
@@ -184,98 +196,75 @@ function PlayerRow({
 
   const spell1Cd = SPELL_COOLDOWNS[p.spell1Id] || 180;
   const spell2Cd = SPELL_COOLDOWNS[p.spell2Id] || 300;
+  const tierColor = p.rank?.tier ? (TIER_COLORS[p.rank.tier] || '#b6b6c0') : undefined;
 
   return (
-    <div className={`group flex items-center gap-3 rounded-xl border p-2.5 transition-all
-      ${side === 'blue' ? 'border-blue-500/20 bg-blue-500/[0.02] hover:bg-blue-500/[0.06]' : 'border-red-500/20 bg-red-500/[0.02] hover:bg-red-500/[0.06]'}
-      ${isMe ? 'ring-1 ring-yellow-400/60' : ''}`}>
-      
-      {/* Champion */}
-      <div className="relative flex-shrink-0">
-        {champ?.image ? (
-          <img src={champ.image} alt="" className="w-11 h-11 rounded-lg object-cover ring-1 ring-white/10" />
-        ) : (
-          <div className="w-11 h-11 rounded-lg bg-zinc-800" />
-        )}
-        {isMe && (
-          <div className="absolute -top-1 -right-1 px-1 py-px text-[8px] font-black bg-yellow-400 text-black rounded">TÚ</div>
-        )}
-      </div>
+    <div className="mx-lrow" data-side={side} data-me={isMe ? 'true' : undefined}>
+      {/* Campeón */}
+      {champ?.image
+        ? <ChampIcon src={champ.image} name={champ.name} size={46} />
+        : <Slot size={46} />}
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            {profileHref ? (
-              <a href={profileHref} target="_blank" rel="noopener noreferrer"
-                className="font-semibold text-sm truncate hover:text-red-400 hover:underline underline-offset-2 transition-colors">
-                {p.summonerName || 'Invocador'}
-              </a>
-            ) : (
-              <div className="font-semibold text-sm truncate">
-                {p.summonerName || 'Invocador'}
-              </div>
-            )}
-            {/* Elo del jugador (crest oficial + tier corto + LP + WR temporada) */}
-            {p.rank?.tier && (
-              <span
-                className="flex items-center gap-1 rounded-full border px-1.5 py-0.5 flex-shrink-0"
-                style={{ borderColor: `${TIER_COLORS[p.rank.tier] || '#888'}55`, background: `${TIER_COLORS[p.rank.tier] || '#888'}14` }}
-                title={`${p.rank.tier} ${p.rank.rank} · ${p.rank.lp} LP${p.rank.winRate != null ? ` · ${p.rank.winRate}% WR (${p.rank.wins}V ${p.rank.losses}D)` : ''}`}
-              >
-                <img src={crestUrl(p.rank.tier)} className="w-4 h-4 object-contain" alt=""
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                <span className="text-[10px] font-bold" style={{ color: TIER_COLORS[p.rank.tier] || '#ccc' }}>
-                  {TIER_SHORT[p.rank.tier] || p.rank.tier} {p.rank.rank}
-                </span>
-                {p.rank.winRate != null && (
-                  <span className={`text-[9px] font-mono ${p.rank.winRate >= 50 ? 'text-teal-300/80' : 'text-white/40'}`}>
-                    {p.rank.winRate}%
-                  </span>
-                )}
-              </span>
-            )}
-          </div>
-          {champ && <div className="text-[10px] text-white/50 font-mono truncate flex-shrink-0">{champ.name}</div>}
+      <div className="mx-lrow-body">
+        <div className="mx-lrow-top">
+          {profileHref ? (
+            <a href={profileHref} target="_blank" rel="noopener noreferrer" className="mx-lname">
+              {p.summonerName || 'Invocador'}
+            </a>
+          ) : (
+            <span className="mx-lname">{p.summonerName || 'Invocador'}</span>
+          )}
+          {isMe && <StatusChip kind="gold" dot={false}>Tú</StatusChip>}
+          {/* Elo del jugador (crest oficial + tier corto + WR de temporada) */}
+          {p.rank?.tier && (
+            <span
+              className="mx-rank"
+              style={{ ['--c' as string]: tierColor } as React.CSSProperties}
+              title={`${p.rank.tier} ${p.rank.rank} · ${p.rank.lp} LP${p.rank.winRate != null ? ` · ${p.rank.winRate}% WR (${p.rank.wins}V ${p.rank.losses}D)` : ''}`}
+            >
+              <img src={crestUrl(p.rank.tier)} alt="" loading="lazy"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              {TIER_SHORT[p.rank.tier] || p.rank.tier} {p.rank.rank}
+              {p.rank.winRate != null && (
+                <small data-pos={p.rank.winRate >= 50 ? 'true' : undefined}>{p.rank.winRate}%</small>
+              )}
+            </span>
+          )}
+          {champ && <span className="mx-lchamp">{champ.name}</span>}
         </div>
 
-        {/* Spells + Runes row */}
-        <div className="mt-1.5 flex items-center gap-3 text-[11px]">
-          {/* Spells */}
-          <div className="flex gap-1.5">
-            {[p.spell1Id, p.spell2Id].map((sid, idx) => {
-              const cd = idx === 0 ? spell1Cd : spell2Cd;
-              return (
-                <div key={idx} className="flex items-center gap-1 rounded bg-black/40 px-1.5 py-0.5 border border-white/10">
-                  <img
-                    src={getSpellIcon(version, sid)}
-                    className="w-4 h-4 rounded-sm opacity-90"
-                    alt=""
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                  <span className="font-mono text-[10px] text-white/70 tabular-nums">{Math.floor(cd / 60)}:{(cd % 60).toString().padStart(2, '0')}</span>
-                </div>
-              );
-            })}
-          </div>
+        {/* Hechizos + runa + afinidad */}
+        <div className="mx-lmeta">
+          {[p.spell1Id, p.spell2Id].map((sid, idx) => {
+            const cd = idx === 0 ? spell1Cd : spell2Cd;
+            return (
+              <span key={idx} className="mx-spell" title="Enfriamiento base del hechizo">
+                <img
+                  src={getSpellIcon(version, sid)}
+                  alt=""
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+                {Math.floor(cd / 60)}:{(cd % 60).toString().padStart(2, '0')}
+              </span>
+            );
+          })}
 
           {/* Keystone — en modos con augments (Mayhem/Arena) las elecciones se
               hacen dentro de la partida y el spectator no las expone. */}
           {augmentMode ? (
-            <div className="flex items-center gap-1.5 rounded bg-purple-500/10 border border-purple-500/25 px-1.5 py-0.5 text-purple-300">
-              <span className="text-[10px]">Augments en partida</span>
-            </div>
+            <StatusChip kind="dim" dot={false}>Augments en partida</StatusChip>
           ) : runeData ? (
-            <div className="flex items-center gap-1.5 text-white/80">
-              <img src={runeData.icon} className="w-4 h-4" alt="" />
-              <span className="text-[10px] truncate max-w-[92px]">{runeData.name}</span>
-            </div>
+            <span className="mx-rune">
+              <img src={runeData.icon} alt="" />
+              <span>{runeData.name}</span>
+            </span>
           ) : null}
 
           {/* Afinidad jugador↔campeón de ESTA partida (maestría) + racha */}
           {championTags(p).map((tag, i) => (
-            <span key={i} className={`rounded-full border px-1.5 py-0.5 text-[10px] whitespace-nowrap ${tag.cls}`}>
-              {tag.text}
-            </span>
+            <StatusChip key={i} kind={tag.kind} dot={false}>
+              {tag.streak && <Flame size={12} aria-hidden />}{tag.text}
+            </StatusChip>
           ))}
         </div>
       </div>
@@ -368,248 +357,198 @@ export default function LiveGameVisualizer({
     }
   };
 
-  return (
-    <div className="rounded-2xl border border-white/[0.08] bg-zinc-950/80 overflow-hidden">
-      {/* Header - Clean & Stats Focused */}
-      <div className="flex items-center justify-between border-b border-white/10 px-5 py-3 bg-black/30">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1">
-            <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-xs font-bold tracking-[1px] text-red-400">EN VIVO</span>
-          </div>
+  const rowPlatform = (liveGame.platformUsed || platform).toLowerCase();
 
-          <div className="flex items-center gap-2 text-sm font-medium text-white/90">
-            <Clock className="h-4 w-4 text-white/60" />
-            <span className="font-mono tabular-nums">{formatTime(liveGame.gameLength || 0)}</span>
-          </div>
+  const faces = (team: Participant[], side: 'blue' | 'red') => (
+    <div className="mx-faces" data-side={side}>
+      {team.map((p, i) => {
+        const c = getChampion(champs, p.championId);
+        return c?.image ? (
+          <img key={i} className="mx-face" src={c.image} alt={c.name} loading="lazy" decoding="async"
+            title={`${p.summonerName || 'Invocador'} · ${c.name}`} data-me={isMe(p) ? 'true' : undefined} />
+        ) : (
+          <span key={i} className="mx-face" aria-hidden />
+        );
+      })}
+    </div>
+  );
 
-          <div className="text-xs text-white/60">{gameModeLabel}</div>
-
-          {detectedOnDifferentPlatform && (
-            <div className="text-[10px] px-2 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/30 text-yellow-400">
-              Detectado en {liveGame.platformUsed?.toUpperCase()}
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {canSpectate && (
-            <button
-              onClick={handleSpectate}
-              className="flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/15 px-3 py-1.5 text-xs font-semibold transition"
-            >
-              <Play className="h-3.5 w-3.5" /> VER EN CLIENTE
-            </button>
-          )}
-
-          <button
-            onClick={onRefresh ? onRefresh : undefined}
-            disabled={!!isRefreshing}
-            className="flex items-center gap-1.5 rounded-lg border border-white/10 hover:bg-white/5 px-3 py-1.5 text-xs font-medium transition disabled:opacity-50"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Actualizando...' : 'Actualizar'}
-          </button>
-
-          <button onClick={() => setExpanded(!expanded)} className="p-1.5 text-white/50 hover:text-white">
-            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-        </div>
+  const team = (players: Participant[], side: 'blue' | 'red', bans: typeof bansBlue) => (
+    <div className="mx-lteam" data-side={side}>
+      <div className="mx-lteam-head">
+        <b>{side === 'blue' ? 'Azul' : 'Rojo'}</b>
+        <i aria-hidden />
+        <span className="td-over">{players.length} jugadores</span>
       </div>
+      {players.map((p, i) => (
+        <PlayerRow key={i} p={p} side={side} champs={champs} version={version} runes={runes} spells={spells}
+          isMe={isMe(p)} platform={rowPlatform} augmentMode={augmentMode} />
+      ))}
+      {bans.length > 0 && (
+        <div className="mx-bans">
+          <span className="td-over">Bloqueos</span>
+          <div className="mx-bans-list">
+            {bans.map((b, i) => {
+              const c = getChampion(champs, b.championId);
+              return <BanTile key={i} src={c?.image} name={c?.name} />;
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
-          >
-            {/* Teams */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-px bg-white/5">
-              {/* Blue Side */}
-              <div className="bg-zinc-950 p-4">
-                <div className="flex items-center gap-2 mb-3 px-1">
-                  <div className="text-blue-400 text-xs font-bold tracking-widest">AZUL</div>
-                  <div className="flex-1 h-px bg-blue-500/20" />
-                  <div className="text-[10px] text-white/40 font-mono">{blue.length} JUGADORES</div>
-                </div>
-                <div className="space-y-2">
-                  {blue.map((p, i) => (
-                    <PlayerRow key={i} p={p} side="blue" champs={champs} version={version} runes={runes} spells={spells} isMe={isMe(p)} platform={(liveGame.platformUsed || platform).toLowerCase()} augmentMode={augmentMode} />
-                  ))}
-                </div>
+  return (
+    <div className="td-root mx-embed">
+      <section className="mx-bug ax-rise" data-live="true" aria-label="Partida en vivo">
+        {/* Cabecera: estado, modo y acciones */}
+        <div className="mx-bug-top">
+          <StatusChip kind="live">En vivo</StatusChip>
+          <span className="mx-bug-fact">{gameModeLabel}</span>
+          {detectedOnDifferentPlatform && (
+            <StatusChip kind="gold" dot={false}>Detectado en {liveGame.platformUsed?.toUpperCase()}</StatusChip>
+          )}
+          <span className="mx-spacer" />
+          {canSpectate && (
+            <Button variant="secondary" icon={<Play size={15} />} onClick={handleSpectate}>Ver en cliente</Button>
+          )}
+          <Button variant="secondary" disabled={!!isRefreshing} onClick={onRefresh ? onRefresh : undefined}
+            icon={<RefreshCw size={15} className={isRefreshing ? 'mx-spin' : undefined} />}>
+            {isRefreshing ? 'Actualizando…' : 'Actualizar'}
+          </Button>
+          <button type="button" className="mx-iconbtn" onClick={() => setExpanded(!expanded)}
+            aria-expanded={expanded} aria-label={expanded ? 'Ocultar el detalle de la partida' : 'Mostrar el detalle de la partida'}>
+            {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
+        </div>
 
-                {/* Bans Blue */}
-                {bansBlue.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-white/10">
-                    <div className="text-[10px] font-mono text-white/50 mb-1.5 px-1">PROHÍBIDAS</div>
-                    <div className="flex gap-1.5 flex-wrap">
-                      {bansBlue.map((b, i) => {
-                        const c = getChampion(champs, b.championId);
-                        return (
-                          <div key={i} className="relative w-7 h-7 rounded overflow-hidden ring-1 ring-white/10">
-                            {c?.image && <img src={c.image} className="grayscale opacity-70" alt="" />}
-                            <div className="absolute inset-0 bg-red-950/70 flex items-center justify-center">
-                              <span className="text-red-400 text-[9px]">✕</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+        {/* Marcador: lado azul · reloj · lado rojo */}
+        <div className="mx-bug-main">
+          <div className="mx-side" data-side="blue">
+            <span className="td-over mx-side-tag">Lado azul</span>
+            <span className="mx-side-name">Azul</span>
+          </div>
+          <div className="mx-score">
+            <span className="mx-live-clock">{formatTime(liveGame.gameLength || 0)}</span>
+            <span className="td-over" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Clock size={12} aria-hidden /> Tiempo de partida
+            </span>
+          </div>
+          <div className="mx-side" data-side="red">
+            <span className="td-over mx-side-tag">Lado rojo</span>
+            <span className="mx-side-name">Rojo</span>
+          </div>
+          <div className="mx-faces-row">
+            {faces(blue, 'blue')}
+            {faces(red, 'red')}
+          </div>
+        </div>
+
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              style={{ overflow: 'hidden' }}
+            >
+              {/* Equipos */}
+              <div className="mx-lteams">
+                {team(blue, 'blue', bansBlue)}
+                {team(red, 'red', bansRed)}
               </div>
 
-              {/* Red Side */}
-              <div className="bg-zinc-950 p-4 lg:border-l border-white/5">
-                <div className="flex items-center gap-2 mb-3 px-1">
-                  <div className="text-red-400 text-xs font-bold tracking-widest">ROJO</div>
-                  <div className="flex-1 h-px bg-red-500/20" />
-                  <div className="text-[10px] text-white/40 font-mono">{red.length} JUGADORES</div>
-                </div>
-                <div className="space-y-2">
-                  {red.map((p, i) => (
-                    <PlayerRow key={i} p={p} side="red" champs={champs} version={version} runes={runes} spells={spells} isMe={isMe(p)} platform={(liveGame.platformUsed || platform).toLowerCase()} augmentMode={augmentMode} />
-                  ))}
-                </div>
-
-                {bansRed.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-white/10">
-                    <div className="text-[10px] font-mono text-white/50 mb-1.5 px-1">PROHÍBIDAS</div>
-                    <div className="flex gap-1.5 flex-wrap justify-end">
-                      {bansRed.map((b, i) => {
-                        const c = getChampion(champs, b.championId);
-                        return (
-                          <div key={i} className="relative w-7 h-7 rounded overflow-hidden ring-1 ring-white/10">
-                            {c?.image && <img src={c.image} className="grayscale opacity-70" alt="" />}
-                            <div className="absolute inset-0 bg-red-950/70 flex items-center justify-center">
-                              <span className="text-red-400 text-[9px]">✕</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Stats-Focused Bottom Section */}
-            <div className="border-t border-white/10 bg-black/30 p-5">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Game Info */}
+              {/* Estado · objetivos · composición */}
+              <div className="mx-info">
                 <div>
-                  <div className="uppercase text-[10px] tracking-[1px] text-white/50 mb-2 font-medium">ESTADO DEL JUEGO</div>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between"><span className="text-white/60">Duración</span> <span className="font-mono font-medium">{formatTime(liveGame.gameLength || 0)}</span></div>
-                    <div className="flex justify-between"><span className="text-white/60">Modo</span> <span>{gameModeLabel}</span></div>
-                    <div className="flex justify-between"><span className="text-white/60">Game ID</span> <span className="font-mono text-xs text-white/70">{liveGame.gameId}</span></div>
-                  </div>
+                  <div className="td-over mx-info-title">Estado del juego</div>
+                  <div className="mx-kv"><span>Duración</span><b>{formatTime(liveGame.gameLength || 0)}</b></div>
+                  <div className="mx-kv"><span>Modo</span><b>{gameModeLabel}</b></div>
+                  <div className="mx-kv"><span>Game ID</span><b>{liveGame.gameId}</b></div>
                 </div>
 
-                {/* Objective Timers — solo Grieta del Invocador (en ARAM/Arena no hay dragón/heraldo/barón) */}
+                {/* Solo Grieta del Invocador (en ARAM/Arena no hay dragón/heraldo/barón) */}
                 <div>
-                  <div className="uppercase text-[10px] tracking-[1px] text-white/50 mb-2 font-medium flex items-center gap-1.5">
-                    <Target className="h-3.5 w-3.5" /> OBJETIVOS (ESTIMADOS)
-                  </div>
+                  <div className="td-over mx-info-title"><Target size={13} aria-hidden /> Objetivos (estimados)</div>
                   {showObjectives ? (
                     <>
-                      <div className="space-y-1.5 text-sm">
-                        {objectiveTimers.map((obj, idx) => (
-                          <div key={idx} className="flex justify-between items-center rounded bg-white/[0.025] px-3 py-1">
-                            <span className="text-white/80">{obj.name}</span>
-                            <span className={`font-mono text-xs ${obj.status === 'active' ? 'text-emerald-400' : 'text-white/70'}`}>
-                              {obj.status === 'active' ? 'ACTIVO AHORA' : obj.time > 0 ? `~${formatTime(obj.time)}` : '—'}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="text-[10px] text-white/40 mt-1.5">Los tiempos son aproximados basados en la duración.</div>
+                      {objectiveTimers.map((obj, idx) => (
+                        <div key={idx} className="mx-kv">
+                          <span>{objectiveIcon(obj.name)}{obj.name}</span>
+                          <b data-on={obj.status === 'active' ? 'true' : undefined}>
+                            {obj.status === 'active' ? 'Activo ahora' : obj.time > 0 ? `~${formatTime(obj.time)}` : '—'}
+                          </b>
+                        </div>
+                      ))}
+                      <p className="mx-note">Los tiempos son aproximados, calculados con la duración de la partida.</p>
                     </>
                   ) : (
-                    <div className="text-xs text-white/45 rounded bg-white/[0.025] px-3 py-2">
-                      {gameModeLabel}: sin objetivos neutrales (dragón/heraldo/barón).
-                    </div>
+                    <p className="mx-note" style={{ marginTop: 0, fontSize: 14 }}>
+                      {gameModeLabel}: sin objetivos neutrales (dragón, heraldo o barón).
+                    </p>
                   )}
                 </div>
 
-                {/* Quick Team Stats */}
                 <div>
-                  <div className="uppercase text-[10px] tracking-[1px] text-white/50 mb-2 font-medium flex items-center gap-1.5">
-                    <Users className="h-3.5 w-3.5" /> COMPOSICIÓN
+                  <div className="td-over mx-info-title"><Users size={13} aria-hidden /> Composición</div>
+                  <div className="mx-comp">
+                    <div data-side="blue"><b>{blue.length}</b><span className="td-over">Azul</span></div>
+                    <div data-side="red"><b>{red.length}</b><span className="td-over">Rojo</span></div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-center text-xs">
-                    <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 py-2">
-                      <div className="text-blue-400 font-bold text-lg tabular-nums">{blue.length}</div>
-                      <div className="text-blue-400/70 text-[10px]">AZUL</div>
-                    </div>
-                    <div className="rounded-lg border border-red-500/20 bg-red-500/5 py-2">
-                      <div className="text-red-400 font-bold text-lg tabular-nums">{red.length}</div>
-                      <div className="text-red-400/70 text-[10px]">ROJO</div>
-                    </div>
-                  </div>
-                  <div className="mt-2 text-[10px] text-white/50">
-                    {blue.length + red.length} invocadores en partida
-                  </div>
+                  <p className="mx-note">{blue.length + red.length} invocadores en partida</p>
                 </div>
               </div>
 
-              {/* ATAK AI Live Coach - Like Itero style companion */}
-              <div className="mt-6 pt-5 border-t border-white/10">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="uppercase text-[10px] tracking-[1px] text-white/50 font-medium flex items-center gap-2">
-                    <Sword className="h-3.5 w-3.5" /> ATAK AI LIVE COACH
+              {/* ATAK AI Live Coach */}
+              <div className="mx-strip">
+                <div style={{ minWidth: 0, flex: '1 1 320px' }}>
+                  <div className="td-over mx-info-title" style={{ marginBottom: 4 }}>
+                    <Sword size={13} aria-hidden style={{ color: 'var(--td-red)' }} /> ATAK AI Live Coach
                   </div>
-                  <button
-                    onClick={fetchLiveAdvice}
-                    disabled={aiLoading}
-                    className="text-xs px-3 py-1 rounded bg-red-600/90 hover:bg-red-600 disabled:opacity-50 transition flex items-center gap-1.5"
-                  >
-                    {aiLoading ? 'Pensando...' : 'Pedir consejo en vivo'}
-                  </button>
+                  {!aiAdvice && (
+                    <p className="mx-note" style={{ margin: 0, fontSize: 13.5 }}>
+                      Pulsa el botón para que el coach de IA analice la composición actual y te dé recomendaciones
+                      accionables (usa el mismo modelo que el resto de ATAK).
+                    </p>
+                  )}
                 </div>
-
-                {aiAdvice ? (
-                  <div className="rounded-xl bg-zinc-900/70 border border-white/10 p-4 text-sm leading-relaxed text-white/90">
-                    {aiAdvice}
-                  </div>
-                ) : (
-                  <div className="text-xs text-white/40 italic">
-                    Pulsa el botón para que el coach de IA analice la composición actual y te dé recomendaciones accionables (usa el mismo modelo que el resto de ATAK).
-                  </div>
-                )}
+                <Button variant="primary" disabled={aiLoading} onClick={fetchLiveAdvice}>
+                  {aiLoading ? 'Pensando…' : 'Pedir consejo en vivo'}
+                </Button>
               </div>
+              {aiAdvice && <div className="td-sub mx-advice">{aiAdvice}</div>}
 
-              {/* Desktop Companion Launch (for real rich LCD + AI when YOU are playing) */}
-              <div className="mt-4 pt-4 border-t border-white/10 text-center">
+              {/* Companion de escritorio (datos reales + IA cuando TÚ juegas) */}
+              <div className="mx-strip">
+                <p className="mx-note" style={{ margin: 0, fontSize: 13.5, flex: '1 1 320px' }}>
+                  ¿Estás jugando tú? El Companion de escritorio corre en tu equipo y lee los datos reales de la
+                  partida, sin los límites de la API web.
+                </p>
                 <a
                   href="https://github.com/Kister87/atakgg/blob/main/atak-electron-companion/README.md"
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-lg border border-red-500/30 hover:bg-red-500/10 text-red-400 transition"
+                  className="td-btn td-btn--secondary"
                 >
-                  🚀 Launch ATAK Desktop Companion (real-time stats + AI when you play)
+                  <ExternalLink size={15} aria-hidden /> Abrir ATAK Desktop Companion
                 </a>
-                <div className="text-[10px] text-white/40 mt-1">
-                  (Electron app — runs locally, reads actual game data, bypasses web API limits)
-                </div>
               </div>
-            </div>
 
-            {/* Footer actions */}
-            <div className="flex items-center justify-between border-t border-white/10 bg-black/40 px-5 py-2.5 text-[11px] text-white/50">
-              <div>Datos de Riot Spectator • Actualizado hace unos segundos</div>
-              {canSpectate && (
-                <button onClick={copySpectateCommand} className="flex items-center gap-1 hover:text-white transition">
-                  {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                  Copiar comando de espectador
-                </button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              {/* Pie */}
+              <div className="mx-strip" data-foot="true">
+                <span>Datos de Riot Spectator · Actualizado hace unos segundos</span>
+                {canSpectate && (
+                  <button type="button" onClick={copySpectateCommand} className="mx-textbtn">
+                    {copied ? <Check size={14} style={{ color: 'var(--td-green)' }} /> : <Copy size={14} />}
+                    {copied ? 'Comando copiado' : 'Copiar comando de espectador'}
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </section>
     </div>
   );
 }
