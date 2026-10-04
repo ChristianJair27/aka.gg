@@ -41,7 +41,9 @@ export const TournamentRegisterModal = ({
   const minPlayers = Math.min(5, Math.max(1, Number(teamSize) || 5));
   const maxPlayers = minPlayers === 1 ? 1 : Math.min(7, minPlayers + 2);
   const { isAuthenticated } = useAuth();
-  const { data: overview } = useOverview();
+  // Solo con sesión: sin este guard, un visitante anónimo recibía 401 y el
+  // interceptor lo mandaba a /login al abrir CUALQUIER torneo.
+  const { data: overview } = useOverview(isAuthenticated);
   const linked = overview?.linked ? overview.profile : null;
   const linkedRiotId = linked?.gameName && linked?.tagLine
     ? `${linked.gameName}#${linked.tagLine}` : '';
