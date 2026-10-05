@@ -51,8 +51,8 @@ const ATAK: BroadcastTheme = {
 
 // Identidad de las publicaciones de la liga (instagram.com/lqro.c): títulos en
 // negrita cuadrada e itálica con resplandor azul, datos en monoespaciada en
-// mayúsculas con el azul de acento, y de fondo el degradado azul con las
-// letras "LQC" gigantes (public/lqc/bg.webp, generado desde su logo).
+// mayúsculas con el azul de acento, y de fondo el degradado azul con el logo
+// "LQC" repetido y legible (public/lqc/bg*.webp, generados desde su logo).
 const LQC: BroadcastTheme = {
   id: 'lqc',
   logo: '/lqc-wordmark.png',
@@ -61,8 +61,10 @@ const LQC: BroadcastTheme = {
   fontHref: 'https://fonts.googleapis.com/css2?family=Orbitron:wght@800;900&family=JetBrains+Mono:wght@500;700;800&family=Anton&display=swap',
   vars: {
     '--bo-panel': 'rgba(2, 11, 28, 0.97)',
-    // Paneles con el fondo de la liga bajo un velo navy (el texto manda).
-    '--bo-panel-img': "linear-gradient(rgba(1, 8, 22, 0.46), rgba(1, 8, 22, 0.46)), url('/lqc/bg.webp') center / cover no-repeat, #020b1c",
+    // Marcador y tablero con el fondo de la liga (se lee "LQC" entero) bajo un
+    // velo navy para que el texto mande. Cada pieza tiene su imagen a su tamaño.
+    '--bo-bar-img': "linear-gradient(rgba(1, 8, 22, 0.6), rgba(1, 8, 22, 0.6)), url('/lqc/bg-bar.webp') center / cover no-repeat, #020b1c",
+    '--bo-board-img': "linear-gradient(rgba(1, 8, 22, 0.52), rgba(1, 8, 22, 0.52)), url('/lqc/bg-board.webp') center / cover no-repeat, #020b1c",
     '--bo-strip': 'rgba(1, 7, 18, 0.78)',
     '--bo-sub': 'rgba(4, 22, 52, 0.9)',
     '--bo-sunken': '#0a2750',

@@ -4,21 +4,23 @@
 // - Dos temas (src/lib/broadcastTheme.ts): "atak" (diseño Arena del sitio) y
 //   "lqc" (identidad de la liga). Sale del canal — los "lqc…" usan el de la
 //   liga — o se fuerza con ?theme=atak|lqc. El acento del caster lo pisa.
-// - Arte del juego: iconos locales de /public/lol (dragones por tipo, barón,
-//   heraldo, torres, oro, súbditos, líneas) y el splash de cada campeón en su
-//   fila y en los avisos — nada de emojis.
-// - Oro ESTIMADO por jugador (Live Client no expone el oro de los 10: se
-//   aproxima con pasiva + CS + kills/asistencias, misma fórmula ambos lados)
-//   con gráfica de diferencia por equipo y por enfrentamiento de línea.
-// - Tablero inferior por ENFRENTAMIENTOS: top vs top, jg vs jg, etc.
-// - Avisos en cola (solo eventos NUEVOS): objetivos, primera sangre, torres e
-//   inhibidores, con el campeón que lo consiguió.
-// - Movimiento (solo transform / opacity): entrada del marcador y del tablero,
-//   kills que saltan, dragones e items que aparecen, KDA y nivel que parpadean
-//   al cambiar. Se apaga con prefers-reduced-motion.
-// - Timers de objetivos desde los eventos reales (constantes por parche abajo).
-// Vista previa: ?bg=1 (fondo de prueba) · ?demo=1 (partida simulada, para
-// colocar y revisar el overlay en OBS sin transmisión).
+// - Marcador: equipos, kills, reloj, torres, vacuolarvas, heraldo, barones y,
+//   bajo cada nombre, el contador de dragones hacia el alma (4 casillas).
+// - Franja bajo el marcador: timer de dragón / Anciano, diferencia de oro con
+//   la ventaja escrita del lado que va ganando, y el timer del foso
+//   (vacuolarvas → heraldo → barón) o el "Baron Power Play" mientras dura.
+// - Tablero inferior por ENFRENTAMIENTOS (top vs top…): hechizos, runa clave,
+//   CS, oro, visión, KDA y objetos de cada jugador.
+// - Avisos en cola (solo eventos NUEVOS): objetivos, alma, primera sangre,
+//   torres e inhibidores, con el campeón que lo consiguió.
+// - Oro ESTIMADO: el Live Client no expone el oro de los 10. Por jugador se
+//   aproxima con pasiva + CS + kills/asistencias; al equipo se le suma lo que
+//   reparten torres, dragones y barones. Misma fórmula ambos lados → lo que
+//   vale es la DIFERENCIA.
+// - Un objetivo solo se da por VIVO si el historial de eventos está completo:
+//   si el espectador entró con la partida empezada no se sabe qué murió antes.
+// - Movimiento solo con transform / opacity; se apaga con prefers-reduced-motion.
+// Vista previa: ?bg=1 (fondo de prueba) · ?demo=1 (partida simulada).
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -30,14 +32,21 @@ import { broadcastThemeFor, broadcastVars, ensureBroadcastFont } from '@/lib/bro
 import { demoFeed } from '@/lib/broadcastDemo';
 import '@/styles/pages/broadcast-overlay.css';
 
-// ── Timers de la Grieta (AJUSTAR POR PARCHE si Riot los mueve) ───────────────
-const DRAGON_FIRST = 300;    // primer dragón 5:00
-const DRAGON_RESPAWN = 300;  // renace 5:00 tras cada toma
-const HERALD_SPAWN = 840;    // heraldo 14:00
-const BARON_SPAWN = 1200;    // barón 20:00
-const BARON_RESPAWN = 360;   // renace 6:00 tras cada toma
+// ── Timers de la Grieta — temporada 2026 (AJUSTAR si Riot los mueve) ─────────
+const DRAGON_FIRST = 300;     // primer dragón 5:00
+const DRAGON_RESPAWN = 300;   // renace 5:00 tras cada toma
+const SOUL_AT = 4;            // el 4.º dragón elemental de un equipo da el alma
+const ELDER_DELAY = 360;      // Anciano: 6:00 tras el alma y tras cada Anciano
+const GRUBS_SPAWN = 480;      // vacuolarvas 8:00, una sola vez (3)
+const GRUBS_DESPAWN = 885;    // se van a los 14:45
+const GRUBS_COUNT = 3;
+const HERALD_SPAWN = 900;     // heraldo 15:00, una sola vez
+const HERALD_DESPAWN = 1185;  // se va a los 19:45
+const BARON_SPAWN = 1200;     // barón 20:00
+const BARON_RESPAWN = 360;    // renace 6:00 tras cada toma
+const BARON_BUFF = 180;       // la mejora dura 3:00 → ventana del "Power Play"
 
-// Tipo de dragón del Live Client → icono local.
+// Tipo de dragón del Live Client → icono local y nombre.
 const DRAGON_KEY: Record<string, DragonKey> = {
   Fire: 'infernal', Water: 'ocean', Earth: 'mountain', Air: 'cloud',
   Hextech: 'hextech', Chemtech: 'chemtech', Elder: 'elder',
@@ -48,12 +57,15 @@ const DRAGON_ES: Record<string, string> = {
   Air: 'DRAGÓN DE LAS NUBES', Hextech: 'DRAGÓN HEXTECH', Chemtech: 'DRAGÓN QUÍMICO',
   Elder: 'DRAGÓN ANCIANO',
 };
+const SOUL_ES: Record<string, string> = {
+  Fire: 'ALMA INFERNAL', Water: 'ALMA DEL OCÉANO', Earth: 'ALMA DE MONTAÑA',
+  Air: 'ALMA DE LAS NUBES', Hextech: 'ALMA HEXTECH', Chemtech: 'ALMA QUÍMICA',
+};
 const ICON = {
   baron: lol.ui('nashor'),
   herald: lol.ui('rift_herald'),
   tower: lol.ui('tower'),
   gold: lol.ui('gold'),
-  minion: lol.ui('minion'),
   grubs: lol.ui('creep'),
   kill: lol.ui('score'),
   dragon: lol.dragon('elder'),
@@ -62,8 +74,10 @@ const ICON = {
 interface FeedPlayer {
   riotId: string; championName: string; team: 'ORDER' | 'CHAOS';
   level: number; kills: number; deaths: number; assists: number;
-  creepScore: number; isDead: boolean; respawnTimer: number; items: number[];
+  creepScore: number; wardScore?: number; isDead: boolean; respawnTimer: number; items: number[];
   position: string;
+  /** Hechizos ("SummonerFlash") y runa clave (id): los manda el companion ≥ 0.4.1. */
+  spells?: string[]; keystone?: number;
 }
 interface FeedEvent { id: number; t: number; name: string; killer: string; victim: string; extra: string }
 
@@ -72,12 +86,13 @@ const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const shortName = (r: string) => (r.includes('#') ? r.slice(0, r.indexOf('#')) : r);
 const kFmt = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n)));
 
-/** Oro estimado (Live Client no expone el oro ajeno): pasiva desde 1:50 +
- *  CS + kills/asistencias. Misma fórmula ambos lados → la DIFERENCIA es útil. */
+/** Oro estimado de un jugador: pasiva desde 1:50 + CS + kills/asistencias. */
 function estGold(p: FeedPlayer, t: number): number {
   const passive = Math.max(0, t - 110) * 2.04;
   return Math.round(500 + passive + p.creepScore * 21 + p.kills * 300 + p.assists * 150);
 }
+// Oro que reparte al EQUIPO cada objetivo (local + global, redondeado).
+const TEAM_GOLD = { tower: 550, dragon: 125, baron: 1500, herald: 200 };
 
 const POS_ORDER = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY'];
 /** Cuerpo del nombre del equipo: entero hasta 13 letras, luego baja para que quepa. */
@@ -87,14 +102,81 @@ const fitName = (name: string) => `${name.length <= 13 ? 31 : Math.max(19, Math.
 const towerLane = (extra: string) => (/^Turret_T\d_C_/.test(extra) ? 'TORRE DE MID' : 'TORRE DESTRUIDA');
 
 type Side = 'blue' | 'red';
-/** Aviso en pantalla: objetivo, primera sangre o estructura. */
+const sideOfTeam = (team: 'ORDER' | 'CHAOS' | null | undefined): Side => (team === 'CHAOS' ? 'red' : 'blue');
+
+/** Todo lo que se puede leer de los eventos: objetivos por lado, tiempos y oro. */
+function readGame(feed: any) {
+  const players: FeedPlayer[] = feed.players || [];
+  const events: FeedEvent[] = feed.events || [];
+  const t: number = feed.gameTime || 0;
+  const order = players.filter((p) => p.team === 'ORDER');
+  const chaos = players.filter((p) => p.team === 'CHAOS');
+  const playerOf = (name: string) => {
+    const n = norm(shortName(name));
+    return n ? players.find((p) => norm(shortName(p.riotId)) === n) ?? null : null;
+  };
+  const sideOf = (name: string): Side | null => {
+    const p = playerOf(name);
+    return p ? sideOfTeam(p.team) : null;
+  };
+
+  const towers = { blue: 0, red: 0 };
+  const drakes: Record<Side, string[]> = { blue: [], red: [] };   // elementales
+  const elders = { blue: 0, red: 0 };
+  const barons = { blue: 0, red: 0 };
+  const grubs = { blue: 0, red: 0 };
+  let herald: Side | null = null;
+  let heraldTaken = false;
+  let lastDragonT = -1, lastElderT = -1, lastBaronT = -1, lastBaronSide: Side = 'blue';
+  let soul: { side: Side; type: string; t: number } | null = null;
+
+  for (const e of events) {
+    const side = sideOf(e.killer);
+    if (e.name === 'TurretKilled') {
+      // El evento trae la torre DESTRUIDA: T1 = torre azul → punto para el rojo.
+      if (e.extra.startsWith('Turret_T1')) towers.red++;
+      else if (e.extra.startsWith('Turret_T2')) towers.blue++;
+      else if (side) towers[side]++;
+    } else if (e.name === 'DragonKill') {
+      const type = e.extra || 'Fire';
+      const s = side ?? 'blue';
+      if (type === 'Elder') { elders[s]++; lastElderT = e.t; }
+      else {
+        drakes[s].push(type); lastDragonT = e.t;
+        if (!soul && drakes[s].length >= SOUL_AT) soul = { side: s, type, t: e.t };
+      }
+    } else if (e.name === 'BaronKill') {
+      lastBaronT = e.t; lastBaronSide = side ?? 'blue'; barons[lastBaronSide]++;
+    } else if (e.name === 'HeraldKill') {
+      heraldTaken = true; herald = side;
+    } else if (e.name === 'HordeKill') {
+      grubs[side ?? 'blue']++;
+    }
+  }
+
+  const goldOf = new Map<string, number>();
+  players.forEach((p) => goldOf.set(p.riotId, estGold(p, t)));
+  const sum = (list: FeedPlayer[]) => list.reduce((s, p) => s + (goldOf.get(p.riotId) || 0), 0);
+  const bonus = (s: Side) =>
+    towers[s] * TEAM_GOLD.tower + (drakes[s].length + elders[s]) * TEAM_GOLD.dragon + barons[s] * TEAM_GOLD.baron + (herald === s ? TEAM_GOLD.herald : 0);
+  const gold = { blue: sum(order) + bonus('blue'), red: sum(chaos) + bonus('red') };
+
+  return {
+    players, events, t, order, chaos, playerOf, sideOf, goldOf, gold,
+    towers, drakes, elders, barons, grubs, herald: herald as Side | null, heraldTaken, soul: soul as { side: Side; type: string; t: number } | null,
+    lastDragonT, lastElderT, lastBaronT, lastBaronSide,
+  };
+}
+
+/** Aviso en pantalla: objetivo, alma, primera sangre o estructura. */
 interface Moment {
   key: number; icon: string; kicker: string; title: string; side: Side;
   /** Splash del campeón que lo consiguió (fondo del aviso). */
   art?: string;
-  /** Avisos menores (torres) duran menos y van más compactos. */
+  /** Avisos menores (torres, larvas) duran menos y van más compactos. */
   minor?: boolean;
 }
+interface PowerPlay { side: Side; t0: number; base: number | null }
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 /** Cifra que salta (escala + fundido) cada vez que cambia; al montar no anima. */
@@ -157,6 +239,21 @@ export default function BroadcastOverlayPage() {
     },
   });
 
+  // Runa clave (id) → icono, desde Data Dragon. Si falla, la columna queda sin runa.
+  const runesQ = useQuery({
+    queryKey: ['overlay-runes', version],
+    staleTime: Infinity,
+    retry: 1,
+    queryFn: async () => {
+      const trees: any[] = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/runesReforged.json`).then((r) => r.json());
+      const map: Record<number, string> = {};
+      for (const tree of trees) for (const slot of tree.slots || []) for (const r of slot.runes || []) map[r.id] = `https://ddragon.leagueoflegends.com/cdn/img/${r.icon}`;
+      return map;
+    },
+  });
+  const runeIcon = (id?: number) => (id && runesQ.data ? runesQ.data[id] || '' : '');
+  const spellIcon = (key?: string) => (key && /^Summoner[A-Za-z0-9_]+$/.test(key) ? `https://ddragon.leagueoflegends.com/cdn/${version}/img/spell/${key}.png` : '');
+
   const [demoElapsed, setDemoElapsed] = useState(0);
   useEffect(() => {
     if (!demo) return;
@@ -187,62 +284,104 @@ export default function BroadcastOverlayPage() {
   const champArtRef = useRef(champArt);
   champArtRef.current = champArt;
 
-  // ── Avisos en cola (solo eventos NUEVOS entre snapshots) ──────────────────
+  // ── Estado que vive entre snapshots (se reinicia al empezar otra partida) ──
   const [queue, setQueue] = useState<Moment[]>([]);
+  const [powerPlay, setPowerPlay] = useState<PowerPlay | null>(null);
   const seenEvents = useRef<Set<number>>(new Set());
   const firstSnap = useRef(true);
+  const lastTime = useRef(-1);
+  const historyOk = useRef(false);
+
+  // Partida nueva (el reloj retrocede) y ¿está completo el historial? Se
+  // resuelve durante el render para que los timers de este mismo snapshot ya
+  // lo sepan. El companion ≥ 0.4.1 lo dice (eventsComplete); si no, se deduce:
+  // hay GameStart, o el feed viene recortado (partida larga), o aún no ha
+  // pasado nada. Una vez completo, lo sigue estando.
+  const newGame = !!feed && lastTime.current >= 0 && (feed.gameTime || 0) < lastTime.current - 30;
+  if (newGame) historyOk.current = false;
+  if (feed && !historyOk.current) {
+    const evs: FeedEvent[] = feed.events || [];
+    const complete = typeof feed.eventsComplete === 'boolean'
+      ? feed.eventsComplete
+      : evs.some((e) => e.name === 'GameStart') || evs.length >= 80 || (feed.gameTime || 0) < DRAGON_FIRST;
+    if (complete) historyOk.current = true;
+  }
 
   useEffect(() => {
-    const events: FeedEvent[] = feed?.events || [];
-    if (!events.length) return;
+    if (!feed) return;
+    const g = readGame(feed);
+
+    // Partida nueva: los ids de evento vuelven a empezar.
+    if (lastTime.current >= 0 && g.t < lastTime.current - 30) {
+      seenEvents.current = new Set();
+      firstSnap.current = true;
+      setQueue([]);
+      setPowerPlay(null);
+    }
+    lastTime.current = g.t;
+
     if (firstSnap.current) {
-      events.forEach((e) => seenEvents.current.add(e.id));
+      g.events.forEach((e) => seenEvents.current.add(e.id));
       firstSnap.current = false;
+      // Abierto con una mejora de barón en curso: se cuenta el tiempo, no el oro.
+      if (g.lastBaronT >= 0 && g.t < g.lastBaronT + BARON_BUFF) setPowerPlay({ side: g.lastBaronSide, t0: g.lastBaronT, base: null });
       return;
     }
 
-    const players: FeedPlayer[] = feed?.players || [];
-    const playerOf = (name: string) => {
-      const n = norm(shortName(name));
-      return n ? players.find((p) => norm(shortName(p.riotId)) === n) ?? null : null;
-    };
-    const teamNameOf = (side: Side) => String(side === 'red' ? (feed?.team2 || 'ROJO') : (feed?.team1 || 'AZUL')).toUpperCase();
-    const firstKillId = Math.min(...events.filter((e) => e.name === 'ChampionKill').map((e) => e.id));
+    const teamName = (side: Side) => String(side === 'red' ? (feed.team2 || 'ROJO') : (feed.team1 || 'AZUL')).toUpperCase();
+    const kills = g.events.filter((e) => e.name === 'ChampionKill');
+    const firstKillId = kills.length ? Math.min(...kills.map((e) => e.id)) : -1;
+    const drakeCount = { blue: 0, red: 0 };
 
     const fresh: Moment[] = [];
-    for (const e of events) {
+    for (const e of g.events) {
+      const killer = g.playerOf(e.killer);
+      const side: Side = sideOfTeam(killer?.team);
+      const elemental = e.name === 'DragonKill' && (e.extra || 'Fire') !== 'Elder';
+      if (elemental) drakeCount[side]++;
       if (seenEvents.current.has(e.id)) continue;
       seenEvents.current.add(e.id);
 
-      const killer = playerOf(e.killer);
-      const side: Side = killer?.team === 'CHAOS' ? 'red' : 'blue';
       const art = killer ? champArtRef.current.splash(killer.championName) : '';
-      const takes = `${teamNameOf(side)} SE LLEVA`;
+      const takes = `${teamName(side)} SE LLEVA`;
 
       if (e.name === 'DragonKill') {
         const type = e.extra || 'Fire';
-        fresh.push({ key: e.id, icon: dragonIcon(type), kicker: takes, title: DRAGON_ES[type] ?? 'DRAGÓN', side, art });
+        if (elemental && drakeCount[side] === SOUL_AT) {
+          fresh.push({ key: e.id, icon: dragonIcon(type), kicker: `${teamName(side)} CONSIGUE EL`, title: SOUL_ES[type] ?? 'ALMA DEL DRAGÓN', side, art });
+        } else {
+          const kicker = elemental && drakeCount[side] === SOUL_AT - 1 ? `${teamName(side)} · PUNTO DE ALMA` : takes;
+          fresh.push({ key: e.id, icon: dragonIcon(type), kicker, title: DRAGON_ES[type] ?? 'DRAGÓN', side, art });
+        }
       } else if (e.name === 'BaronKill') {
         fresh.push({ key: e.id, icon: ICON.baron, kicker: takes, title: 'BARÓN NASHOR', side, art });
+        // Power Play: oro ganado respecto al rival mientras dura la mejora.
+        setPowerPlay({ side, t0: e.t, base: g.gold.blue - g.gold.red });
       } else if (e.name === 'HeraldKill') {
         fresh.push({ key: e.id, icon: ICON.herald, kicker: takes, title: 'HERALDO DE LA GRIETA', side, art });
       } else if (e.name === 'HordeKill') {
-        fresh.push({ key: e.id, icon: ICON.grubs, kicker: takes, title: 'LARVAS DEL VACÍO', side, art, minor: true });
+        // Las tres larvas caen casi juntas: un solo aviso.
+        if (!fresh.some((m) => m.title === 'VACUOLARVAS')) fresh.push({ key: e.id, icon: ICON.grubs, kicker: takes, title: 'VACUOLARVAS', side, minor: true });
       } else if (e.name === 'ChampionKill' && e.id === firstKillId && killer) {
         fresh.push({
           key: e.id, icon: champArtRef.current.icon(killer.championName) || ICON.kill,
-          kicker: `${shortName(killer.riotId).toUpperCase()} · ${teamNameOf(side)}`, title: 'PRIMERA SANGRE', side, art,
+          kicker: `${shortName(killer.riotId).toUpperCase()} · ${teamName(side)}`, title: 'PRIMERA SANGRE', side, art,
         });
       } else if (e.name === 'TurretKilled') {
-        // La torre destruida dice el lado: T1 = torre azul → la tira el rojo.
         const towerSide: Side = e.extra.startsWith('Turret_T1') ? 'red' : e.extra.startsWith('Turret_T2') ? 'blue' : side;
-        fresh.push({ key: e.id, icon: ICON.tower, kicker: `${teamNameOf(towerSide)} DERRIBA`, title: towerLane(e.extra), side: towerSide, minor: true });
+        fresh.push({ key: e.id, icon: ICON.tower, kicker: `${teamName(towerSide)} DERRIBA`, title: towerLane(e.extra), side: towerSide, minor: true });
       } else if (e.name === 'InhibKilled') {
-        fresh.push({ key: e.id, icon: ICON.tower, kicker: `${teamNameOf(side)} DERRIBA`, title: 'INHIBIDOR', side, art });
+        fresh.push({ key: e.id, icon: ICON.tower, kicker: `${teamName(side)} DERRIBA`, title: 'INHIBIDOR', side, art });
       }
     }
-    // Como mucho 4 en espera: tras una pelea grande importa lo último.
-    if (fresh.length) setQueue((q) => [...q, ...fresh].slice(-4));
+    // Como mucho 4 en espera (tras una pelea grande importa lo último) y un
+    // solo aviso de larvas aunque lleguen en snapshots seguidos.
+    if (fresh.length) {
+      setQueue((q) => {
+        const grubsQueued = q.some((m) => m.title === 'VACUOLARVAS');
+        return [...q, ...fresh.filter((m) => !(grubsQueued && m.title === 'VACUOLARVAS'))].slice(-4);
+      });
+    }
   }, [feed]);
 
   // El primero de la cola se muestra y se retira solo.
@@ -253,55 +392,37 @@ export default function BroadcastOverlayPage() {
     return () => clearTimeout(t);
   }, [moment]);
 
+  const known = historyOk.current;
   const derived = useMemo(() => {
     if (!feed) return null;
-    const players: FeedPlayer[] = feed.players || [];
-    const events: FeedEvent[] = feed.events || [];
-    const t: number = feed.gameTime || 0;
-    const order = players.filter((p) => p.team === 'ORDER');
-    const chaos = players.filter((p) => p.team === 'CHAOS');
-    const teamOfName = (name: string): 'ORDER' | 'CHAOS' | null => {
-      const n = norm(shortName(name));
-      if (order.some((p) => norm(shortName(p.riotId)) === n)) return 'ORDER';
-      if (chaos.some((p) => norm(shortName(p.riotId)) === n)) return 'CHAOS';
-      return null;
-    };
+    const g = readGame(feed);
+    const { t } = g;
 
-    // Torres: el evento trae la torre DESTRUIDA (Turret_T1_* = torre del azul
-    // → punto para el rojo). Fallback: equipo del asesino.
-    let towersOrder = 0, towersChaos = 0;
-    const dragonsOrder: string[] = [], dragonsChaos: string[] = [];
-    let baronsOrder = 0, baronsChaos = 0;
-    let lastDragonT = -1, lastBaronT = -1, heraldTaken = false;
-
-    for (const e of events) {
-      if (e.name === 'TurretKilled') {
-        if (e.extra.startsWith('Turret_T1')) towersChaos++;
-        else if (e.extra.startsWith('Turret_T2')) towersOrder++;
-        else if (teamOfName(e.killer) === 'ORDER') towersOrder++;
-        else if (teamOfName(e.killer) === 'CHAOS') towersChaos++;
-      } else if (e.name === 'DragonKill') {
-        lastDragonT = e.t;
-        const type = e.extra || 'Fire';
-        (teamOfName(e.killer) === 'CHAOS' ? dragonsChaos : dragonsOrder).push(type);
-      } else if (e.name === 'BaronKill') {
-        lastBaronT = e.t;
-        if (teamOfName(e.killer) === 'CHAOS') baronsChaos++; else baronsOrder++;
-      } else if (e.name === 'HeraldKill') {
-        heraldTaken = true;
-      }
+    // ── Dragón / Anciano ────────────────────────────────────────────────────
+    // Sin historial completo solo se confía en lo que se vio morir.
+    type Timer = { icon: string; label: string; secs: number } | null;
+    let dragon: Timer;
+    if (g.soul) {
+      const from = g.lastElderT >= 0 ? g.lastElderT : g.soul.t;
+      dragon = { icon: lol.dragon('elder'), label: 'ANCIANO', secs: from + ELDER_DELAY - t };
+    } else if (g.lastDragonT >= 0) {
+      dragon = { icon: ICON.dragon, label: 'DRAGÓN', secs: g.lastDragonT + DRAGON_RESPAWN - t };
+    } else {
+      dragon = known || t < DRAGON_FIRST ? { icon: ICON.dragon, label: 'DRAGÓN', secs: DRAGON_FIRST - t } : null;
     }
 
-    const nextDragon = (lastDragonT < 0 ? DRAGON_FIRST : lastDragonT + DRAGON_RESPAWN) - t;
-    const baronBase = lastBaronT < 0 ? BARON_SPAWN : lastBaronT + BARON_RESPAWN;
-    const nextBaron = baronBase - t;
-    const nextHerald = !heraldTaken && t < BARON_SPAWN ? HERALD_SPAWN - t : null;
-
-    // ── Oro estimado por jugador / equipo ─────────────────────────────────
-    const goldOf = new Map<string, number>();
-    players.forEach((p) => goldOf.set(p.riotId, estGold(p, t)));
-    const goldOrder = order.reduce((s, p) => s + (goldOf.get(p.riotId) || 0), 0);
-    const goldChaos = chaos.reduce((s, p) => s + (goldOf.get(p.riotId) || 0), 0);
+    // ── Foso: vacuolarvas → heraldo → barón ─────────────────────────────────
+    const grubsDead = g.grubs.blue + g.grubs.red >= GRUBS_COUNT;
+    let pit: Timer;
+    if (t < GRUBS_DESPAWN && !grubsDead && (t < GRUBS_SPAWN || known)) {
+      pit = { icon: ICON.grubs, label: 'VACUOLARVAS', secs: GRUBS_SPAWN - t };
+    } else if (t < HERALD_DESPAWN && !g.heraldTaken && (t < HERALD_SPAWN || known)) {
+      pit = { icon: ICON.herald, label: 'HERALDO', secs: HERALD_SPAWN - t };
+    } else if (g.lastBaronT >= 0) {
+      pit = { icon: ICON.baron, label: 'BARÓN', secs: g.lastBaronT + BARON_RESPAWN - t };
+    } else {
+      pit = known || t < BARON_SPAWN ? { icon: ICON.baron, label: 'BARÓN', secs: BARON_SPAWN - t } : null;
+    }
 
     // ── Enfrentamientos por línea (top vs top…); fallback por índice (ARAM) ──
     const byPos = (list: FeedPlayer[]) => {
@@ -309,31 +430,26 @@ export default function BroadcastOverlayPage() {
       list.forEach((p) => { if (POS_ORDER.includes(p.position) && !m.has(p.position)) m.set(p.position, p); });
       return m;
     };
-    const oPos = byPos(order), cPos = byPos(chaos);
+    const oPos = byPos(g.order), cPos = byPos(g.chaos);
     const canPair = POS_ORDER.every((pos) => oPos.has(pos)) && POS_ORDER.every((pos) => cPos.has(pos));
     const matchups: Array<{ pos: string; blue: FeedPlayer | null; red: FeedPlayer | null }> = canPair
       ? POS_ORDER.map((pos) => ({ pos, blue: oPos.get(pos) ?? null, red: cPos.get(pos) ?? null }))
-      : Array.from({ length: Math.max(order.length, chaos.length) }, (_, i) => ({
-          pos: '', blue: order[i] ?? null, red: chaos[i] ?? null,
+      : Array.from({ length: Math.max(g.order.length, g.chaos.length) }, (_, i) => ({
+          pos: '', blue: g.order[i] ?? null, red: g.chaos[i] ?? null,
         }));
 
     const label: string = feed.matchLabel || '';
     const vs = label.match(/([^:]+?)\s+vs\.?\s+(.+)/i);
-    const team1 = (feed.team1 || vs?.[1] || 'AZUL').trim().toUpperCase();
-    const team2 = (feed.team2 || vs?.[2] || 'ROJO').trim().toUpperCase();
-
     const mode = String(feed.gameMode || '').toUpperCase();
-    const isRift = mode === 'CLASSIC' || /summoner/i.test(String(feed.mapName || ''));
 
     return {
-      order, chaos, team1, team2, isRift, matchups, goldOf, goldOrder, goldChaos,
-      logo1: feed.logo1 || '', logo2: feed.logo2 || '',
-      killsOrder: order.reduce((s, p) => s + p.kills, 0),
-      killsChaos: chaos.reduce((s, p) => s + p.kills, 0),
-      towersOrder, towersChaos, dragonsOrder, dragonsChaos, baronsOrder, baronsChaos,
-      nextDragon, nextBaron, nextHerald, gameTime: t,
+      ...g, dragon, pit, matchups,
+      team: { blue: (feed.team1 || vs?.[1] || 'AZUL').trim().toUpperCase() as string, red: (feed.team2 || vs?.[2] || 'ROJO').trim().toUpperCase() as string },
+      logo: { blue: (feed.logo1 || '') as string, red: (feed.logo2 || '') as string },
+      kills: { blue: g.order.reduce((s, p) => s + p.kills, 0), red: g.chaos.reduce((s, p) => s + p.kills, 0) },
+      isRift: mode === 'CLASSIC' || /summoner/i.test(String(feed.mapName || '')),
     };
-  }, [feed]);
+  }, [feed, known]);
 
   if (!derived) {
     // Sin transmisión: overlay invisible (OBS no muestra nada). En debug, aviso.
@@ -344,89 +460,119 @@ export default function BroadcastOverlayPage() {
 
   const d = derived;
   const itemIcon = (id: number) => `https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${id}.png`;
-  const goldTotal = Math.max(1, d.goldOrder + d.goldChaos);
-  const goldDiff = d.goldOrder - d.goldChaos;
-  const bluePct = (d.goldOrder / goldTotal) * 100;
+  const goldDiff = d.gold.blue - d.gold.red;
+  const lead: Side | null = goldDiff > 0 ? 'blue' : goldDiff < 0 ? 'red' : null;
+  const bluePct = (d.gold.blue / Math.max(1, d.gold.blue + d.gold.red)) * 100;
   const hide = (e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.visibility = 'hidden'; };
   // La liga rotula con barras ("CALENDARIO / SEMANA 5"): mismo separador en su tema.
   const rawLabel: string = feed.matchLabel || `${theme.brand} · ${String(channel).toUpperCase()}`;
   const boardLabel = theme.id === 'lqc' ? rawLabel.replace(/\s*[·|•-]\s+/g, ' / ') : rawLabel;
 
+  // Power Play vigente: mientras dure la mejora del último barón.
+  const pp = powerPlay && d.t >= powerPlay.t0 && d.t < powerPlay.t0 + BARON_BUFF ? powerPlay : null;
+  const ppGold = pp && pp.base != null ? (goldDiff - pp.base) * (pp.side === 'blue' ? 1 : -1) : null;
+
   // Los bloques de abajo se llaman como funciones (teamBlock('blue')), no como
   // <Componente />: definidos aquí dentro se remontarían en cada snapshot y
   // repetirían su animación de entrada.
 
+  // ── Contador de dragones hacia el alma (bajo el nombre del equipo) ─────────
+  const soulTrack = (side: Side) => {
+    const taken = d.drakes[side];
+    const mine = d.soul?.side === side;
+    const point = !d.soul && taken.length === SOUL_AT - 1;
+    return (
+      <span className={`bo-soul${mine ? ' has' : ''}`}>
+        {Array.from({ length: SOUL_AT }).map((_, i) => (
+          <span key={i} className={`bo-soul-slot${taken[i] ? ' on' : ''}`} title={taken[i] ? DRAGON_ES[taken[i]] : undefined}>
+            {taken[i] && (
+              <motion.img
+                key={taken[i]} src={dragonIcon(taken[i])} alt="" onError={hide}
+                initial={{ opacity: 0, scale: 0.3 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.45, ease: EASE }}
+              />
+            )}
+          </span>
+        ))}
+        {mine
+          ? <b className="bo-soul-tag gold">{SOUL_ES[d.soul!.type] ?? 'ALMA'}</b>
+          : point ? <b className="bo-soul-tag">PUNTO DE ALMA</b> : null}
+        {d.elders[side] > 0 && <span className="bo-soul-elder"><img src={lol.dragon('elder')} alt="Anciano" onError={hide} />{d.elders[side]}</span>}
+      </span>
+    );
+  };
+
   // ── Bloque de equipo (marcador superior) ───────────────────────────────────
   const teamBlock = (side: Side) => {
-    const blue = side === 'blue';
-    const name = blue ? d.team1 : d.team2;
-    const logo = blue ? d.logo1 : d.logo2;
-    const barons = blue ? d.baronsOrder : d.baronsChaos;
+    const name = d.team[side];
+    const logo = d.logo[side];
     return (
       <div className={`bo-team ${side}`}>
         {logo
           ? <span className="bo-team-logo"><img src={logo} alt="" onError={hide} /></span>
           : <span className="bo-team-logo ph bo-disp">{name.slice(0, 1)}</span>}
         <div className="bo-team-id">
-          <span className="bo-team-name bo-disp" style={{ ['--fit' as any]: fitName(name) }}>{name}</span>
-          <span className="bo-team-side">{blue ? 'LADO AZUL' : 'LADO ROJO'}</span>
-        </div>
-        <div className="bo-team-stats">
-          <span className="bo-stat"><img src={ICON.tower} alt="Torres" onError={hide} /><Pop value={blue ? d.towersOrder : d.towersChaos} /></span>
-          {d.isRift && barons > 0 && <span className="bo-stat"><img src={ICON.baron} alt="Barones" onError={hide} /><Pop value={barons} /></span>}
-          <span className="bo-stat gold"><img src={ICON.gold} alt="Oro" onError={hide} />{kFmt(blue ? d.goldOrder : d.goldChaos)}</span>
+          {/* Línea 1: nombre + oro del equipo */}
+          <div className="bo-team-l1">
+            <span className="bo-team-name bo-disp" style={{ ['--fit' as any]: fitName(name) }}>{name}</span>
+            <span className="bo-stat gold" title="Oro del equipo (estimado)"><img src={ICON.gold} alt="Oro" onError={hide} />{kFmt(d.gold[side])}</span>
+          </div>
+          {/* Línea 2: dragones hacia el alma + torres, vacuolarvas, heraldo y barones */}
+          <div className="bo-team-l2">
+            {d.isRift && soulTrack(side)}
+            <span className="bo-objs">
+              <span className="bo-obj" title="Torres"><img src={ICON.tower} alt="Torres" onError={hide} /><Pop value={d.towers[side]} /></span>
+              {d.isRift && <span className={`bo-obj${d.grubs[side] ? '' : ' zero'}`} title="Vacuolarvas"><img src={ICON.grubs} alt="Vacuolarvas" onError={hide} /><Pop value={d.grubs[side]} /></span>}
+              {d.isRift && <span className={`bo-obj${d.herald === side ? '' : ' zero'}`} title="Heraldo"><img src={ICON.herald} alt="Heraldo" onError={hide} />{d.herald === side ? 1 : 0}</span>}
+              {d.isRift && <span className={`bo-obj${d.barons[side] ? '' : ' zero'}`} title="Barones"><img src={ICON.baron} alt="Barones" onError={hide} /><Pop value={d.barons[side]} /></span>}
+            </span>
+          </div>
         </div>
       </div>
     );
   };
 
-  // Dragones tomados: cada uno aparece con un salto corto al entrar.
-  const drakes = (side: Side) => (
-    <div className={`bo-drakes ${side}`}>
-      {(side === 'blue' ? d.dragonsOrder : d.dragonsChaos).map((type, i) => (
-        <motion.span
-          key={`${i}-${type}`} className="bo-drake" title={DRAGON_ES[type] ?? type}
-          initial={{ opacity: 0, scale: 0.4 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, ease: EASE }}
-        >
-          <img src={dragonIcon(type)} alt="" onError={hide} />
-        </motion.span>
-      ))}
-    </div>
-  );
-
-  const timerChip = (icon: string, label: string, secs: number | null) => {
-    if (secs == null) return null;
-    const live = secs <= 0;
+  const timerChip = (tm: { icon: string; label: string; secs: number } | null) => {
+    if (!tm) return null;
+    const live = tm.secs <= 0;
     return (
       <span className={`bo-chip${live ? ' live' : ''}`}>
-        <img src={icon} alt="" onError={hide} />
-        {label}
-        {live ? <><span className="bo-live-dot" /><b>VIVO</b></> : <b>{fmt(secs)}</b>}
+        <img src={tm.icon} alt="" onError={hide} />
+        {tm.label}
+        {live ? <><span className="bo-live-dot" /><b>VIVO</b></> : <b>{fmt(tm.secs)}</b>}
       </span>
     );
   };
 
   // ── Jugador de un enfrentamiento ───────────────────────────────────────────
-  const playerCell = (p: FeedPlayer | null, side: Side, lead: boolean) => {
+  const playerCell = (p: FeedPlayer | null, side: Side, isLead: boolean) => {
     if (!p) return <div />;
     const icon = champArt.icon(p.championName);
     const splash = champArt.splash(p.championName);
     const gold = d.goldOf.get(p.riotId) || 0;
     const dead = p.isDead;
+    const ks = runeIcon(p.keystone);
+    const spells = (p.spells || []).map(spellIcon).filter(Boolean);
     return (
-      <div className={`bo-p ${side}${lead ? ' lead' : ''}${dead ? ' dead' : ''}`}>
+      <div className={`bo-p ${side}${isLead ? ' lead' : ''}${dead ? ' dead' : ''}`}>
         {/* Splash del campeón: se funde hacia el centro de la fila */}
         {splash && <span className="bo-art" aria-hidden><img src={splash} alt="" onError={hide} /></span>}
         <span className="bo-face">
           {icon ? <img src={icon} alt="" onError={hide} /> : null}
           {dead && p.respawnTimer > 0 && <span className="bo-respawn"><Pop value={Math.ceil(p.respawnTimer)} /></span>}
+          <span className="bo-lvl"><Pop value={p.level} /></span>
         </span>
-        <span className="bo-lvl"><Pop value={p.level} /></span>
+        {(ks || spells.length > 0) && (
+          <span className="bo-loadout">
+            <span className="bo-spells">{spells.map((src, i) => <img key={i} src={src} alt="" onError={hide} />)}</span>
+            {ks && <img className="bo-rune" src={ks} alt="" onError={hide} />}
+          </span>
+        )}
         <div className="bo-pid">
           <span className="bo-pname">{shortName(p.riotId) || p.championName}</span>
           <span className="bo-psub">
-            <img src={ICON.minion} alt="CS" onError={hide} />{p.creepScore}
-            <img src={ICON.gold} alt="Oro" onError={hide} /><b>{kFmt(gold)}</b>
+            <span><em>CS</em>{p.creepScore}</span>
+            <span><em>ORO</em><b>{kFmt(gold)}</b></span>
+            {p.wardScore != null && <span><em>VIS</em>{Math.round(p.wardScore)}</span>}
           </span>
         </div>
         <span className="bo-kda">
@@ -461,10 +607,12 @@ export default function BroadcastOverlayPage() {
         transition={{ duration: 0.45, ease: EASE, delay: 0.55 + index * 0.07 }}
       >
         {playerCell(m.blue, 'blue', diff > 0)}
-        <div className={`bo-mid${diff > 0 ? ' blue' : diff < 0 ? ' red' : ''}`}>
+        {/* La ventaja de oro de la línea se escribe del lado que va ganando */}
+        <div className="bo-mid">
           <span className="bo-mid-top">
-            {m.pos ? <img src={lol.lane(m.pos)} alt={m.pos} onError={hide} /> : 'VS'}
-            {diff !== 0 && <b>{diff > 0 ? '+' : '−'}{kFmt(Math.abs(diff))}</b>}
+            <b className="blue">{diff > 0 ? `+${kFmt(diff)}` : ''}</b>
+            {m.pos ? <img src={lol.lane(m.pos)} alt={m.pos} onError={hide} /> : <span>VS</span>}
+            <b className="red">{diff < 0 ? `+${kFmt(-diff)}` : ''}</b>
           </span>
           <div className="bo-goldbar">
             <i className="blue" style={{ width: `${pctB}%` }} />
@@ -484,46 +632,59 @@ export default function BroadcastOverlayPage() {
           <motion.div className="bo-bug" initial={{ opacity: 0, y: -72 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }}>
             {teamBlock('blue')}
             <div className="bo-kills blue bo-disp">
-              <Pop value={d.killsOrder} />
-              <Flash value={d.killsOrder} />
+              <Pop value={d.kills.blue} />
+              <Flash value={d.kills.blue} />
             </div>
             <div className="bo-center">
               <img src={theme.logo} alt={theme.brand} style={{ height: theme.logoHeight }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-              <span className="bo-clock bo-disp">{fmt(d.gameTime)}</span>
+              <span className="bo-clock bo-disp">{fmt(d.t)}</span>
             </div>
             <div className="bo-kills red bo-disp">
-              <Pop value={d.killsChaos} />
-              <Flash value={d.killsChaos} />
+              <Pop value={d.kills.red} />
+              <Flash value={d.kills.red} />
             </div>
             {teamBlock('red')}
             <span aria-hidden className="bo-shine" />
           </motion.div>
 
-          {/* ── Dragones tomados + diferencia de oro por equipo ── */}
-          <motion.div className="bo-subrow" initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: EASE, delay: 0.35 }}>
-            {d.isRift ? drakes('blue') : <span />}
-            <div>
+          {/* ── Franja: dragón · ventaja de oro · foso / Power Play ── */}
+          <motion.div className="bo-strip" initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: EASE, delay: 0.35 }}>
+            <div className="bo-strip-side left">{d.isRift && timerChip(d.dragon)}</div>
+            <div className="bo-goldw">
+              <span className="bo-lead blue">
+                <AnimatePresence initial={false}>
+                  {lead === 'blue' && (
+                    <motion.span key="b" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.35, ease: EASE }}>
+                      <img src={ICON.gold} alt="" onError={hide} />+{kFmt(goldDiff)}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </span>
               <div className="bo-goldbar">
                 <i className="blue" style={{ width: `${bluePct}%` }} />
                 <i className="red" style={{ width: `${100 - bluePct}%` }} />
               </div>
-              <div className={`bo-goldchip${goldDiff > 0 ? ' blue' : goldDiff < 0 ? ' red' : ''}`}>
-                <img src={ICON.gold} alt="" onError={hide} />
-                ORO <b>{goldDiff === 0 ? '0' : `${goldDiff > 0 ? '+' : '−'}${kFmt(Math.abs(goldDiff))}`}</b>
-              </div>
+              <span className="bo-lead red">
+                <AnimatePresence initial={false}>
+                  {lead === 'red' && (
+                    <motion.span key="r" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.35, ease: EASE }}>
+                      +{kFmt(-goldDiff)}<img src={ICON.gold} alt="" onError={hide} />
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </span>
             </div>
-            {d.isRift ? drakes('red') : <span />}
+            <div className="bo-strip-side right">
+              {d.isRift && (pp ? (
+                <motion.span key="pp" className={`bo-chip pp ${pp.side}`} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, ease: EASE }}>
+                  <img src={ICON.baron} alt="" onError={hide} />
+                  POWER PLAY
+                  {ppGold != null && <b>{ppGold >= 0 ? '+' : '−'}{kFmt(Math.abs(ppGold))}</b>}
+                  <span className="bo-pp-time">{fmt(pp.t0 + BARON_BUFF - d.t)}</span>
+                </motion.span>
+              ) : timerChip(d.pit))}
+            </div>
           </motion.div>
-
-          {/* ── Timers de objetivos (solo en la Grieta) ── */}
-          {d.isRift && (
-            <motion.div className="bo-timers" initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: EASE, delay: 0.5 }}>
-              {timerChip(ICON.dragon, 'DRAGÓN', d.nextDragon)}
-              {d.nextHerald != null
-                ? timerChip(ICON.herald, 'HERALDO', d.nextHerald)
-                : timerChip(ICON.baron, 'BARÓN', d.nextBaron)}
-            </motion.div>
-          )}
         </div>
 
         {/* ── Aviso: entra desde arriba con un barrido, sin rebote; uno a la vez ── */}
@@ -562,11 +723,7 @@ export default function BroadcastOverlayPage() {
 
         {/* ── Tablero inferior: sube al abrir; las filas entran escalonadas ── */}
         <motion.div className="bo-board" initial={{ opacity: 0, y: 90 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE, delay: 0.2 }}>
-          <div className="bo-board-head">
-            <span className="bo-board-team blue"><i />{d.team1}</span>
-            <span className="bo-board-label bo-disp">{boardLabel}</span>
-            <span className="bo-board-team red">{d.team2}<i /></span>
-          </div>
+          <div className="bo-board-head"><span className="bo-board-label bo-disp">{boardLabel}</span></div>
           {d.matchups.map((m, i) => matchupRow(m, i))}
         </motion.div>
       </div>

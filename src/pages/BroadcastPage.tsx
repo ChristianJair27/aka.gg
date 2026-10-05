@@ -138,7 +138,7 @@ function PlayerLine({ p, champIcon, champSplash, itemIcon, side, index }: {
       </div>
       <div className="bb-pstats">
         <div className="bb-kda"><span key={p.kills} className="bb-pop">{p.kills}</span>/<i key={p.deaths} className="bb-pop">{p.deaths}</i>/<span key={p.assists} className="bb-pop">{p.assists}</span></div>
-        <div className="bb-cs">{p.creepScore} CS</div>
+        <div className="bb-cs">CS {p.creepScore} · VIS {Math.round(p.wardScore || 0)}</div>
       </div>
     </div>
   );
