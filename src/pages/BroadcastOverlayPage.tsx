@@ -44,7 +44,9 @@ const HERALD_SPAWN = 900;     // heraldo 15:00, una sola vez
 const HERALD_DESPAWN = 1185;  // se va a los 19:45
 const BARON_SPAWN = 1200;     // barón 20:00
 const BARON_RESPAWN = 360;    // renace 6:00 tras cada toma
-const BARON_BUFF = 180;       // la mejora dura 3:00 → ventana del "Power Play"
+const BARON_BUFF = 180;
+const EPIC_EVENTS = new Set(['DragonKill', 'HordeKill', 'HeraldKill', 'BaronKill']);
+const EPIC_CHECK_AT = 660; // 11:00 — a esa altura siempre ha caído algún monstruo épico       // la mejora dura 3:00 → ventana del "Power Play"
 
 // Tipo de dragón del Live Client → icono local y nombre.
 const DRAGON_KEY: Record<string, DragonKey> = {
@@ -393,6 +395,14 @@ export default function BroadcastOverlayPage() {
   }, [moment]);
 
   const known = historyOk.current;
+  // El cliente de LoL en modo ESPECTADOR no reporta las muertes de monstruos
+  // épicos (dragón, larvas, heraldo, barón): el feed trae kills y torres pero
+  // ningún DragonKill/HordeKill/… Si a los 11 min no ha llegado ninguno, los
+  // objetivos se dan por desconocidos y se ocultan en vez de mostrar "VIVO" y
+  // ceros falsos. ?objetivos=0|1 lo fuerza.
+  const objParam = params.get('objetivos');
+  const epicOk = objParam === '1' || (objParam !== '0' && !!feed && (
+    (feed.events || []).some((e: FeedEvent) => EPIC_EVENTS.has(e.name)) || (feed.gameTime || 0) < EPIC_CHECK_AT));
   const derived = useMemo(() => {
     if (!feed) return null;
     const g = readGame(feed);
@@ -424,6 +434,8 @@ export default function BroadcastOverlayPage() {
       pit = known || t < BARON_SPAWN ? { icon: ICON.baron, label: 'BARÓN', secs: BARON_SPAWN - t } : null;
     }
 
+    if (!epicOk) { dragon = null; pit = null; }
+
     // ── Enfrentamientos por línea (top vs top…); fallback por índice (ARAM) ──
     const byPos = (list: FeedPlayer[]) => {
       const m = new Map<string, FeedPlayer>();
@@ -443,13 +455,13 @@ export default function BroadcastOverlayPage() {
     const mode = String(feed.gameMode || '').toUpperCase();
 
     return {
-      ...g, dragon, pit, matchups,
+      ...g, dragon, pit, matchups, epicOk,
       team: { blue: (feed.team1 || vs?.[1] || 'AZUL').trim().toUpperCase() as string, red: (feed.team2 || vs?.[2] || 'ROJO').trim().toUpperCase() as string },
       logo: { blue: (feed.logo1 || '') as string, red: (feed.logo2 || '') as string },
       kills: { blue: g.order.reduce((s, p) => s + p.kills, 0), red: g.chaos.reduce((s, p) => s + p.kills, 0) },
       isRift: mode === 'CLASSIC' || /summoner/i.test(String(feed.mapName || '')),
     };
-  }, [feed, known]);
+  }, [feed, known, epicOk]);
 
   if (!derived) {
     // Sin transmisión: overlay invisible (OBS no muestra nada). En debug, aviso.
@@ -518,12 +530,12 @@ export default function BroadcastOverlayPage() {
           </div>
           {/* Línea 2: dragones hacia el alma + torres, vacuolarvas, heraldo y barones */}
           <div className="bo-team-l2">
-            {d.isRift && soulTrack(side)}
+            {d.isRift && d.epicOk && soulTrack(side)}
             <span className="bo-objs">
               <span className="bo-obj" title="Torres"><img src={ICON.tower} alt="Torres" onError={hide} /><Pop value={d.towers[side]} /></span>
-              {d.isRift && <span className={`bo-obj${d.grubs[side] ? '' : ' zero'}`} title="Vacuolarvas"><img src={ICON.grubs} alt="Vacuolarvas" onError={hide} /><Pop value={d.grubs[side]} /></span>}
-              {d.isRift && <span className={`bo-obj${d.herald === side ? '' : ' zero'}`} title="Heraldo"><img src={ICON.herald} alt="Heraldo" onError={hide} />{d.herald === side ? 1 : 0}</span>}
-              {d.isRift && <span className={`bo-obj${d.barons[side] ? '' : ' zero'}`} title="Barones"><img src={ICON.baron} alt="Barones" onError={hide} /><Pop value={d.barons[side]} /></span>}
+              {d.isRift && d.epicOk && <span className={`bo-obj${d.grubs[side] ? '' : ' zero'}`} title="Vacuolarvas"><img src={ICON.grubs} alt="Vacuolarvas" onError={hide} /><Pop value={d.grubs[side]} /></span>}
+              {d.isRift && d.epicOk && <span className={`bo-obj${d.herald === side ? '' : ' zero'}`} title="Heraldo"><img src={ICON.herald} alt="Heraldo" onError={hide} />{d.herald === side ? 1 : 0}</span>}
+              {d.isRift && d.epicOk && <span className={`bo-obj${d.barons[side] ? '' : ' zero'}`} title="Barones"><img src={ICON.baron} alt="Barones" onError={hide} /><Pop value={d.barons[side]} /></span>}
             </span>
           </div>
         </div>
