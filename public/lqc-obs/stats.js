@@ -45,13 +45,21 @@
   const bracket = () => (T && Array.isArray(T.bracket) ? T.bracket : []);
   const standing = (name) => standings().find((s) => same(s.team, name)) || null;
   const currentRound = () => bracket().reduce((m, x) => Math.max(m, Number(x.round) || 0), 0);
+  const lastGameId = (m) => Math.max(0, ...((m.games || []).map((g) => Number(g.gameId) || 0)), Number(m.gameId) || 0);
+  /** Serie con el juego terminado más reciente (los gameId de Riot crecen con el tiempo). */
+  function latestMatch(team) {
+    const list = bracket().filter((m) => m.team2 !== 'BYE' && lastGameId(m) > 0 && (!team || same(m.team1, team) || same(m.team2, team)));
+    return list.sort((a, b) => lastGameId(b) - lastGameId(a))[0] || null;
+  }
   function findMatch() {
     const id = q('match'), team = q('equipo'), t1 = q('t1'), t2 = q('t2');
     if (id) return bracket().find((x) => String(x.id).toLowerCase() === id.toLowerCase()) || null;
     if (t1 && t2) return bracket().find((x) => (same(x.team1, t1) && same(x.team2, t2)) || (same(x.team1, t2) && same(x.team2, t1))) || null;
+    if (page === 'stats-partido') return latestMatch(team);
     if (team) return bracket().filter((x) => Number(x.round) === currentRound()).find((x) => same(x.team1, team) || same(x.team2, team)) || null;
     return null;
   }
+  const splashUrl = (name) => name ? `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${encodeURIComponent(name)}_0.jpg` : '';
   const teamPlayers = (name) => players().filter((p) => same(p.team, name));
   const pname = (p) => p.summonerName || '';
 
@@ -191,9 +199,11 @@
   let MS = null, msFor = '';
   PAGES['stats-partido'] = (root) => {
     const m = findMatch();
-    if (!m) { root.innerHTML = `${headHtml()}${titleHtml('Estadísticas', 'Elige una serie con ?match=r6m1')}${footHtml()}${msgHtml()}`; return; }
+    const overlay = q('modo') === 'overlay';
+    if (overlay) { document.body.classList.add('transparent'); document.querySelectorAll('.bg').forEach((el) => el.remove()); }
+    if (!m) { root.innerHTML = overlay ? '' : `${headHtml()}${titleHtml('Post-partida', 'Esperando el primer juego terminado…')}${footHtml()}${msgHtml()}`; return; }
     const games = (MS && Array.isArray(MS.games) && MS.games.length) ? MS.games : (MS && MS.blueTeam ? [MS] : []);
-    if (!games.length) { root.innerHTML = `${headHtml(`Ronda ${m.round}`)}${titleHtml(`${m.team1} vs ${m.team2}`, 'Aún no hay juegos terminados')}${footHtml()}${msgHtml()}`; return; }
+    if (!games.length) { root.innerHTML = overlay ? '' : `${headHtml(`Ronda ${m.round}`)}${titleHtml(`${m.team1} vs ${m.team2}`, 'Procesando el juego… (1 a 3 min tras terminar)')}${footHtml()}${msgHtml()}`; return; }
     const gi = Math.min(games.length, Math.max(1, Number(q('juego', games.length)) || games.length)) - 1;
     const g = games[gi];
     // ¿Qué equipo fue azul? El bracket no lo dice: se deduce por los jugadores registrados.
@@ -218,7 +228,30 @@
     const thead = `<div class="g-row thead"><span></span><span>Jugador</span><span style="text-align:center">K / D / A</span><span>Daño</span><span style="text-align:right">Oro</span><span style="text-align:right">CS</span><span style="text-align:right">Vis</span><span>Objetos</span></div>`;
     const obj = (o, cls) => o ? `<div class="obj-row ${cls} in d2"><span><img src="../lol/ui/tower.webp" alt="" onerror="this.remove()">Torres<b>${o.towerKills ?? 0}</b></span><span><img src="../lol/dragons/elder.webp" alt="" onerror="this.remove()">Dragones<b>${o.dragonKills ?? 0}</b></span><span><img src="../lol/ui/nashor.webp" alt="" onerror="this.remove()">Barones<b>${o.baronKills ?? 0}</b></span><span><img src="../lol/ui/rift_herald.webp" alt="" onerror="this.remove()">Heraldo<b>${o.riftHeraldKills ?? 0}</b></span><span>Inhibidores<b>${o.inhibitorKills ?? 0}</b></span>${o.firstTower ? '<span class="chip" style="height:26px;font-size:11px">1ª torre</span>' : ''}${o.firstDragon ? '<span class="chip" style="height:26px;font-size:11px">1er dragón</span>' : ''}</div>` : '';
     const winnerBlue = g.winner === 'blue';
+    const winName = winnerBlue ? blueName : redName;
     const tabs = games.length > 1 ? `<div class="pg-tabs">${games.map((x, i) => `<span class="chip ${i === gi ? 'on' : ''}">Juego ${x.gameNumber || i + 1}</span>`).join('')}</div>` : '';
+    const tot = (t, f) => (t || []).reduce((a, p) => a + (Number(p[f]) || 0), 0);
+    const sumB = { dmg: tot(g.blueTeam, 'totalDamageDealt'), gold: tot(g.blueTeam, 'goldEarned'), cs: tot(g.blueTeam, 'cs'), vis: tot(g.blueTeam, 'visionScore') };
+    const sumR = { dmg: tot(g.redTeam, 'totalDamageDealt'), gold: tot(g.redTeam, 'goldEarned'), cs: tot(g.redTeam, 'cs'), vis: tot(g.redTeam, 'visionScore') };
+    const mvpSide = (g.blueTeam || []).includes(mvp) ? 'blue' : 'red';
+    const mvpHtml = mvp ? `<div class="mvp-card ${mvpSide} in d2" style="background-image:linear-gradient(90deg, rgba(2,11,28,.97) 38%, rgba(2,11,28,.55) 70%, rgba(2,11,28,.2)), url('${splashUrl(mvp.championName)}')">
+        ${champImg(mvp.championName, 'lg')}
+        <div class="mvp-body"><div class="l">MVP del juego · ${esc(mvpSide === 'blue' ? blueName : redName)}</div>
+          <div class="display mvp-name">${esc(mvp.summonerName)}</div>
+          <div class="mvp-st"><span><b>${mvp.kills}</b>/<i>${mvp.deaths}</i>/<b>${mvp.assists}</b> · KDA ${fmt(mvp.kda, 2)}</span><span><b>${k(mvp.totalDamageDealt)}</b> daño · ${pct(mvp.totalDamageDealt, mvpSide === 'blue' ? sumB.dmg : sumR.dmg)}% del equipo</span><span><b>${k(mvp.goldEarned)}</b> oro · <b>${mvp.cs}</b> CS · <b>${mvp.visionScore}</b> visión</span>${mvp.pentaKills ? '<span class="chip gold">PENTAKILL</span>' : mvp.quadraKills ? '<span class="chip gold">QUADRA</span>' : mvp.tripleKills ? '<span class="chip">TRIPLE</span>' : ''}</div>
+        </div></div>` : '';
+    const cmpRow = (l, a, b, d) => { const mx = Math.max(a, b, 1); return `<div class="tcmp-row"><span class="n b">${fmt(a, d)}</span>${barHtml(a, mx, '')}<span class="lbl">${l}</span>${barHtml(b, mx, 'red')}<span class="n r">${fmt(b, d)}</span></div>`; };
+    const teamCmp = `<div class="tcmp in d3">${cmpRow('Daño total', sumB.dmg, sumR.dmg)}${cmpRow('Oro total', sumB.gold, sumR.gold)}${cmpRow('CS', sumB.cs, sumR.cs)}${cmpRow('Visión', sumB.vis, sumR.vis)}</div>`;
+    if (overlay) {
+      const o = (x) => x || {};
+      root.innerHTML = `<div class="pg-overlay in">
+        <div class="po-score"><span class="po-team b">${logoHtml(blueName, 'blue')}<b>${esc(blueName)}</b></span><span class="po-n"><span class="b">${sumK(g.blueTeam)}</span><em>–</em><span class="r">${sumK(g.redTeam)}</span></span><span class="po-team r"><b>${esc(redName)}</b>${logoHtml(redName, 'red')}</span></div>
+        <div class="po-mid"><span class="chip gold">Victoria · ${esc(winName)}</span><span class="po-meta">Ronda ${m.round} · Juego ${g.gameNumber || gi + 1} · ${dur(g.gameDuration || 0)} · Serie <b>${Number(m.score1) || 0}–${Number(m.score2) || 0}</b></span>
+          <span class="po-objs"><span>Torres <b>${o(g.blueObjectives).towerKills ?? 0}</b>–<b>${o(g.redObjectives).towerKills ?? 0}</b></span><span>Dragones <b>${o(g.blueObjectives).dragonKills ?? 0}</b>–<b>${o(g.redObjectives).dragonKills ?? 0}</b></span><span>Barones <b>${o(g.blueObjectives).baronKills ?? 0}</b>–<b>${o(g.redObjectives).baronKills ?? 0}</b></span><span>Oro <b>${k(sumB.gold)}</b>–<b>${k(sumR.gold)}</b></span></span></div>
+        ${mvp ? `<div class="po-mvp ${mvpSide}">${champImg(mvp.championName, 'lg')}<div><div class="l">MVP · ${esc(mvp.summonerName)}</div><div class="st"><b>${mvp.kills}</b>/<i>${mvp.deaths}</i>/<b>${mvp.assists}</b> · ${k(mvp.totalDamageDealt)} daño · ${k(mvp.goldEarned)} oro</div></div></div>` : ''}
+      </div>`;
+      return;
+    }
     root.innerHTML = `${headHtml(`Ronda ${m.round} · Juego ${g.gameNumber || gi + 1} de la serie`)}
       <div class="body" style="top:150px">
         <div class="pg-head">
@@ -228,6 +261,7 @@
         </div>
         <div class="objs">${obj(g.blueObjectives, '')}${obj(g.redObjectives, 'r')}</div>
         <div class="boards"><div class="board blue">${thead}${sortRows(g.blueTeam).map(row).join('')}</div><div class="board red">${thead}${sortRows(g.redTeam).map(row).join('')}</div></div>
+        <div class="pg-bottom">${mvpHtml}${teamCmp}</div>
       </div>${footHtml()}${msgHtml()}`;
   };
 
@@ -237,12 +271,12 @@
   let lastKey = '';
   async function loadMS() {
     const m = findMatch(); if (!m) return;
-    if (msFor !== m.id || !MS || (MS.games || []).length < (Number(m.score1) || 0) + (Number(m.score2) || 0)) {
+    if (msFor !== m.id || !MS || (MS.games || []).length < (m.games || []).length) {
       try { MS = await getJson(`${API}/api/tournaments/${encodeURIComponent(TID)}/matches/${encodeURIComponent(m.id)}/stats`); msFor = m.id; } catch (e) { lastErr = e.message; }
     }
   }
   function render() {
-    const key = JSON.stringify([GS && GS.lastUpdated, GS && GS.matchesCompleted, bracket().map((m) => [m.id, m.score1, m.score2]), MS && (MS.games || []).length, lastErr]);
+    const key = JSON.stringify([GS && GS.lastUpdated, GS && GS.matchesCompleted, bracket().map((m) => [m.id, m.score1, m.score2, (m.games || []).length]), msFor, MS && (MS.games || []).length, lastErr]);
     if (key === lastKey) return;
     const first = !lastKey; lastKey = key;
     PAGES[page](root);

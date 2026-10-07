@@ -124,7 +124,7 @@
 .boards { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 .board { display: flex; flex-direction: column; gap: 8px; }
 .g-row {
-  display: grid; grid-template-columns: 48px 1fr 104px 124px 70px 56px 50px 176px; align-items: center; gap: 10px; height: 70px; padding: 0 14px 0 10px;
+  display: grid; grid-template-columns: 48px 1fr 104px 124px 70px 56px 50px 176px; align-items: center; gap: 10px; height: 60px; padding: 0 14px 0 10px;
   border: 1px solid var(--line); border-radius: 10px; background: var(--panel); border-left: 4px solid var(--blue);
 }
 .board.red .g-row { border-left-color: var(--red); }
@@ -143,5 +143,41 @@
 .pg-tabs { display: inline-flex; gap: 8px; }
 .pg-tabs .chip.on { background: var(--accent); border-color: transparent; }
 .winner-tag { position: absolute; left: 50%; top: 234px; transform: translateX(-50%); }
+
+.pg-bottom { display: grid; grid-template-columns: 1fr 640px; gap: 24px; margin-top: 16px; }
+.mvp-card { position: relative; display: flex; align-items: center; gap: 22px; min-height: 150px; padding: 18px 24px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel) center right / cover no-repeat; overflow: hidden; }
+.mvp-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--blue-fill); }
+.mvp-card.red::before { background: var(--red-fill); }
+.mvp-card .champ.lg { width: 92px; height: 92px; border-radius: 12px; }
+.mvp-card .l { font-size: 12px; letter-spacing: 0.16em; color: var(--gold); }
+.mvp-card .mvp-name { font-size: 40px; margin-top: 6px; }
+.mvp-card .mvp-st { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 10px; font-size: 13.5px; letter-spacing: 0.08em; color: var(--text-2); }
+.mvp-card .mvp-st b { color: #fff; } .mvp-card .mvp-st i { font-style: normal; color: var(--red); }
+.mvp-card .mvp-st .chip { height: 26px; font-size: 11px; }
+.tcmp { display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 16px 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.tcmp-row { display: grid; grid-template-columns: 70px 1fr 110px 1fr 70px; align-items: center; gap: 12px; }
+.tcmp-row .lbl { text-align: center; font-size: 11px; letter-spacing: 0.16em; color: var(--muted); }
+.tcmp-row .n { font-family: var(--display); font-weight: 800; font-size: 18px; color: #fff; font-variant-numeric: tabular-nums; }
+.tcmp-row .n.r { text-align: right; }
+
+/* variante transparente (sobre la pantalla de fin de partida / cámara) */
+.pg-overlay { position: absolute; left: 0; right: 0; bottom: 0; height: 150px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 30px; padding: 0 40px; background: linear-gradient(rgba(1, 8, 22, 0.9), rgba(1, 8, 22, 0.9)), url('img/bg-bar.webp') center / cover no-repeat, var(--bg); border-top: 2px solid var(--accent); }
+.po-score { display: flex; align-items: center; gap: 18px; }
+.po-team { display: inline-flex; align-items: center; gap: 12px; min-width: 0; }
+.po-team b { font-family: var(--display); font-weight: 900; font-style: italic; font-size: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-text-stroke: 0.02em #fff; }
+.po-team .logo { --sz: 54px; }
+.po-n { font-family: var(--display); font-weight: 900; font-size: 46px; font-variant-numeric: tabular-nums; }
+.po-n .b { color: var(--blue); } .po-n .r { color: var(--red); } .po-n em { font-style: normal; color: var(--muted); font-size: 30px; padding: 0 8px; }
+.po-mid { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.po-meta { font-size: 12.5px; letter-spacing: 0.14em; color: var(--text-2); }
+.po-meta b { color: #fff; }
+.po-objs { display: flex; gap: 20px; font-size: 12px; letter-spacing: 0.12em; color: var(--muted); }
+.po-objs b { color: #fff; }
+.po-mvp { display: flex; align-items: center; gap: 14px; justify-self: end; padding: 12px 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); border-left: 4px solid var(--blue); }
+.po-mvp.red { border-left-color: var(--red); }
+.po-mvp .champ.lg { width: 64px; height: 64px; }
+.po-mvp .l { font-size: 12px; letter-spacing: 0.14em; color: var(--gold); }
+.po-mvp .st { margin-top: 6px; font-size: 14px; letter-spacing: 0.06em; color: var(--text-2); }
+.po-mvp .st b { color: #fff; } .po-mvp .st i { font-style: normal; color: var(--red); }
 
 .msg { position: absolute; left: 90px; bottom: 136px; }

@@ -26,9 +26,15 @@ A) EN LÍNEA (recomendado: los marcadores, la tabla y los partidos se actualizan
    stats-equipo.html?equipo=Hive       Ficha del equipo: récord, KDA, kills por juego, daño, oro, multikills y
                                        la plantilla con campeones, K/D/A, winrate y puntos
    stats-h2h.html?match=r6m2           Cara a cara de la serie: 8 métricas en barras + jugador destacado
-   stats-partido.html?match=r6m2       Estadísticas del último juego terminado de la serie (marcador, objetivos,
-                                       K/D/A, daño, oro, CS, visión, objetos, MVP). &juego=1 para otro juego.
-                                       Ideal entre juego y juego.
+   stats-partido.html                  POST-PARTIDA automática: en cuanto ATAK.GG procesa un juego (1 a 3 min
+                                       tras terminar) muestra el último juego terminado del torneo: marcador,
+                                       objetivos, tabla 5v5 con daño/oro/CS/visión/objetos, MVP del juego con
+                                       su splash y comparativa de equipos. Déjala puesta: cambia sola.
+                                       ?equipo=Hive (solo juegos de ese equipo) · ?match=r6m2 (una serie) ·
+                                       &juego=1 (otro juego de la serie)
+   stats-partido.html?modo=overlay     La misma info en una barra inferior TRANSPARENTE (marcador, victoria,
+                                       objetivos y MVP) para poner encima de la pantalla de fin de partida o
+                                       de la cámara de los casters.
 
    El marcador de la serie sale del torneo en ATAK.GG: se actualiza solo cuando termina cada juego
    con el código del torneo.
