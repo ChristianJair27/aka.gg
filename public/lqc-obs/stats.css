@@ -131,7 +131,7 @@
 .g-row.thead { height: 26px; border: 0; background: transparent; font-size: 11px; letter-spacing: 0.16em; color: var(--muted); }
 .g-row .nm { min-width: 0; font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .g-row .nm small { display: block; margin-top: 4px; font-weight: 500; font-size: 11px; letter-spacing: 0.1em; color: var(--muted); }
-.g-row .kda { font-size: 16px; text-align: center; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.g-row .kda { font-size: 15px; white-space: nowrap; text-align: center; font-variant-numeric: tabular-nums; color: var(--text-2); }
 .g-row .kda b { color: #fff; } .g-row .kda i { font-style: normal; color: var(--red); }
 .g-row .kda small { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
 .g-row .dmg { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; }
@@ -139,7 +139,7 @@
 .g-row .num { font-size: 15px; text-align: right; font-variant-numeric: tabular-nums; color: #fff; }
 .g-row .num small { display: block; font-size: 10.5px; color: var(--muted); margin-top: 3px; letter-spacing: 0.1em; }
 .g-row.mvp { position: relative; }
-.g-row .mvp::after { content: 'MVP'; position: absolute; right: 10px; top: -8px; padding: 1px 6px; border-radius: 3px; background: var(--gold); color: #1a1200; font-size: 9px; font-weight: 800; letter-spacing: 0.14em; }
+.g-row.mvp::after { content: 'MVP'; position: absolute; right: 10px; top: -8px; padding: 1px 6px; border-radius: 3px; background: var(--gold); color: #1a1200; font-size: 9px; font-weight: 800; letter-spacing: 0.14em; }
 .pg-tabs { display: inline-flex; gap: 8px; }
 .pg-tabs .chip.on { background: var(--accent); border-color: transparent; }
 .winner-tag { position: absolute; left: 50%; top: 234px; transform: translateX(-50%); }
