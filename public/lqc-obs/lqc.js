@@ -20,7 +20,7 @@
     '2 DOPE': '2-dope', 'DinoRatas': 'dinoratas', 'False Promise Gaming': 'false-promise-gaming',
     'Galaxy Gaming': 'galaxy-gaming', 'Heralds Of Cthulhu': 'heralds-of-cthulhu', 'Game Over Qro': 'game-over-qro',
     'Requiem': 'requiem', 'Los Rokosos': 'los-rokosos', 'Nephyx Esports': 'nephyx-esports', 'RAKU': 'raku',
-    'REV505': 'rev505', 'Tlacuaches': 'tlacuaches', 'Mythical Dragons': 'mythical-dragons', 'The Town Boys': 'the-town-boys',
+    'REV505': 'rev505', 'Tlacuaches': 'tlacuaches', 'Mythical Dragons': 'mythical-dragons', 'The Town Boys': 'the-town-boys', 'Hive': 'hive',
   };
   const ALIASES = { 'Nephtys': 'Nephyx Esports', 'Nephyx': 'Nephyx Esports', 'Game Over': 'Game Over Qro', 'Los Tlacuaches': 'Tlacuaches', '2D': '2 DOPE', '2Dope': '2 DOPE' };
   const norm = (s) => String(s || '').trim().replace(/\s+/g, ' ');
