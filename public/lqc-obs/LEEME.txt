@@ -20,6 +20,16 @@ A) EN LÍNEA (recomendado: los marcadores, la tabla y los partidos se actualizan
    tabla.html                          Tabla general en vivo (línea de playoffs = Top 12)
    partidos.html                       Las 9 series de la ronda con marcador en vivo (y quién descansa)
 
+   ESTADÍSTICAS (datos oficiales de ATAK.GG, se actualizan cada 60 s):
+   stats-top.html?stat=score           Ranking de jugadores (MVP del torneo). Otros: stat=kda | dpm | gpm |
+                                       cspm | vision | kills | winrate · min=4 (juegos mínimos) · n=10
+   stats-equipo.html?equipo=Hive       Ficha del equipo: récord, KDA, kills por juego, daño, oro, multikills y
+                                       la plantilla con campeones, K/D/A, winrate y puntos
+   stats-h2h.html?match=r6m2           Cara a cara de la serie: 8 métricas en barras + jugador destacado
+   stats-partido.html?match=r6m2       Estadísticas del último juego terminado de la serie (marcador, objetivos,
+                                       K/D/A, daño, oro, CS, visión, objetos, MVP). &juego=1 para otro juego.
+                                       Ideal entre juego y juego.
+
    El marcador de la serie sale del torneo en ATAK.GG: se actualiza solo cuando termina cada juego
    con el código del torneo.
 
