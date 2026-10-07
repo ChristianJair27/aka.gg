@@ -245,6 +245,15 @@ export function TournamentMatchStats({ tournamentId, match, isActive, onSeeRound
   const [error, setError]       = useState<string | null>(null);
   // Serie Bo3/Bo5: juego seleccionado (null = el último jugado)
   const [gameIdx, setGameIdx]   = useState<number | null>(null);
+  // Replays (.rofl) guardados en ATAK.GG para los juegos de esta serie (los sube el companion).
+  const [replays, setReplays] = useState<Record<number, string>>({});
+  useEffect(() => {
+    let alive = true;
+    axiosInstance.get(`/api/replays/tournament/${tournamentId}`)
+      .then(({ data }) => { if (!alive) return; const m: Record<number, string> = {}; for (const r of data?.replays ?? []) if (r.matchId === match.id) m[r.gameId] = r.url; setReplays(m); })
+      .catch(() => { /* sin replays aún */ });
+    return () => { alive = false; };
+  }, [tournamentId, match.id, stats?.games?.length, stats?.matchId]);
 
   const fetchStats = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -420,6 +429,20 @@ export function TournamentMatchStats({ tournamentId, match, isActive, onSeeRound
               })}
             </div>
           )}
+
+          {(() => {
+            const g: any = games ? games[gameIdx ?? games.length - 1] : stats;
+            const gid = Number(String(g?.matchId || '').split('_')[1]) || Number(match.gameId);
+            const url = gid ? replays[gid] : undefined;
+            return url ? (
+              <div className="flex justify-center -mt-1 mb-2">
+                <a href={url} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-bold bg-white/[0.04] text-gray-300 border border-white/[0.08] hover:text-white hover:border-white/20"
+                  title="Archivo .rofl: ábrelo con el cliente de League (mismo parche) para ver la repetición">
+                  <Eye className="h-3.5 w-3.5" /> Descargar replay
+                </a>
+              </div>
+            ) : null;
+          })()}
 
           {/* Game summary */}
           <div className="flex items-center justify-center gap-6 py-3 bg-white/[0.03] rounded-xl border border-white/[0.08] text-sm">
