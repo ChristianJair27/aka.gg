@@ -235,6 +235,7 @@
     const list = socials();
     if (q('modo') === 'banner') {
       document.body.classList.add('transparent');
+      document.querySelectorAll('.bg').forEach((el) => el.remove());
       const row = list.map((s) => `<span class="social">${ICONS[s.icon]}<span>${esc(s.text)}</span><small>· ${esc(s.label)}</small></span>`).join('') + `<span class="social">${poweredHtml()}</span>`;
       root.innerHTML = `<div class="banner in">
         <div class="lockup"><img src="logos/lqc-wordmark.png" alt="LQC"><i></i><span class="qc"><small>League of Legends</small>Queretaro<br>Championship</span></div>
