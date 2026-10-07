@@ -28,6 +28,8 @@ import { useAuth } from '@/features/auth/useAuth';
 import { TournamentBracket } from '@/components/TournamentBracket';
 import { MatchStatsDetail } from '@/components/MatchStatsDetail';
 import { TournamentGlobalStats } from '@/components/TournamentGlobalStats';
+import { TournamentReplays } from '@/components/TournamentReplays';
+import { Film } from 'lucide-react';
 import { useMatchStats } from '@/hooks/useMatchStats';
 import { useTournamentGlobalStats } from '@/hooks/useTournamentGlobalStats';
 import { Toast } from '@/components/Toast';
@@ -375,6 +377,7 @@ const TABS = [
   { key:'standings', label:'Standings',  icon:<BarChart2 className="h-4 w-4"/> },
   { key:'equipos',   label:'Equipos',    icon:<List className="h-4 w-4"/> },
   { key:'stats',     label:'Stats',      icon:<Activity className="h-4 w-4"/> },
+  { key:'replays',   label:'Replays',    icon:<Film className="h-4 w-4"/> },
 ];
 
 // ─── Stats tab inner component ────────────────────────────────────────────────
@@ -807,6 +810,13 @@ export default function TournamentDetailsPage() {
           {tab === 'stats' && (
             <motion.div key="stats" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
               <StatsTabView tournament={tournament} registrations={registrations} />
+            </motion.div>
+          )}
+
+          {/* Replays y highlights */}
+          {tab === 'replays' && (
+            <motion.div key="replays" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
+              <TournamentReplays tournamentId={tournament.id} bracket={(tournament as any).bracket ?? []} />
             </motion.div>
           )}
 
