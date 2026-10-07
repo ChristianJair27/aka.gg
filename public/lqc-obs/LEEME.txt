@@ -1,0 +1,58 @@
+LQC · PANTALLAS PARA OBS (1920x1080)
+=====================================
+
+Dos formas de usarlas:
+
+A) EN LÍNEA (recomendado: los marcadores, la tabla y los partidos se actualizan solos cada 15 s)
+   Fuente "Navegador" en OBS -> URL -> ancho 1920, alto 1080.
+   Base: https://atakgg.revolution505.com/lqc-obs/
+
+   inicio.html?match=r6m1&hora=20:30   "Empezamos en breve" + cuenta regresiva + la serie de la noche
+   pausa.html?match=r6m1               "Volvemos en breve" (pausa técnica / entre juegos)
+   fin.html                            "Gracias por ver" + redes
+   versus.html?match=r6m1              Cara a cara con logos, récord, marcador de la serie y juego actual
+   champ-select.html?match=r6m1        Marco TRANSPARENTE para la selección de campeones:
+                                       equipos y marcador arriba en las esquinas (el centro queda libre
+                                       para el temporizador del cliente) y barra inferior con ronda/juego/redes
+   redes.html                          Pantalla completa de redes
+   redes.html?modo=banner              Tercio inferior TRANSPARENTE con las redes en marquesina (para poner
+                                       encima de la cámara o del juego)
+   tabla.html                          Tabla general en vivo (línea de playoffs = Top 12)
+   partidos.html                       Las 9 series de la ronda con marcador en vivo (y quién descansa)
+
+   El marcador de la serie sale del torneo en ATAK.GG: se actualiza solo cuando termina cada juego
+   con el código del torneo.
+
+   SERIES DE LA RONDA 6 (parámetro match=):
+     r6m1 Mythical Dragons vs Nephyx Esports      r6m6 REV505 vs Axolotl
+     r6m2 Hive vs Galaxy Gaming                   r6m7 CT&S vs Tlacuaches
+     r6m3 2 DOPE vs Requiem                       r6m8 The Town Boys vs Game Over Qro
+     r6m4 BreakersStorm vs False Promise Gaming   r6m9 DinoRatas vs Heralds Of Cthulhu
+     r6m5 Los Rokosos vs RAKU
+   También sirve ?equipo=Hive (busca la serie de ese equipo en la ronda actual).
+
+   PARÁMETROS OPCIONALES (se combinan con &):
+     t1=Equipo&t2=Equipo&s1=1&s2=0   forzar equipos y marcador a mano (sin depender de internet)
+     juego=2                         número de juego en champ select (si no, se calcula del marcador)
+     ronda=6&bo=3                    rótulo de ronda / mejor de N
+     hora=20:30                      cuenta regresiva en inicio.html (hora local de hoy)
+     msg=TEXTO                       cambiar el título grande (inicio/pausa/fin/redes)
+     tw=lqroc&ig=lqro.c              redes a mostrar; agrega tt= (TikTok), yt= (YouTube), x=, dc= (Discord)
+     arriba=0 / pie=0                en champ-select, ocultar la parte de arriba o la barra de abajo
+     bg=1                            fondo gris de prueba en las pantallas transparentes
+
+   Ajustes recomendados de la fuente Navegador: 1920x1080, FPS 30, DESMARCAR "Apagar la fuente cuando
+   no esté visible" y MARCAR "Actualizar el navegador cuando la escena se active". Si algo no carga,
+   clic derecho en la fuente -> "Actualizar".
+
+B) SIN INTERNET: la carpeta png/ trae cada pantalla ya renderizada (los PNG transparentes van encima del
+   juego/cliente). Fuente "Imagen" en OBS. Los marcadores de esos PNG son los del momento de generarlos.
+
+C) LOGOS: carpeta logos/ (equipos en PNG transparente de 256 px, logo LQC en 2000 px y 600 px,
+   y el wordmark LQC). Equipos sin logo todavía: Hive, BreakersStorm, Axolotl, CT&S, Los Forjadores
+   (se muestra su inicial sobre el color del lado).
+
+Los archivos .html también funcionan abiertos en local (doble clic o fuente Navegador -> "Archivo local"),
+pero en ese modo el marcador en vivo puede no cargar: usa los parámetros t1/t2/s1/s2.
+
+Generado por ATAK.GG · 6-oct-2026
