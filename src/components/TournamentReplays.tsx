@@ -11,7 +11,12 @@ interface BracketMatch { id: string; round: number; team1: string; team2: string
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const mb = (n: number) => `${(n / 1048576).toFixed(1)} MB`;
 
-export function TournamentReplays({ tournamentId, bracket }: { tournamentId: string; bracket: BracketMatch[] }) {
+export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tournamentId: string; bracket?: BracketMatch[] }) {
+  const [bracket, setBracket] = useState<BracketMatch[]>(bracketProp ?? []);
+  useEffect(() => {
+    if (bracketProp) { setBracket(bracketProp); return; }
+    axiosInstance.get(`/api/tournaments/${tournamentId}`).then((r) => { const t = r.data?.tournament ?? r.data; setBracket(Array.isArray(t?.bracket) ? t.bracket : []); }).catch(() => {});
+  }, [tournamentId, bracketProp]);
   const [replays, setReplays] = useState<Replay[]>([]);
   const [clips, setClips] = useState<Clip[]>([]);
   const [pending, setPending] = useState(0);

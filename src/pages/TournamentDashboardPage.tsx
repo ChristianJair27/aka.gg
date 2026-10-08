@@ -18,6 +18,8 @@ import {
   ResumenGrid, BracketTab, EquiposTab, PartidasTab, StatsTab, ReglasTab,
   AdminPanel, DashboardSkeleton, ResponsiveStyles,
 } from '@/components/tournament/dashboard';
+import { TournamentSocial } from '@/components/TournamentSocial';
+import { TournamentReplays } from '@/components/TournamentReplays';
 import '@/styles/tournament-dashboard.css';
 import '@/styles/arena.css';
 
@@ -118,6 +120,8 @@ export default function TournamentDashboardPage() {
                   {tab === 'stats' && (
                     <StatsTab id={id} name={data.tournament.name} standings={data.standings} region={data.tournament.region} />
                   )}
+                  {tab === 'social' && <TournamentSocial tournamentId={id} tournamentName={data.tournament.name} />}
+                  {tab === 'replays' && <TournamentReplays tournamentId={id} />}
                   {tab === 'reglas' && <ReglasTab data={data} />}
                 </motion.div>
               </AnimatePresence>

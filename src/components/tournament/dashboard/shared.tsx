@@ -5,7 +5,7 @@
 import { CSSProperties, ReactNode, useEffect, useState } from 'react';
 import {
   Trophy, Users, BarChart3, Swords, LayoutDashboard, Network, ScrollText,
-  AlertTriangle, RefreshCw,
+  AlertTriangle, RefreshCw, Clapperboard, Film,
 } from 'lucide-react';
 import { animate } from 'framer-motion';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -75,7 +75,7 @@ export function Card({ children, accent, style, anchor }: {
   );
 }
 
-export type Tab = 'resumen' | 'bracket' | 'equipos' | 'partidas' | 'stats' | 'reglas';
+export type Tab = 'resumen' | 'bracket' | 'equipos' | 'partidas' | 'stats' | 'social' | 'replays' | 'reglas';
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
@@ -104,6 +104,8 @@ export const NAV_ITEMS: Array<{ key: Tab; label: string; icon: ReactNode }> = [
   { key: 'equipos', label: 'Equipos', icon: <Users size={18} /> },
   { key: 'partidas', label: 'Partidas', icon: <Swords size={18} /> },
   { key: 'stats', label: 'Estadísticas', icon: <BarChart3 size={18} /> },
+  { key: 'social', label: 'Social', icon: <Clapperboard size={18} /> },
+  { key: 'replays', label: 'Replays', icon: <Film size={18} /> },
   { key: 'reglas', label: 'Reglas', icon: <ScrollText size={18} /> },
 ];
 
@@ -114,6 +116,8 @@ export const NAV_TIPS: Record<Tab, string> = {
   equipos: 'Equipos inscritos, plantillas y análisis',
   partidas: 'Todas las series con su scoreboard',
   stats: 'Ranking de jugadores, radar y gráficos',
+  social: 'Highlights del torneo: me gusta, comenta, comparte y repostea',
+  replays: 'Replays descargables y clips de cada partida',
   reglas: 'Reglamento y formato del torneo',
 };
 
