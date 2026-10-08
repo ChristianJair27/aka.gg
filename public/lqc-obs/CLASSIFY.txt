@@ -14,8 +14,9 @@ https://atakgg.revolution505.com/lqc-obs/champ-select.html?match=r6m2
 
 OVERLAY EN VIVO (in-game; marcador, oro, objetivos, tablero por línea y tarjeta de PELEA)
 https://atakgg.revolution505.com/broadcast/lqc-2026/overlay?theme=lqc&opacidad=75
-   · opacidad=75 → el overlay al 75 % (acepta de 20 a 100). Sin el parámetro va al 100 %.
-   · objetivos=0 → oculta dragón/foso si el espectador no los reporta.
+   · Por defecto va al 80 %; opacidad=70 lo cambia (acepta de 20 a 100).
+   · En cada pelea (2+ bajas seguidas) el tablero de abajo se esconde solo y aparece el panel PELEA con las bajas de cada lado y el oro; vuelve a los 9 s.
+   · tablero=0 → sin tablero de líneas (solo marcador y avisos) · auto=0 → el tablero no se esconde en las peleas · objetivos=0 → oculta dragón/foso.
 
 POST-PARTIDA · BARRA (tercio inferior transparente: marcador, victoria, objetivos y MVP)
 https://atakgg.revolution505.com/lqc-obs/stats-partido.html?modo=overlay

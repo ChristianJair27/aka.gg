@@ -214,7 +214,10 @@ export default function BroadcastOverlayPage() {
   const demo = params.get('demo') === '1';
   // ?opacidad=0.75 (o 75): el caster pidió poder "bajar" el overlay para que estorbe menos.
   const opacityRaw = Number(params.get('opacidad') ?? params.get('opacity'));
-  const overlayOpacity = Number.isFinite(opacityRaw) && opacityRaw > 0 ? Math.min(1, Math.max(0.2, opacityRaw > 1 ? opacityRaw / 100 : opacityRaw)) : 1;
+  const overlayOpacity = Number.isFinite(opacityRaw) && opacityRaw > 0 ? Math.min(1, Math.max(0.2, opacityRaw > 1 ? opacityRaw / 100 : opacityRaw)) : 0.8;
+  // ?tablero=0 oculta el tablero por línea siempre; ?auto=0 evita que se esconda solo durante las peleas.
+  const boardParam = params.get('tablero') !== '0';
+  const autoHide = params.get('auto') !== '0';
   const theme = broadcastThemeFor(channel, params.get('theme'));
   const { data: champs } = useChampions();
   const version = (champs as any)?.version || '14.1.1';
@@ -754,41 +757,53 @@ export default function BroadcastOverlayPage() {
           )}
         </AnimatePresence>
 
-        {/* ── Pelea: tarjeta lateral con las bajas de la pelea en curso ── */}
+        {/* ── Pelea: panel abajo al centro con las bajas de cada lado; mientras dura, el tablero se esconde ── */}
         <AnimatePresence>
           {fight && (
             <motion.div
               key={`fight-${fight.t0}`}
               className={`bo-fight ${fight.lead ?? ''}`}
-              initial={{ opacity: 0, x: -28 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20, transition: { duration: 0.25 } }}
+              initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40, transition: { duration: 0.25 } }}
               transition={{ duration: 0.4, ease: EASE }}
             >
               <div className="bo-fight-head">
-                <span className="bo-fight-title bo-disp">Pelea</span>
-                <span className="bo-fight-tally bo-disp"><b className="blue">{fight.tally.blue}</b><i>–</i><b className="red">{fight.tally.red}</b></span>
+                <span className="bo-fight-team blue">{d.team.blue}</span>
+                <span className="bo-fight-mid">
+                  <span className="bo-fight-tally bo-disp"><b className="blue">{fight.tally.blue}</b><i>–</i><b className="red">{fight.tally.red}</b></span>
+                  <span className="bo-fight-title bo-disp">Pelea · {fmt(fight.t0)}–{fmt(fight.t1)}</span>
+                  {fight.lead && <span className={`bo-fight-gold ${fight.lead}`}><img src={ICON.gold} alt="" onError={hide} />+{kFmt(fight.gold)} oro</span>}
+                </span>
+                <span className="bo-fight-team red">{d.team.red}</span>
               </div>
-              {fight.rows.map((r) => (
-                <motion.div key={r.id} className={`bo-fight-row ${r.side}`} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, ease: EASE }}>
-                  <span className="bo-fight-face">{r.killer ? <img src={champArtRef.current.icon(r.killer.championName) || ICON.kill} alt="" onError={hide} /> : <img src={ICON.kill} alt="" onError={hide} />}</span>
-                  <span className="bo-fight-name">{r.killer ? shortName(r.killer.riotId) : 'Ejecución'}</span>
-                  <span className="bo-fight-arrow" aria-hidden>›</span>
-                  <span className="bo-fight-face dead">{r.victim && <img src={champArtRef.current.icon(r.victim.championName) || ICON.kill} alt="" onError={hide} />}</span>
-                  <span className="bo-fight-name dim">{r.victim ? shortName(r.victim.riotId) : ''}</span>
-                </motion.div>
-              ))}
-              <div className="bo-fight-foot">
-                <span>{fmt(fight.t0)}–{fmt(fight.t1)}</span>
-                {fight.lead && <span className={fight.lead}><img src={ICON.gold} alt="" onError={hide} />+{kFmt(fight.gold)} {d.team[fight.lead]}</span>}
+              <div className="bo-fight-cols">
+                {(['blue', 'red'] as Side[]).map((side) => (
+                  <div key={side} className={`bo-fight-col ${side}`}>
+                    {fight.rows.filter((r) => r.side === side).map((r) => (
+                      <motion.div key={r.id} className="bo-fight-row" initial={{ opacity: 0, x: side === 'blue' ? -10 : 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, ease: EASE }}>
+                        <span className="bo-fight-face">{r.killer ? <img src={champArtRef.current.icon(r.killer.championName) || ICON.kill} alt="" onError={hide} /> : <img src={ICON.kill} alt="" onError={hide} />}</span>
+                        <span className="bo-fight-name">{r.killer ? shortName(r.killer.riotId) : 'Ejecución'}</span>
+                        <span className="bo-fight-arrow" aria-hidden>›</span>
+                        <span className="bo-fight-face dead">{r.victim && <img src={champArtRef.current.icon(r.victim.championName) || ICON.kill} alt="" onError={hide} />}</span>
+                        <span className="bo-fight-name dim">{r.victim ? shortName(r.victim.riotId) : ''}</span>
+                      </motion.div>
+                    ))}
+                    {!fight.rows.some((r) => r.side === side) && <div className="bo-fight-none">Sin bajas</div>}
+                  </div>
+                ))}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ── Tablero inferior: sube al abrir; las filas entran escalonadas ── */}
-        <motion.div className="bo-board" initial={{ opacity: 0, y: 90 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE, delay: 0.2 }}>
-          <div className="bo-board-head"><span className="bo-board-label bo-disp">{boardLabel}</span></div>
-          {d.matchups.map((m, i) => matchupRow(m, i))}
-        </motion.div>
+        {/* ── Tablero inferior: sube al abrir; se esconde durante las peleas (?auto=0 lo deja fijo) y con ?tablero=0 ── */}
+        <AnimatePresence initial={false}>
+          {boardParam && !(autoHide && fight) && (
+            <motion.div key="board" className="bo-board" initial={{ opacity: 0, y: 90 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 70, transition: { duration: 0.3 } }} transition={{ duration: 0.6, ease: EASE, delay: 0.1 }}>
+              <div className="bo-board-head"><span className="bo-board-label bo-disp">{boardLabel}</span></div>
+              {d.matchups.map((m, i) => matchupRow(m, i))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </MotionConfig>
   );
