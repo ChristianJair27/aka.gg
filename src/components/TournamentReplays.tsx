@@ -70,7 +70,7 @@ export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tour
                   <div className="font-bold text-sm text-white leading-tight">{c.title}</div>
                   <div className="mt-1 text-[11px] uppercase tracking-[0.14em] text-gray-500">{label(c.matchId, c.gameId)} · {mmss(c.tStart)}–{mmss(c.tEnd)}</div>
                 </figcaption>
-                <FightStats region={c.region} gameId={c.gameId} start={c.tStart} end={c.tEnd} defaultOpen={false} dense />
+                <FightStats region={c.region} gameId={c.gameId} start={c.tStart} end={c.tEnd} title={c.title} matchup={label(c.matchId, c.gameId)} />
               </figure>
             ))}
           </div>
