@@ -123,7 +123,7 @@ function PostCard({ post, focus, onLike, onRepost, onShare, isAuth, onCommented 
         {(meta.team1 || meta.team2) && <div className="mt-1 text-xs text-gray-400">{meta.team1} vs {meta.team2}{meta.tStart != null ? ` · ${mmss(meta.tStart)}–${mmss(meta.tEnd)}` : ''}</div>}
       </div>
       {media && <video src={media} controls preload="metadata" playsInline className="mt-3 w-full aspect-video bg-black" />}
-      {media && <FightStats region={clipRegion} gameId={clipGameId} start={meta.tStart} end={meta.tEnd} title={title} matchup={meta.team1 && meta.team2 ? `${meta.team1} vs ${meta.team2}${meta.round ? ` · Ronda ${meta.round}` : ''}${meta.gameNumber ? ` · Juego ${meta.gameNumber}` : ''}` : undefined} />}
+      {media && <FightStats region={clipRegion} gameId={clipGameId} start={meta.tStart} end={meta.tEnd} defaultOpen={focus} />}
       <footer className="flex flex-wrap items-center gap-2 px-4 py-3">
         <Action icon={<Heart className="h-3.5 w-3.5" />} label={post.likes_count} on={!!post.liked_by_me} onClick={onLike} title={isAuth ? 'Me gusta' : 'Inicia sesión para dar me gusta'} />
         <Action icon={<MessageCircle className="h-3.5 w-3.5" />} label={post.comments_count} on={open} active="text-white border-white/30 bg-white/[0.06]" onClick={() => setOpen((o) => !o)} title="Comentarios" />
