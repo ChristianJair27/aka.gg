@@ -26,7 +26,7 @@ const ATAK: BroadcastTheme = {
   logoHeight: 32,
   brand: 'ATAK.GG',
   vars: {
-    '--bo-panel': 'rgba(18, 18, 22, 0.97)',
+    '--bo-panel': '#0f0f13',
     '--bo-strip': '#0e0e11',
     '--bo-sub': '#18181d',
     '--bo-sunken': '#272730',
@@ -60,11 +60,11 @@ const LQC: BroadcastTheme = {
   brand: 'LQC',
   fontHref: 'https://fonts.googleapis.com/css2?family=Orbitron:wght@800;900&family=JetBrains+Mono:wght@500;700;800&family=Anton&display=swap',
   vars: {
-    '--bo-panel': 'rgba(2, 11, 28, 0.97)',
+    '--bo-panel': '#030b1c',
     // Marcador y tablero con el fondo de la liga (se lee "LQC" entero) bajo un
     // velo navy para que el texto mande. Cada pieza tiene su imagen a su tamaño.
-    '--bo-bar-img': "linear-gradient(rgba(1, 8, 22, 0.6), rgba(1, 8, 22, 0.6)), url('/lqc/bg-bar.webp') center / cover no-repeat, #020b1c",
-    '--bo-board-img': "linear-gradient(rgba(1, 8, 22, 0.52), rgba(1, 8, 22, 0.52)), url('/lqc/bg-board.webp') center / cover no-repeat, #020b1c",
+    '--bo-bar-img': "linear-gradient(rgba(1, 8, 22, 0.82), rgba(1, 8, 22, 0.82)), url('/lqc/bg-bar.webp') center / cover no-repeat, #020b1c",
+    '--bo-board-img': "linear-gradient(rgba(1, 8, 22, 0.8), rgba(1, 8, 22, 0.8)), url('/lqc/bg-board.webp') center / cover no-repeat, #020b1c",
     '--bo-strip': 'rgba(1, 7, 18, 0.78)',
     '--bo-sub': 'rgba(4, 22, 52, 0.9)',
     '--bo-sunken': '#0a2750',

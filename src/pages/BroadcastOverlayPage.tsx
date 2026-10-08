@@ -28,6 +28,7 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { axiosInstance } from '@/lib/axios';
 import { useChampions } from '@/hooks/use-ddragon';
 import { lol, type DragonKey } from '@/lib/lolAssets';
+import { resolveTeamLogo } from '@/lib/teamLogos';
 import { broadcastThemeFor, broadcastVars, ensureBroadcastFont } from '@/lib/broadcastTheme';
 import { demoFeed } from '@/lib/broadcastDemo';
 import '@/styles/pages/broadcast-overlay.css';
@@ -131,6 +132,7 @@ function readGame(feed: any) {
   let heraldTaken = false;
   let lastDragonT = -1, lastElderT = -1, lastBaronT = -1, lastBaronSide: Side = 'blue';
   let soul: { side: Side; type: string; t: number } | null = null;
+  const dragonOrder: string[] = []; // tipos de todos los dragones elementales muertos, en orden
 
   for (const e of events) {
     const side = sideOf(e.killer);
@@ -144,7 +146,7 @@ function readGame(feed: any) {
       const s = side ?? 'blue';
       if (type === 'Elder') { elders[s]++; lastElderT = e.t; }
       else {
-        drakes[s].push(type); lastDragonT = e.t;
+        drakes[s].push(type); dragonOrder.push(type); lastDragonT = e.t;
         if (!soul && drakes[s].length >= SOUL_AT) soul = { side: s, type, t: e.t };
       }
     } else if (e.name === 'BaronKill') {
@@ -166,7 +168,7 @@ function readGame(feed: any) {
   return {
     players, events, t, order, chaos, playerOf, sideOf, goldOf, gold,
     towers, drakes, elders, barons, grubs, herald: herald as Side | null, heraldTaken, soul: soul as { side: Side; type: string; t: number } | null,
-    lastDragonT, lastElderT, lastBaronT, lastBaronSide,
+    lastDragonT, lastElderT, lastBaronT, lastBaronSide, dragonOrder,
   };
 }
 
@@ -214,7 +216,8 @@ export default function BroadcastOverlayPage() {
   const demo = params.get('demo') === '1';
   // ?opacidad=0.75 (o 75): el caster pidió poder "bajar" el overlay para que estorbe menos.
   const opacityRaw = Number(params.get('opacidad') ?? params.get('opacity'));
-  const overlayOpacity = Number.isFinite(opacityRaw) && opacityRaw > 0 ? Math.min(1, Math.max(0.2, opacityRaw > 1 ? opacityRaw / 100 : opacityRaw)) : 0.8;
+  // Solo se atenúa el FONDO de los paneles (texto e iconos siempre nítidos).
+  const panelAlpha = Number.isFinite(opacityRaw) && opacityRaw > 0 ? Math.min(1, Math.max(0.2, opacityRaw > 1 ? opacityRaw / 100 : opacityRaw)) : 0.8;
   // ?tablero=0 oculta el tablero por línea siempre; ?auto=0 evita que se esconda solo durante las peleas.
   const boardParam = params.get('tablero') !== '0';
   const autoHide = params.get('auto') !== '0';
@@ -407,7 +410,9 @@ export default function BroadcastOverlayPage() {
   // objetivos se dan por desconocidos y se ocultan en vez de mostrar "VIVO" y
   // ceros falsos. ?objetivos=0|1 lo fuerza.
   const objParam = params.get('objetivos');
-  const epicOk = objParam === '1' || (objParam !== '0' && !!feed && (
+  // El companion ≥ 0.4.4 dice quién manda el feed: un jugador (eventos completos) o el espectador.
+  const spectator = feed?.source === 'spectator';
+  const epicOk = objParam === '1' || (objParam !== '0' && !!feed && !spectator && (
     (feed.events || []).some((e: FeedEvent) => EPIC_EVENTS.has(e.name)) || (feed.gameTime || 0) < EPIC_CHECK_AT));
   const derived = useMemo(() => {
     if (!feed) return null;
@@ -422,7 +427,10 @@ export default function BroadcastOverlayPage() {
       const from = g.lastElderT >= 0 ? g.lastElderT : g.soul.t;
       dragon = { icon: lol.dragon('elder'), label: 'ANCIANO', secs: from + ELDER_DELAY - t };
     } else if (g.lastDragonT >= 0) {
-      dragon = { icon: ICON.dragon, label: 'DRAGÓN', secs: g.lastDragonT + DRAGON_RESPAWN - t };
+      const riftType = g.dragonOrder.length >= 3 ? g.dragonOrder[2] : null;
+      dragon = riftType
+        ? { icon: dragonIcon(riftType), label: (DRAGON_ES[riftType] ?? 'DRAGÓN').toUpperCase(), secs: g.lastDragonT + DRAGON_RESPAWN - t }
+        : { icon: ICON.dragon, label: 'DRAGÓN', secs: g.lastDragonT + DRAGON_RESPAWN - t };
     } else {
       dragon = known || t < DRAGON_FIRST ? { icon: ICON.dragon, label: 'DRAGÓN', secs: DRAGON_FIRST - t } : null;
     }
@@ -463,7 +471,7 @@ export default function BroadcastOverlayPage() {
     return {
       ...g, dragon, pit, matchups, epicOk,
       team: { blue: (feed.team1 || vs?.[1] || 'AZUL').trim().toUpperCase() as string, red: (feed.team2 || vs?.[2] || 'ROJO').trim().toUpperCase() as string },
-      logo: { blue: (feed.logo1 || '') as string, red: (feed.logo2 || '') as string },
+      logo: { blue: (feed.logo1 || resolveTeamLogo(feed.team1) || '') as string, red: (feed.logo2 || resolveTeamLogo(feed.team2) || '') as string },
       kills: { blue: g.order.reduce((s, p) => s + p.kills, 0), red: g.chaos.reduce((s, p) => s + p.kills, 0) },
       isRift: mode === 'CLASSIC' || /summoner/i.test(String(feed.mapName || '')),
     };
@@ -662,7 +670,7 @@ export default function BroadcastOverlayPage() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="bo-root" data-theme={theme.id} data-bg={debugBg ? '1' : undefined} style={{ ...broadcastVars(theme, accent), opacity: overlayOpacity }}>
+      <div className="bo-root" data-theme={theme.id} data-bg={debugBg ? '1' : undefined} style={{ ...broadcastVars(theme, accent), ['--bo-alpha' as any]: panelAlpha }}>
         <div className="bo-top">
           {/* ── Marcador: baja desde arriba al abrir ── */}
           <motion.div className="bo-bug" initial={{ opacity: 0, y: -72 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }}>

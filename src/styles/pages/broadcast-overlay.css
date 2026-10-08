@@ -313,3 +313,18 @@
 .bo-fight-col.red .bo-fight-arrow { transform: scaleX(-1); }
 .bo-fight-none { height: 38px; display: flex; align-items: center; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255, 255, 255, 0.4); }
 .bo-fight-col.red .bo-fight-none { justify-content: flex-end; }
+
+
+/* ── Transparencia del fondo de los paneles (?opacidad=, 80 % por defecto) ─────
+   El fondo va en un pseudo-elemento con opacidad; texto, iconos y barras quedan
+   nítidos. Más oscuro que antes: el caster lo veía pálido con todo atenuado. */
+.bo-root { --bo-alpha: 0.8; }
+.bo-bug, .bo-board, .bo-fight, .bo-chip, .bo-goldw, .bo-banner { position: relative; isolation: isolate; background: transparent !important; }
+.bo-bug::after, .bo-board::after, .bo-fight::after, .bo-chip::after, .bo-goldw::after, .bo-banner::after {
+  content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  background: var(--bo-panel); opacity: var(--bo-alpha);
+}
+.bo-bug::after { background: var(--bo-bar-img, var(--bo-panel)); }
+.bo-board::after, .bo-fight::after, .bo-banner::after { background: var(--bo-board-img, var(--bo-panel)); }
+.bo-banner::after { z-index: 0; }
+.bo-banner::before { z-index: 1; }

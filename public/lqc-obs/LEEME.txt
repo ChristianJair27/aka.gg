@@ -42,7 +42,7 @@ A) EN LÍNEA (recomendado: los marcadores, la tabla y los partidos se actualizan
 
    OVERLAY EN VIVO (marcador, oro, objetivos, tablero por línea; lo alimenta el ATAK Companion del caster):
    https://atakgg.revolution505.com/broadcast/lqc-2026/overlay?theme=lqc
-     &opacidad=70                      opacidad del overlay (por defecto 80 %; acepta 20 a 100)
+     &opacidad=70                      opacidad del FONDO de los paneles (texto siempre nítido; por defecto 80 %, de 20 a 100)
      &tablero=0                        sin tablero de líneas · &auto=0: el tablero no se esconde en las peleas
      &objetivos=0                      ocultar dragón/foso si el cliente espectador no los reporta
      Tarjeta "PELEA": cuando caen 2 o más bajas seguidas (menos de 20 s entre una y otra) aparece a la
