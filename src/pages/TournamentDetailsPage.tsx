@@ -29,7 +29,8 @@ import { TournamentBracket } from '@/components/TournamentBracket';
 import { MatchStatsDetail } from '@/components/MatchStatsDetail';
 import { TournamentGlobalStats } from '@/components/TournamentGlobalStats';
 import { TournamentReplays } from '@/components/TournamentReplays';
-import { Film } from 'lucide-react';
+import { TournamentSocial } from '@/components/TournamentSocial';
+import { Film, MessageSquareHeart } from 'lucide-react';
 import { useMatchStats } from '@/hooks/useMatchStats';
 import { useTournamentGlobalStats } from '@/hooks/useTournamentGlobalStats';
 import { Toast } from '@/components/Toast';
@@ -378,6 +379,7 @@ const TABS = [
   { key:'equipos',   label:'Equipos',    icon:<List className="h-4 w-4"/> },
   { key:'stats',     label:'Stats',      icon:<Activity className="h-4 w-4"/> },
   { key:'replays',   label:'Replays',    icon:<Film className="h-4 w-4"/> },
+  { key:'social',    label:'Social',     icon:<MessageSquareHeart className="h-4 w-4"/> },
 ];
 
 // ─── Stats tab inner component ────────────────────────────────────────────────
@@ -585,6 +587,8 @@ export default function TournamentDetailsPage() {
   // Default tab once the tournament resolves (active/complete → bracket, else equipos).
   useEffect(() => {
     if (tabInit || !tournament) return;
+    const wanted = new URLSearchParams(window.location.search).get('tab');
+    if (wanted && TABS.some(t => t.key === wanted)) { setTab(wanted); setTabInit(true); return; }
     setTab(tournament.phase==='active'||tournament.phase==='complete' ? 'bracket' : 'equipos');
     setTabInit(true);
   }, [tournament, tabInit]);
@@ -810,6 +814,13 @@ export default function TournamentDetailsPage() {
           {tab === 'stats' && (
             <motion.div key="stats" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
               <StatsTabView tournament={tournament} registrations={registrations} />
+            </motion.div>
+          )}
+
+          {/* Social: highlights con likes, comentarios, compartir y repost */}
+          {tab === 'social' && (
+            <motion.div key="social" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}}>
+              <TournamentSocial tournamentId={tournament.id} tournamentName={tournament.name} />
             </motion.div>
           )}
 
