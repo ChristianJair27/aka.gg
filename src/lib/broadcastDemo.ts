@@ -53,9 +53,15 @@ const CYCLE: Array<[string, string, string]> = [
 export function demoFeed(elapsed: number, channel: string, isLqc: boolean) {
   const start = 1430;
   const fired = Math.min(CYCLE.length, Math.floor(elapsed / 12));
+  // Pelea simulada: a partir del segundo 40 de cada minuto caen 3 bajas seguidas (tarjeta "Pelea").
+  const fightT = start + Math.floor(elapsed / 60) * 60 + 40;
+  const fightKills = elapsed % 60 >= 40
+    ? [['Christian', 'MidOrFeed'], ['SelvaRey', 'NoSmite'], ['Kiting', 'LingLing']].map(([killer, victim], i) => [fightT + i * 3, killer, victim] as const).filter(([t]) => t <= start + elapsed)
+    : [];
   const events = [
     ...BASE_EVENTS,
     ...CYCLE.slice(0, fired).map(([name, killer, extra], i) => ev(100 + i, start + (i + 1) * 12, name, killer, extra)),
+    ...fightKills.map(([t, killer, victim], i) => ev(200 + Math.floor(elapsed / 60) * 10 + i, t, 'ChampionKill', killer, '', victim)),
   ];
   const players: DemoPlayer[] = ROSTER.map(([riotId, championName, team, position, kills, deaths, assists, cs, items, spells, keystone], i) => {
     const dead = i === 7 && elapsed % 40 < 18;

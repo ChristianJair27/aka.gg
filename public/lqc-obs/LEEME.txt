@@ -35,6 +35,18 @@ A) EN LÍNEA (recomendado: los marcadores, la tabla y los partidos se actualizan
    stats-partido.html?modo=overlay     La misma info en una barra inferior TRANSPARENTE (marcador, victoria,
                                        objetivos y MVP) para poner encima de la pantalla de fin de partida o
                                        de la cámara de los casters.
+   stats-partido.html?modo=breakdown   POST GAME BREAKDOWN (estilo LCS): panel centrado y TRANSPARENTE alrededor con
+                                       daño por jugador de cada equipo (barras), VICTORIA/DERROTA, GAMETIME, KDA, oro,
+                                       torretas, drakes, dragón ancestral y barón de cada lado, y la gráfica de
+                                       diferencia de oro con el tiempo. Cambia solo al último juego terminado.
+
+   OVERLAY EN VIVO (marcador, oro, objetivos, tablero por línea; lo alimenta el ATAK Companion del caster):
+   https://atakgg.revolution505.com/broadcast/lqc-2026/overlay?theme=lqc
+     &opacidad=75                      el overlay al 75 % para que estorbe menos (acepta 20 a 100)
+     &objetivos=0                      ocultar dragón/foso si el cliente espectador no los reporta
+     Tarjeta "PELEA": cuando caen 2 o más bajas seguidas (menos de 20 s entre una y otra) aparece a la
+     izquierda la lista de quién mató a quién, el conteo por equipo y el oro que repartió; se va sola a los 9 s.
+     (El cliente de League en modo espectador no entrega el daño en vivo; sí las bajas y el oro.)
 
    El marcador de la serie sale del torneo en ATAK.GG: se actualiza solo cuando termina cada juego
    con el código del torneo.

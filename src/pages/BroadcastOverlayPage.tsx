@@ -212,6 +212,9 @@ export default function BroadcastOverlayPage() {
   const [params] = useSearchParams();
   const debugBg = params.get('bg') === '1';
   const demo = params.get('demo') === '1';
+  // ?opacidad=0.75 (o 75): el caster pidió poder "bajar" el overlay para que estorbe menos.
+  const opacityRaw = Number(params.get('opacidad') ?? params.get('opacity'));
+  const overlayOpacity = Number.isFinite(opacityRaw) && opacityRaw > 0 ? Math.min(1, Math.max(0.2, opacityRaw > 1 ? opacityRaw / 100 : opacityRaw)) : 1;
   const theme = broadcastThemeFor(channel, params.get('theme'));
   const { data: champs } = useChampions();
   const version = (champs as any)?.version || '14.1.1';
@@ -472,6 +475,24 @@ export default function BroadcastOverlayPage() {
 
   const d = derived;
   const itemIcon = (id: number) => `https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${id}.png`;
+
+  // ── Pelea en curso: bajas agrupadas (≤ 20 s entre una y otra), visible 9 s tras la última ──
+  // El cliente en modo espectador no da daño; lo que sí hay son las bajas y el oro que reparten.
+  const FIGHT_GAP = 20, FIGHT_HOLD = 9;
+  const fight = (() => {
+    const kills = (d.events as FeedEvent[]).filter((e) => e.name === 'ChampionKill').sort((a, b) => a.t - b.t);
+    let group: FeedEvent[] = [];
+    for (const e of kills) { if (group.length && e.t - group[group.length - 1].t > FIGHT_GAP) group = []; group.push(e); }
+    if (group.length < 2 || d.t - group[group.length - 1].t > FIGHT_HOLD || d.t < group[0].t) return null;
+    const rows = group.map((e) => {
+      const killer = d.playerOf(e.killer); const victim = d.playerOf(e.victim);
+      const side: Side = killer ? sideOfTeam(killer.team) : (victim && sideOfTeam(victim.team) === 'blue' ? 'red' : 'blue');
+      return { id: e.id, killer, victim, side };
+    });
+    const tally = { blue: rows.filter((r) => r.side === 'blue').length, red: rows.filter((r) => r.side === 'red').length };
+    const lead: Side | null = tally.blue > tally.red ? 'blue' : tally.red > tally.blue ? 'red' : null;
+    return { rows, tally, lead, t0: group[0].t, t1: group[group.length - 1].t, gold: Math.abs(tally.blue - tally.red) * 300 };
+  })();
   const goldDiff = d.gold.blue - d.gold.red;
   const lead: Side | null = goldDiff > 0 ? 'blue' : goldDiff < 0 ? 'red' : null;
   const bluePct = (d.gold.blue / Math.max(1, d.gold.blue + d.gold.red)) * 100;
@@ -638,7 +659,7 @@ export default function BroadcastOverlayPage() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="bo-root" data-theme={theme.id} data-bg={debugBg ? '1' : undefined} style={broadcastVars(theme, accent)}>
+      <div className="bo-root" data-theme={theme.id} data-bg={debugBg ? '1' : undefined} style={{ ...broadcastVars(theme, accent), opacity: overlayOpacity }}>
         <div className="bo-top">
           {/* ── Marcador: baja desde arriba al abrir ── */}
           <motion.div className="bo-bug" initial={{ opacity: 0, y: -72 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }}>
@@ -729,6 +750,36 @@ export default function BroadcastOverlayPage() {
                 animate={{ x: 900 }}
                 transition={{ duration: 1.1, delay: 0.25, ease: 'easeInOut' }}
               />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Pelea: tarjeta lateral con las bajas de la pelea en curso ── */}
+        <AnimatePresence>
+          {fight && (
+            <motion.div
+              key={`fight-${fight.t0}`}
+              className={`bo-fight ${fight.lead ?? ''}`}
+              initial={{ opacity: 0, x: -28 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20, transition: { duration: 0.25 } }}
+              transition={{ duration: 0.4, ease: EASE }}
+            >
+              <div className="bo-fight-head">
+                <span className="bo-fight-title bo-disp">Pelea</span>
+                <span className="bo-fight-tally bo-disp"><b className="blue">{fight.tally.blue}</b><i>–</i><b className="red">{fight.tally.red}</b></span>
+              </div>
+              {fight.rows.map((r) => (
+                <motion.div key={r.id} className={`bo-fight-row ${r.side}`} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, ease: EASE }}>
+                  <span className="bo-fight-face">{r.killer ? <img src={champArtRef.current.icon(r.killer.championName) || ICON.kill} alt="" onError={hide} /> : <img src={ICON.kill} alt="" onError={hide} />}</span>
+                  <span className="bo-fight-name">{r.killer ? shortName(r.killer.riotId) : 'Ejecución'}</span>
+                  <span className="bo-fight-arrow" aria-hidden>›</span>
+                  <span className="bo-fight-face dead">{r.victim && <img src={champArtRef.current.icon(r.victim.championName) || ICON.kill} alt="" onError={hide} />}</span>
+                  <span className="bo-fight-name dim">{r.victim ? shortName(r.victim.riotId) : ''}</span>
+                </motion.div>
+              ))}
+              <div className="bo-fight-foot">
+                <span>{fmt(fight.t0)}–{fmt(fight.t1)}</span>
+                {fight.lead && <span className={fight.lead}><img src={ICON.gold} alt="" onError={hide} />+{kFmt(fight.gold)} {d.team[fight.lead]}</span>}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

@@ -197,13 +197,39 @@
   };
 
   let MS = null, msFor = '';
+  // Gráfica de la partida (oro por minuto, ancianos, larvas): /api/replays/:region/:gameId/graph
+  const GR = {};
+  async function loadGraph(matchId) {
+    const mm = /^([A-Z0-9]+)_(\d+)$/.exec(String(matchId || '')); if (!mm || GR[matchId]) return;
+    GR[matchId] = { loading: true };
+    try { GR[matchId] = await getJson(`${API}/api/replays/${mm[1]}/${mm[2]}/graph`); } catch (e) { GR[matchId] = { error: e.message }; } render();
+  }
+  function goldChart(gr, w, h) {
+    const pts = (gr && gr.gold) || []; if (pts.length < 2) return '';
+    const diffs = pts.map((p) => p.blue - p.red); const max = Math.max(1000, ...diffs.map(Math.abs));
+    const x = (i) => (i / (pts.length - 1)) * w, y = (v) => h / 2 - (v / max) * (h / 2 - 6);
+    const line = diffs.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+    const areaB = `M0,${h / 2} ` + diffs.map((v, i) => `L${x(i).toFixed(1)},${y(Math.max(0, v)).toFixed(1)}`).join(' ') + ` L${w},${h / 2} Z`;
+    const areaR = `M0,${h / 2} ` + diffs.map((v, i) => `L${x(i).toFixed(1)},${y(Math.min(0, v)).toFixed(1)}`).join(' ') + ` L${w},${h / 2} Z`;
+    const last = diffs[diffs.length - 1];
+    const ticks = []; for (let mnt = 5; mnt < pts.length; mnt += 5) ticks.push(`<text x="${x(mnt).toFixed(1)}" y="${h - 2}" class="bd-tick">${mnt}'</text>`);
+    return `<svg class="bd-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+      <path d="${areaB}" class="bd-area b"/><path d="${areaR}" class="bd-area r"/>
+      <line x1="0" y1="${h / 2}" x2="${w}" y2="${h / 2}" class="bd-zero"/>
+      <polyline points="${line}" class="bd-line"/>
+      ${ticks.join('')}
+      <text x="4" y="14" class="bd-lbl b">+${k(max)}</text><text x="4" y="${h - 8}" class="bd-lbl r">−${k(max)}</text>
+      <text x="${w - 4}" y="${last >= 0 ? 14 : h - 8}" class="bd-lbl ${last >= 0 ? 'b' : 'r'}" text-anchor="end">${last >= 0 ? '+' : '−'}${k(Math.abs(last))} al final</text>
+    </svg>`;
+  }
   PAGES['stats-partido'] = (root) => {
     const m = findMatch();
     const overlay = q('modo') === 'overlay';
-    if (overlay) { document.body.classList.add('transparent'); document.querySelectorAll('.bg').forEach((el) => el.remove()); }
-    if (!m) { root.innerHTML = overlay ? '' : `${headHtml()}${titleHtml('Post-partida', 'Esperando el primer juego terminado…')}${footHtml()}${msgHtml()}`; return; }
+    const breakdown = q('modo') === 'breakdown';
+    if (overlay || breakdown) { document.body.classList.add('transparent'); document.querySelectorAll('.bg').forEach((el) => el.remove()); }
+    if (!m) { root.innerHTML = (overlay || breakdown) ? '' : `${headHtml()}${titleHtml('Post-partida', 'Esperando el primer juego terminado…')}${footHtml()}${msgHtml()}`; return; }
     const games = (MS && Array.isArray(MS.games) && MS.games.length) ? MS.games : (MS && MS.blueTeam ? [MS] : []);
-    if (!games.length) { root.innerHTML = overlay ? '' : `${headHtml(`Ronda ${m.round}`)}${titleHtml(`${m.team1} vs ${m.team2}`, 'Procesando el juego… (1 a 3 min tras terminar)')}${footHtml()}${msgHtml()}`; return; }
+    if (!games.length) { root.innerHTML = (overlay || breakdown) ? '' : `${headHtml(`Ronda ${m.round}`)}${titleHtml(`${m.team1} vs ${m.team2}`, 'Procesando el juego… (1 a 3 min tras terminar)')}${footHtml()}${msgHtml()}`; return; }
     const gi = Math.min(games.length, Math.max(1, Number(q('juego', games.length)) || games.length)) - 1;
     const g = games[gi];
     // ¿Qué equipo fue azul? El bracket no lo dice: se deduce por los jugadores registrados.
@@ -242,6 +268,37 @@
         </div></div>` : '';
     const cmpRow = (l, a, b, d) => { const mx = Math.max(a, b, 1); return `<div class="tcmp-row"><span class="n b">${fmt(a, d)}</span>${barHtml(a, mx, '')}<span class="lbl">${l}</span>${barHtml(b, mx, 'red')}<span class="n r">${fmt(b, d)}</span></div>`; };
     const teamCmp = `<div class="tcmp in d3">${cmpRow('Daño total', sumB.dmg, sumR.dmg)}${cmpRow('Oro total', sumB.gold, sumR.gold)}${cmpRow('CS', sumB.cs, sumR.cs)}${cmpRow('Visión', sumB.vis, sumR.vis)}</div>`;
+    if (breakdown) {
+      const o = (x) => x || {};
+      const gr = GR[g.matchId] && GR[g.matchId].gold ? GR[g.matchId] : null;
+      if (!GR[g.matchId]) loadGraph(g.matchId);
+      const byDmg = (t) => [...(t || [])].sort((a, b) => (b.totalDamageDealt || 0) - (a.totalDamageDealt || 0));
+      const prow = (p, side) => `<div class="bd-prow ${side}">${champImg(p.championName, 'sm')}<span class="bd-pname">${esc(p.summonerName)}</span><span class="bd-pbar"><i style="width:${pct(p.totalDamageDealt || 0, maxDmg)}%"></i></span><b class="bd-pval">${k(p.totalDamageDealt || 0)}</b></div>`;
+      const sumKDA = (t) => `${(t || []).reduce((a, p) => a + (p.kills || 0), 0)}/${(t || []).reduce((a, p) => a + (p.deaths || 0), 0)}/${(t || []).reduce((a, p) => a + (p.assists || 0), 0)}`;
+      const ob = o(g.blueObjectives), orr = o(g.redObjectives);
+      const eld = gr ? gr.elders : null;
+      const drB = ob.dragonKills ?? 0, drR = orr.dragonKills ?? 0;
+      const mid = (icon, label, a, b, cls) => `<div class="bd-mrow"><b class="b ${cls || ''}">${a}</b><span class="bd-mlbl">${icon ? `<img src="${icon}" alt="" onerror="this.remove()">` : ''}${label}</span><b class="r ${cls || ''}">${b}</b></div>`;
+      const teamHead = (name, side, won) => `<div class="bd-thead ${side}">${logoHtml(name, side)}<div><div class="display bd-tname ${lenClass(name, 12, 18)}">${esc(name)}</div><div class="bd-res ${won ? 'win' : 'lose'}">${won ? 'VICTORIA' : 'DERROTA'}</div></div></div>`;
+      root.innerHTML = `<div class="bd in">
+        <div class="bd-head"><span class="display bd-title">Post game breakdown</span><span class="bd-meta">Ronda ${m.round} · Juego ${g.gameNumber || gi + 1} · Serie <b>${Number(m.score1) || 0}–${Number(m.score2) || 0}</b></span><span class="bd-brand"><img src="logos/lqc-logo.png" alt="" onerror="this.remove()">LQC</span></div>
+        <div class="bd-grid">
+          <div class="bd-team b">${teamHead(blueName, 'blue', winnerBlue)}${byDmg(g.blueTeam).map((p) => prow(p, 'b')).join('')}</div>
+          <div class="bd-mid">
+            <div class="bd-time"><span>GAMETIME</span><b>${dur(g.gameDuration || 0)}</b></div>
+            ${mid('', 'KDA', sumKDA(g.blueTeam), sumKDA(g.redTeam), 'kda')}
+            ${mid('../lol/ui/gold.webp', 'ORO', k(sumB.gold), k(sumR.gold))}
+            ${mid('../lol/ui/tower.webp', 'TORRETAS', ob.towerKills ?? 0, orr.towerKills ?? 0)}
+            ${mid('../lol/dragons/infernal.webp', 'DRAKES', eld ? drB - eld.blue : drB, eld ? drR - eld.red : drR)}
+            ${mid('../lol/dragons/elder.webp', 'DRAGÓN ANCESTRAL', eld ? eld.blue : '–', eld ? eld.red : '–')}
+            ${mid('../lol/ui/nashor.webp', 'BARÓN', ob.baronKills ?? 0, orr.baronKills ?? 0)}
+          </div>
+          <div class="bd-team r">${teamHead(redName, 'red', !winnerBlue)}${byDmg(g.redTeam).map((p) => prow(p, 'r')).join('')}</div>
+        </div>
+        <div class="bd-chart"><div class="bd-clbl">DIF. DE ORO CON EL TIEMPO</div>${gr ? goldChart(gr, 1640, 150) : `<div class="bd-wait">${GR[g.matchId] && GR[g.matchId].error ? 'Sin gráfica' : 'Cargando gráfica…'}</div>`}</div>
+      </div>`;
+      return;
+    }
     if (overlay) {
       const o = (x) => x || {};
       root.innerHTML = `<div class="pg-overlay in">
@@ -276,7 +333,7 @@
     }
   }
   function render() {
-    const key = JSON.stringify([GS && GS.lastUpdated, GS && GS.matchesCompleted, bracket().map((m) => [m.id, m.score1, m.score2, (m.games || []).length]), msFor, MS && (MS.games || []).length, lastErr]);
+    const key = JSON.stringify([GS && GS.lastUpdated, GS && GS.matchesCompleted, bracket().map((m) => [m.id, m.score1, m.score2, (m.games || []).length]), msFor, MS && (MS.games || []).length, lastErr, Object.keys(GR).map((x) => [x, !!GR[x].gold, GR[x].error || ''])]);
     if (key === lastKey) return;
     const first = !lastKey; lastKey = key;
     PAGES[page](root);

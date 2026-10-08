@@ -1,0 +1,53 @@
+LQC-OBS · PANTALLAS (fuente Navegador en OBS, 1920x1080)
+
+INICIO
+https://atakgg.revolution505.com/lqc-obs/inicio.html?match=r6m2&hora=20:30
+
+PAUSA
+https://atakgg.revolution505.com/lqc-obs/pausa.html?match=r6m1
+
+VERSUS
+https://atakgg.revolution505.com/lqc-obs/versus.html?match=r6m2
+
+CHAMP SELECT
+https://atakgg.revolution505.com/lqc-obs/champ-select.html?match=r6m2
+
+OVERLAY EN VIVO (in-game; marcador, oro, objetivos, tablero por línea y tarjeta de PELEA)
+https://atakgg.revolution505.com/broadcast/lqc-2026/overlay?theme=lqc&opacidad=75
+   · opacidad=75 → el overlay al 75 % (acepta de 20 a 100). Sin el parámetro va al 100 %.
+   · objetivos=0 → oculta dragón/foso si el espectador no los reporta.
+
+POST-PARTIDA · BARRA (tercio inferior transparente: marcador, victoria, objetivos y MVP)
+https://atakgg.revolution505.com/lqc-obs/stats-partido.html?modo=overlay
+
+POST GAME BREAKDOWN (panel estilo LCS: daño por jugador, KDA, oro, torretas, drakes, ancestral, barón y gráfica de oro)
+https://atakgg.revolution505.com/lqc-obs/stats-partido.html?modo=breakdown
+
+POST-PARTIDA · PANTALLA COMPLETA (tabla 5v5, objetos, MVP con splash)
+https://atakgg.revolution505.com/lqc-obs/stats-partido.html
+
+STATS · RANKING DE JUGADORES (stat=score | kda | dpm | gpm | cspm | vision | kills | winrate)
+https://atakgg.revolution505.com/lqc-obs/stats-top.html?stat=score
+
+STATS · FICHA DE EQUIPO
+https://atakgg.revolution505.com/lqc-obs/stats-equipo.html?equipo=Hive
+
+STATS · CARA A CARA DE LA SERIE
+https://atakgg.revolution505.com/lqc-obs/stats-h2h.html?match=r6m2
+
+TABLA
+https://atakgg.revolution505.com/lqc-obs/tabla.html
+
+PARTIDOS
+https://atakgg.revolution505.com/lqc-obs/partidos.html
+
+BANNER
+https://atakgg.revolution505.com/lqc-obs/redes.html?modo=banner
+
+REDES
+https://atakgg.revolution505.com/lqc-obs/redes.html
+
+FIN
+https://atakgg.revolution505.com/lqc-obs/fin.html
+
+Las pantallas de post-partida cambian solas al último juego terminado (1 a 3 min tras acabar). Para una serie concreta: &match=r6m2 (&juego=1 para otro juego de la serie); para un equipo: ?equipo=Hive.
