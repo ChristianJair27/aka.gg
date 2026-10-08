@@ -5,11 +5,13 @@ import { Heart, MessageCircle, Share2, Repeat2, Link as LinkIcon, Clapperboard, 
 import axiosInstance from '@/lib/axios';
 import { useAuth } from '@/features/auth/useAuth';
 import { toast } from '@/components/ui/sonner';
+import { FightStats } from '@/components/FightStats';
 
 interface Meta { team1?: string; team2?: string; round?: number; gameNumber?: number; matchId?: string; tStart?: number; tEnd?: number; kind?: string }
 interface Post {
   id: number; user_id: number; user_name: string; content: string; tag: string; kind: 'text' | 'clip' | 'repost';
   tournament_id?: string | null; media_url?: string | null; title?: string | null; meta?: Meta | null; repost_of?: number | null;
+  clip_region?: string | null; clip_game_id?: number | null; orig_clip_region?: string | null; orig_clip_game_id?: number | null;
   likes_count: number; comments_count: number; reposts_count: number; created_at: string; liked_by_me: boolean | number; reposted_by_me: boolean | number;
   orig_id?: number | null; orig_user_name?: string; orig_content?: string; orig_media_url?: string | null; orig_title?: string | null; orig_meta?: Meta | null;
   orig_likes_count?: number; orig_comments_count?: number; orig_reposts_count?: number;
@@ -82,6 +84,8 @@ function PostCard({ post, focus, onLike, onRepost, onShare, isAuth, onCommented 
   const media = isRepost ? post.orig_media_url : post.media_url;
   const title = isRepost ? post.orig_title : post.title;
   const meta = (isRepost ? post.orig_meta : post.meta) || {};
+  const clipRegion = isRepost ? post.orig_clip_region : post.clip_region;
+  const clipGameId = isRepost ? post.orig_clip_game_id : post.clip_game_id;
   const [open, setOpen] = useState(focus);
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [text, setText] = useState('');
@@ -119,6 +123,7 @@ function PostCard({ post, focus, onLike, onRepost, onShare, isAuth, onCommented 
         {(meta.team1 || meta.team2) && <div className="mt-1 text-xs text-gray-400">{meta.team1} vs {meta.team2}{meta.tStart != null ? ` · ${mmss(meta.tStart)}–${mmss(meta.tEnd)}` : ''}</div>}
       </div>
       {media && <video src={media} controls preload="metadata" playsInline className="mt-3 w-full aspect-video bg-black" />}
+      {media && <FightStats region={clipRegion} gameId={clipGameId} start={meta.tStart} end={meta.tEnd} defaultOpen={focus} />}
       <footer className="flex flex-wrap items-center gap-2 px-4 py-3">
         <Action icon={<Heart className="h-3.5 w-3.5" />} label={post.likes_count} on={!!post.liked_by_me} onClick={onLike} title={isAuth ? 'Me gusta' : 'Inicia sesión para dar me gusta'} />
         <Action icon={<MessageCircle className="h-3.5 w-3.5" />} label={post.comments_count} on={open} active="text-white border-white/30 bg-white/[0.06]" onClick={() => setOpen((o) => !o)} title="Comentarios" />

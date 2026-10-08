@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Download, Film, Clapperboard } from 'lucide-react';
 import axiosInstance from '@/lib/axios';
+import { FightStats } from '@/components/FightStats';
 
 interface Replay { matchId: string; gameId: number; region: string; patch?: string | null; gameLengthMs?: number | null; size: number; createdAt: string; url: string }
 interface Clip { matchId: string; gameId: number; region: string; key: string; tStart: number; tEnd: number; kind: string; title: string; players: Array<{ name: string; champion: string; team: string }>; size: number; createdAt: string; url: string }
@@ -69,6 +70,7 @@ export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tour
                   <div className="font-bold text-sm text-white leading-tight">{c.title}</div>
                   <div className="mt-1 text-[11px] uppercase tracking-[0.14em] text-gray-500">{label(c.matchId, c.gameId)} · {mmss(c.tStart)}–{mmss(c.tEnd)}</div>
                 </figcaption>
+                <FightStats region={c.region} gameId={c.gameId} start={c.tStart} end={c.tEnd} defaultOpen={false} dense />
               </figure>
             ))}
           </div>
