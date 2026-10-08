@@ -16,7 +16,9 @@ OVERLAY EN VIVO (in-game; marcador, oro, objetivos, tablero por línea y tarjeta
 https://atakgg.revolution505.com/broadcast/lqc-2026/overlay?theme=lqc&opacidad=75
    · Los paneles llevan el fondo al 80 % de opacidad (texto e iconos siempre nítidos); opacidad=70 lo cambia (de 20 a 100).
    · En cada pelea (2+ bajas seguidas) el tablero de abajo se esconde solo y aparece el panel PELEA con las bajas de cada lado y el oro; vuelve a los 9 s.
-   · tablero=0 → sin tablero de líneas (solo marcador y avisos) · auto=0 → el tablero no se esconde en las peleas · objetivos=0 → oculta dragón/foso.
+   · El tablero de abajo rota solo cada 25 s: LÍNEAS → LÍDERES → OBJETIVOS (rotar=40 cambia el ritmo; rotar=0 lo deja fijo en líneas).
+   · tablero=0 → sin tablero (solo marcador y avisos) · auto=0 → el tablero no se esconde en las peleas · objetivos=0 → oculta dragón/foso.
+   · Dragones, larvas, heraldo y barón solo salen cuando un JUGADOR de la partida tiene abierto el ATAK Companion (el espectador no los recibe).
 
 POST-PARTIDA · BARRA (tercio inferior transparente: marcador, victoria, objetivos y MVP)
 https://atakgg.revolution505.com/lqc-obs/stats-partido.html?modo=overlay

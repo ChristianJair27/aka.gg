@@ -221,6 +221,14 @@ export default function BroadcastOverlayPage() {
   // ?tablero=0 oculta el tablero por línea siempre; ?auto=0 evita que se esconda solo durante las peleas.
   const boardParam = params.get('tablero') !== '0';
   const autoHide = params.get('auto') !== '0';
+  // ?rotar=25 → el tablero va rotando vistas (líneas → líderes → objetivos) cada N s; 0 lo deja fijo en líneas.
+  const rotateSecs = params.has('rotar') ? Math.max(0, Number(params.get('rotar')) || 0) : 25;
+  const [viewIdx, setViewIdx] = useState(0);
+  useEffect(() => {
+    if (!rotateSecs) return;
+    const t = window.setInterval(() => setViewIdx((i) => i + 1), rotateSecs * 1000);
+    return () => window.clearInterval(t);
+  }, [rotateSecs]);
   const theme = broadcastThemeFor(channel, params.get('theme'));
   const { data: champs } = useChampions();
   const version = (champs as any)?.version || '14.1.1';
@@ -668,6 +676,75 @@ export default function BroadcastOverlayPage() {
     );
   };
 
+  // ── Vistas del tablero ────────────────────────────────────────────────────
+  const views: Array<'lineas' | 'lideres' | 'objetivos'> = rotateSecs ? ['lineas', 'lideres', ...(d.epicOk && d.isRift ? ['objetivos' as const] : [])] : ['lineas'];
+  const view = views[viewIdx % views.length];
+  const allPlayers = [...d.order, ...d.chaos];
+  const sideOfP = (p: FeedPlayer): Side => sideOfTeam(p.team);
+  const kda = (p: FeedPlayer) => (p.kills + p.assists) / Math.max(1, p.deaths);
+  const leader = (score: (p: FeedPlayer) => number) => [...allPlayers].sort((a, b) => score(b) - score(a))[0] ?? null;
+  const leadersView = () => {
+    const cards: Array<{ label: string; p: FeedPlayer | null; value: string; icon: string }> = [
+      { label: 'MÁS BAJAS', p: leader((p) => p.kills), value: '', icon: ICON.kill },
+      { label: 'MEJOR KDA', p: leader(kda), value: '', icon: lol.ui('score') },
+      { label: 'MÁS ORO', p: leader((p) => d.goldOf.get(p.riotId) || 0), value: '', icon: ICON.gold },
+      { label: 'MÁS CS', p: leader((p) => p.creepScore), value: '', icon: lol.ui('creep') },
+      { label: 'MÁS VISIÓN', p: leader((p) => p.wardScore || 0), value: '', icon: lol.stat('range') },
+    ];
+    cards[0].value = cards[0].p ? String(cards[0].p.kills) : '–';
+    cards[1].value = cards[1].p ? `${cards[1].p.kills}/${cards[1].p.deaths}/${cards[1].p.assists}` : '–';
+    cards[2].value = cards[2].p ? kFmt(d.goldOf.get(cards[2].p.riotId) || 0) : '–';
+    cards[3].value = cards[3].p ? String(cards[3].p.creepScore) : '–';
+    cards[4].value = cards[4].p ? String(Math.round(cards[4].p.wardScore || 0)) : '–';
+    return (
+      <div className="bo-leaders">
+        {cards.map((c, i) => (
+          <motion.div key={c.label} className={`bo-leader ${c.p ? sideOfP(c.p) : ''}`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE, delay: 0.06 * i }}>
+            {c.p && <span className="bo-leader-art" aria-hidden><img src={champArtRef.current.splash(c.p.championName)} alt="" onError={hide} /></span>}
+            <span className="bo-leader-face">{c.p && <img src={champArtRef.current.icon(c.p.championName) || ''} alt="" onError={hide} />}</span>
+            <span className="bo-leader-text">
+              <span className="bo-leader-label"><img src={c.icon} alt="" onError={hide} />{c.label}</span>
+              <span className="bo-leader-name">{c.p ? shortName(c.p.riotId) : '—'}</span>
+              <span className="bo-leader-value bo-disp">{c.value}</span>
+            </span>
+          </motion.div>
+        ))}
+      </div>
+    );
+  };
+  const objectivesView = () => {
+    const sideCol = (side: Side) => {
+      const drakes = d.drakes[side];
+      return (
+        <div className={`bo-objs-col ${side}`}>
+          <div className="bo-objs-team bo-disp">{d.team[side]}</div>
+          <div className="bo-objs-row">
+            <span className="bo-objs-lbl">Dragones</span>
+            <span className="bo-objs-drakes">
+              {drakes.length ? drakes.map((t: string, i: number) => <img key={i} src={dragonIcon(t)} alt={t} title={DRAGON_ES[t] ?? t} onError={hide} />) : <i>—</i>}
+              {d.elders[side] > 0 && <b className="gold"><img src={lol.dragon('elder')} alt="" onError={hide} />×{d.elders[side]}</b>}
+            </span>
+          </div>
+          <div className="bo-objs-row"><span className="bo-objs-lbl">Larvas</span><b>{d.grubs[side]}</b><span className="bo-objs-lbl">Heraldo</span><b>{d.herald === side ? 1 : 0}</b><span className="bo-objs-lbl">Barón</span><b>{d.barons[side]}</b></div>
+          <div className="bo-objs-row"><span className="bo-objs-lbl">Torres</span><b>{d.towers[side]}</b><span className="bo-objs-lbl">Oro</span><b>{kFmt(d.gold[side])}</b><span className="bo-objs-lbl">Bajas</span><b>{d.kills[side]}</b></div>
+        </div>
+      );
+    };
+    const soulText = d.soul ? `${SOUL_ES[d.soul.type] ?? 'ALMA'} · ${d.team[d.soul.side]}` : (d.drakes.blue.length === SOUL_AT - 1 || d.drakes.red.length === SOUL_AT - 1) ? 'PUNTO DE ALMA' : 'SIN ALMA AÚN';
+    return (
+      <div className="bo-objs-view">
+        {sideCol('blue')}
+        <div className="bo-objs-mid">
+          <span className="bo-objs-lbl">Alma</span>
+          <span className="bo-objs-soul bo-disp">{soulText}</span>
+          {d.dragon && <span className="bo-objs-next"><img src={d.dragon.icon} alt="" onError={hide} />{d.dragon.label} {d.dragon.secs > 0 ? `en ${fmt(d.dragon.secs)}` : 'VIVO'}</span>}
+          {d.pit && <span className="bo-objs-next"><img src={d.pit.icon} alt="" onError={hide} />{d.pit.label} {d.pit.secs > 0 ? `en ${fmt(d.pit.secs)}` : 'VIVO'}</span>}
+        </div>
+        {sideCol('red')}
+      </div>
+    );
+  };
+
   return (
     <MotionConfig reducedMotion="user">
       <div className="bo-root" data-theme={theme.id} data-bg={debugBg ? '1' : undefined} style={{ ...broadcastVars(theme, accent), ['--bo-alpha' as any]: panelAlpha }}>
@@ -803,12 +880,18 @@ export default function BroadcastOverlayPage() {
           )}
         </AnimatePresence>
 
-        {/* ── Tablero inferior: sube al abrir; se esconde durante las peleas (?auto=0 lo deja fijo) y con ?tablero=0 ── */}
+        {/* ── Tablero inferior: rota entre vistas; se esconde durante las peleas (?auto=0 lo deja fijo) y con ?tablero=0 ── */}
         <AnimatePresence initial={false}>
           {boardParam && !(autoHide && fight) && (
             <motion.div key="board" className="bo-board" initial={{ opacity: 0, y: 90 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 70, transition: { duration: 0.3 } }} transition={{ duration: 0.6, ease: EASE, delay: 0.1 }}>
-              <div className="bo-board-head"><span className="bo-board-label bo-disp">{boardLabel}</span></div>
-              {d.matchups.map((m, i) => matchupRow(m, i))}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div key={view} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8, transition: { duration: 0.22 } }} transition={{ duration: 0.35, ease: EASE }}>
+                  <div className="bo-board-head"><span className="bo-board-label bo-disp">{boardLabel}{view !== 'lineas' ? ` / ${view === 'lideres' ? 'LÍDERES' : 'OBJETIVOS'}` : ''}</span></div>
+                  {view === 'lineas' && d.matchups.map((m, i) => matchupRow(m, i))}
+                  {view === 'lideres' && leadersView()}
+                  {view === 'objetivos' && objectivesView()}
+                </motion.div>
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>

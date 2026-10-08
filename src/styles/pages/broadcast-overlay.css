@@ -319,7 +319,8 @@
    El fondo va en un pseudo-elemento con opacidad; texto, iconos y barras quedan
    nítidos. Más oscuro que antes: el caster lo veía pálido con todo atenuado. */
 .bo-root { --bo-alpha: 0.8; }
-.bo-bug, .bo-board, .bo-fight, .bo-chip, .bo-goldw, .bo-banner { position: relative; isolation: isolate; background: transparent !important; }
+.bo-bug, .bo-board, .bo-fight, .bo-chip, .bo-goldw, .bo-banner { isolation: isolate; background: transparent !important; }
+.bo-chip, .bo-goldw { position: relative; }
 .bo-bug::after, .bo-board::after, .bo-fight::after, .bo-chip::after, .bo-goldw::after, .bo-banner::after {
   content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
   background: var(--bo-panel); opacity: var(--bo-alpha);
@@ -328,3 +329,36 @@
 .bo-board::after, .bo-fight::after, .bo-banner::after { background: var(--bo-board-img, var(--bo-panel)); }
 .bo-banner::after { z-index: 0; }
 .bo-banner::before { z-index: 1; }
+
+
+/* ── Vista LÍDERES (rotación del tablero) ─────────────────────────────────── */
+.bo-leaders { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 8px 0 4px; }
+.bo-leader { position: relative; display: flex; align-items: center; gap: 10px; height: 92px; padding: 0 12px; overflow: hidden; border: 1px solid var(--bo-line); border-left: 4px solid var(--side-fill); border-radius: 8px; background: rgba(0, 0, 0, 0.35); }
+.bo-leader-art { position: absolute; inset: 0; z-index: 0; opacity: 0.35; -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 45%); mask-image: linear-gradient(90deg, transparent 0%, #000 45%); }
+.bo-leader-art img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; }
+.bo-leader-face { position: relative; z-index: 1; width: 52px; height: 52px; flex: none; border-radius: 8px; overflow: hidden; background: rgba(0, 0, 0, 0.5); box-shadow: 0 0 0 2px var(--side); }
+.bo-leader-face img { width: 100%; height: 100%; object-fit: cover; }
+.bo-leader-text { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bo-leader-label { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; color: var(--bo-text-2); }
+.bo-leader-label img { width: 14px; height: 14px; object-fit: contain; }
+.bo-leader-name { font-size: 15px; font-weight: 700; color: var(--bo-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bo-leader-value { font-size: calc(26px * var(--bo-display-scale)); color: var(--side); }
+
+/* ── Vista OBJETIVOS ─────────────────────────────────────────────────────── */
+.bo-objs-view { display: grid; grid-template-columns: 1fr 300px 1fr; gap: 16px; padding: 8px 0 6px; }
+.bo-objs-col { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; border: 1px solid var(--bo-line); border-top: 3px solid var(--side-fill); border-radius: 8px; background: rgba(0, 0, 0, 0.3); }
+.bo-objs-col.red { text-align: right; }
+.bo-objs-col.red .bo-objs-row { flex-direction: row-reverse; }
+.bo-objs-team { font-size: calc(20px * var(--bo-display-scale)); color: var(--side); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bo-objs-row { display: flex; align-items: center; gap: 10px; height: 30px; font-size: 13px; }
+.bo-objs-row b { font-family: var(--bo-font-display); font-style: var(--bo-display-style); font-weight: var(--bo-display-weight); font-size: calc(20px * var(--bo-display-scale)); color: var(--bo-text); min-width: 22px; }
+.bo-objs-lbl { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bo-text-2); }
+.bo-objs-drakes { display: inline-flex; align-items: center; gap: 4px; }
+.bo-objs-drakes img { width: 26px; height: 26px; object-fit: contain; }
+.bo-objs-drakes i { font-style: normal; color: var(--bo-muted); }
+.bo-objs-drakes b.gold { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; font-size: 14px; color: var(--bo-gold); }
+.bo-objs-drakes b.gold img { width: 22px; height: 22px; }
+.bo-objs-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; }
+.bo-objs-soul { font-size: calc(22px * var(--bo-display-scale)); color: var(--bo-gold); }
+.bo-objs-next { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: var(--bo-text); }
+.bo-objs-next img { width: 20px; height: 20px; object-fit: contain; }
