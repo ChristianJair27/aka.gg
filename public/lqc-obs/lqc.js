@@ -78,7 +78,16 @@
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json(); T = d.tournament || d; lastErr = null;
     } catch (e) { lastErr = e.message || String(e); }
+    try { const r2 = await fetch(`${API}/api/live-feed/${encodeURIComponent(TID)}`, { cache: 'no-store' }); LIVE = r2.status === 200 ? await r2.json() : null; } catch (e) { LIVE = null; }
     return T;
+  }
+  let LIVE = null;
+  /** Sin match= en la URL: la serie que se está jugando (feed en vivo) o la última cuyo código se activó. */
+  function autoMatch() {
+    const b = bracket();
+    if (LIVE && LIVE.team1 && LIVE.team2) { const m = b.find((x) => (same(x.team1, LIVE.team1) && same(x.team2, LIVE.team2)) || (same(x.team1, LIVE.team2) && same(x.team2, LIVE.team1))); if (m && m.matchStatus !== 'complete') return m; }
+    const act = b.filter((x) => x.matchStatus !== 'complete' && x.team2 !== 'BYE' && Number(x.codeActivatedAt) > 0).sort((a, c) => Number(c.codeActivatedAt) - Number(a.codeActivatedAt));
+    return act[0] || null;
   }
   const bracket = () => (T && Array.isArray(T.bracket) ? T.bracket : []);
   const standings = () => (T && Array.isArray(T.standings) ? T.standings : []);
@@ -94,6 +103,7 @@
     if (id) m = bracket().find((x) => String(x.id).toLowerCase() === id.toLowerCase()) || null;
     else if (team) m = roundMatches(currentRound()).find((x) => same(x.team1, team) || same(x.team2, team)) || null;
     else if (t1 && t2) m = bracket().find((x) => (same(x.team1, t1) && same(x.team2, t2)) || (same(x.team1, t2) && same(x.team2, t1))) || null;
+    else m = autoMatch();
     return m;
   }
 

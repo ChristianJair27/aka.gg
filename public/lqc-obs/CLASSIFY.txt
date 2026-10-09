@@ -1,16 +1,16 @@
 LQC-OBS · PANTALLAS (fuente Navegador en OBS, 1920x1080)
 
 INICIO
-https://atakgg.revolution505.com/lqc-obs/inicio.html?match=r6m2&hora=20:30
+https://atakgg.revolution505.com/lqc-obs/inicio.html?hora=20:30
 
 PAUSA
-https://atakgg.revolution505.com/lqc-obs/pausa.html?match=r6m1
+https://atakgg.revolution505.com/lqc-obs/pausa.html
 
 VERSUS
-https://atakgg.revolution505.com/lqc-obs/versus.html?match=r6m2
+https://atakgg.revolution505.com/lqc-obs/versus.html
 
 CHAMP SELECT
-https://atakgg.revolution505.com/lqc-obs/champ-select.html?match=r6m2
+https://atakgg.revolution505.com/lqc-obs/champ-select.html
 
 OVERLAY EN VIVO (in-game; marcador, oro, objetivos, tablero por línea y tarjeta de PELEA)
 https://atakgg.revolution505.com/broadcast/lqc-2026/overlay?theme=lqc&opacidad=75
@@ -36,7 +36,7 @@ STATS · FICHA DE EQUIPO
 https://atakgg.revolution505.com/lqc-obs/stats-equipo.html?equipo=Hive
 
 STATS · CARA A CARA DE LA SERIE
-https://atakgg.revolution505.com/lqc-obs/stats-h2h.html?match=r6m2
+https://atakgg.revolution505.com/lqc-obs/stats-h2h.html
 
 TABLA
 https://atakgg.revolution505.com/lqc-obs/tabla.html
@@ -53,4 +53,4 @@ https://atakgg.revolution505.com/lqc-obs/redes.html
 FIN
 https://atakgg.revolution505.com/lqc-obs/fin.html
 
-Las pantallas de post-partida cambian solas al último juego terminado (1 a 3 min tras acabar). Para una serie concreta: &match=r6m2 (&juego=1 para otro juego de la serie); para un equipo: ?equipo=Hive.
+SIN match= las pantallas eligen solas la serie que se está jugando (la del overlay en vivo o la última serie activa del bracket): no hay que cambiar nada por partido. Para forzar una serie: &match=r6m1 (&juego=1 para otro juego); para un equipo: ?equipo=Hive. Las de post-partida cambian solas al último juego terminado (1 a 3 min tras acabar).

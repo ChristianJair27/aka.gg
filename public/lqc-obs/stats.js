@@ -38,7 +38,15 @@
   /* ---------- datos ---------- */
   let T = null, GS = null, lastErr = null;
   async function getJson(url) { const r = await fetch(url, { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }
-  async function loadT() { try { const d = await getJson(`${API}/api/tournaments/${encodeURIComponent(TID)}`); T = d.tournament || d; } catch (e) { lastErr = e.message; } }
+  let LIVE = null;
+  async function loadT() { try { const d = await getJson(`${API}/api/tournaments/${encodeURIComponent(TID)}`); T = d.tournament || d; } catch (e) { lastErr = e.message; } try { const r = await fetch(`${API}/api/live-feed/${encodeURIComponent(TID)}`, { cache: 'no-store' }); LIVE = r.status === 200 ? await r.json() : null; } catch (e) { LIVE = null; } }
+  /** Sin match= en la URL: la serie que se está jugando (feed en vivo) o la última cuyo código se activó. */
+  function autoMatch() {
+    const b = bracket();
+    if (LIVE && LIVE.team1 && LIVE.team2) { const m = b.find((x) => (same(x.team1, LIVE.team1) && same(x.team2, LIVE.team2)) || (same(x.team1, LIVE.team2) && same(x.team2, LIVE.team1))); if (m && m.matchStatus !== 'complete') return m; }
+    const act = b.filter((x) => x.matchStatus !== 'complete' && x.team2 !== 'BYE' && Number(x.codeActivatedAt) > 0).sort((a, c) => Number(c.codeActivatedAt) - Number(a.codeActivatedAt));
+    return act[0] || null;
+  }
   async function loadGS() { try { const d = await getJson(`${API}/api/public/v1/tournaments/${encodeURIComponent(TID)}/stats`); GS = d.data || d; lastErr = null; } catch (e) { lastErr = e.message; } }
   const players = () => (GS && Array.isArray(GS.players) ? GS.players : []);
   const standings = () => (T && Array.isArray(T.standings) ? T.standings : []);
@@ -57,7 +65,7 @@
     if (t1 && t2) return bracket().find((x) => (same(x.team1, t1) && same(x.team2, t2)) || (same(x.team1, t2) && same(x.team2, t1))) || null;
     if (page === 'stats-partido') return latestMatch(team);
     if (team) return bracket().filter((x) => Number(x.round) === currentRound()).find((x) => same(x.team1, team) || same(x.team2, team)) || null;
-    return null;
+    return autoMatch();
   }
   const splashUrl = (name) => name ? `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${encodeURIComponent(name)}_0.jpg` : '';
   const teamPlayers = (name) => players().filter((p) => same(p.team, name));
