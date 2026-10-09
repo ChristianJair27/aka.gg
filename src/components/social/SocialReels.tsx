@@ -238,9 +238,9 @@ function ReelCard({ post, index, active, muted, onMute, onLike, onRepost, onComm
         </div>
         {/* Carril de acciones */}
         <div className={`absolute right-2 flex flex-col items-center gap-3 ${fs ? 'bottom-10' : 'bottom-6'}`}>
-          <Rail icon={<Heart className="h-6 w-6" fill={post.liked_by_me ? 'currentColor' : 'none'} />} label={post.likes_count} active={!!post.liked_by_me} activeClass="text-red-500" onClick={() => { onLike(); if (!post.liked_by_me) setBurst((b) => b + 1); }} pulse />
-          <Rail icon={<MessageCircle className="h-6 w-6" />} label={post.comments_count} onClick={onComments} />
-          <Rail icon={<motion.span key={showRepostSpin} animate={showRepostSpin ? { rotate: 360 } : {}} transition={{ duration: 0.5 }} className="inline-block"><Repeat2 className="h-6 w-6" /></motion.span>} label={post.reposts_count ?? 0} active={!!post.reposted_by_me} activeClass="text-emerald-300" onClick={() => { setShowRepostSpin((n) => n + 1); onRepost(); }} />
+          <Rail icon={<Heart className="h-6 w-6" fill={post.liked_by_me ? 'currentColor' : 'none'} />} label={post.likes_count} name={post.liked_by_me ? 'Quitar me gusta' : 'Me gusta'} active={!!post.liked_by_me} activeClass="text-red-500" onClick={() => { onLike(); if (!post.liked_by_me) setBurst((b) => b + 1); }} pulse />
+          <Rail icon={<MessageCircle className="h-6 w-6" />} label={post.comments_count} name="Comentarios" onClick={onComments} />
+          <Rail icon={<motion.span key={showRepostSpin} animate={showRepostSpin ? { rotate: 360 } : {}} transition={{ duration: 0.5 }} className="inline-block"><Repeat2 className="h-6 w-6" /></motion.span>} label={post.reposts_count ?? 0} name={post.reposted_by_me ? 'Quitar repost' : 'Repostear'} active={!!post.reposted_by_me} activeClass="text-emerald-300" onClick={() => { setShowRepostSpin((n) => n + 1); onRepost(); }} />
           <ShareMenu rail url={shareUrl} mp4={isVideo ? media : undefined} title={title || 'Highlight'} text={`${title} · ${tournamentName || 'ATAK.GG'}`} />
           {isVideo && <a href={media || '#'} download aria-label="Descargar" className="grid h-11 w-11 place-items-center rounded-full bg-black/50 text-white backdrop-blur hover:bg-black/70"><Download className="h-5 w-5" /></a>}
         </div>
@@ -255,9 +255,9 @@ function ReelCard({ post, index, active, muted, onMute, onLike, onRepost, onComm
   );
 }
 
-function Rail({ icon, label, onClick, active, activeClass, pulse }: { icon: React.ReactNode; label: number | string; onClick: () => void; active?: boolean; activeClass?: string; pulse?: boolean }) {
+function Rail({ icon, label, name, onClick, active, activeClass, pulse }: { icon: React.ReactNode; label: number | string; name: string; onClick: () => void; active?: boolean; activeClass?: string; pulse?: boolean }) {
   return (
-    <motion.button type="button" onClick={onClick} whileTap={{ scale: 0.85 }} animate={active && pulse ? { scale: [1, 1.3, 1] } : {}} transition={{ duration: 0.35 }} className={`flex flex-col items-center gap-0.5 text-white ${active ? activeClass || '' : ''}`}>
+    <motion.button type="button" aria-label={`${name} (${label})`} aria-pressed={active} onClick={onClick} whileTap={{ scale: 0.85 }} animate={active && pulse ? { scale: [1, 1.3, 1] } : {}} transition={{ duration: 0.35 }} className={`flex flex-col items-center gap-0.5 text-white ${active ? activeClass || '' : ''}`}>
       <span className="grid h-11 w-11 place-items-center rounded-full bg-black/50 backdrop-blur">{icon}</span>
       <span className="text-[11px] font-bold tabular-nums drop-shadow">{label}</span>
     </motion.button>
