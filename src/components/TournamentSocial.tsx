@@ -1,7 +1,8 @@
 // Pestaña "Social" de un torneo: feed de highlights (clips renderizados por ATAK) con
 // me gusta, comentarios, compartir y repost. Reusa el backend social (/api/social/posts).
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Heart, MessageCircle, Share2, Repeat2, Link as LinkIcon, Clapperboard, Send } from 'lucide-react';
+import { Heart, MessageCircle, Repeat2, Link as LinkIcon, Clapperboard, Send } from 'lucide-react';
+import { ShareMenu, shareUrlFromMedia } from '@/components/ShareMenu';
 import axiosInstance from '@/lib/axios';
 import { useAuth } from '@/features/auth/useAuth';
 import { toast } from '@/components/ui/sonner';
@@ -54,15 +55,6 @@ export function TournamentSocial({ tournamentId, tournamentName }: { tournamentI
       await load();
     } catch (e: any) { toast(e?.response?.data?.error || 'No se pudo repostear'); }
   };
-  const share = async (p: Post) => {
-    const url = `${location.origin}/tournaments/${tournamentId}?tab=social&post=${p.id}`;
-    const title = p.title || p.orig_title || 'Highlight';
-    const text = `${title} · ${tournamentName || 'ATAK.GG'}`;
-    try {
-      if (navigator.share) { await navigator.share({ title: text, text, url }); return; }
-    } catch { /* cancelado */ }
-    try { await navigator.clipboard.writeText(url); toast('Enlace copiado'); } catch { toast(url); }
-  };
 
   if (loading) return <div className="py-10 text-center text-sm text-gray-500">Cargando highlights…</div>;
   if (!posts.length) return (
@@ -74,12 +66,12 @@ export function TournamentSocial({ tournamentId, tournamentName }: { tournamentI
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      {posts.map((p) => <PostCard key={p.id} post={p} focus={focus === p.id} onLike={() => like(p)} onRepost={() => repost(p)} onShare={() => share(p)} isAuth={isAuthenticated} onCommented={() => patch(p.id, (x) => ({ ...x, comments_count: x.comments_count + 1 }))} />)}
+      {posts.map((p) => <PostCard key={p.id} post={p} focus={focus === p.id} onLike={() => like(p)} onRepost={() => repost(p)} tournamentId={tournamentId} tournamentName={tournamentName} isAuth={isAuthenticated} onCommented={() => patch(p.id, (x) => ({ ...x, comments_count: x.comments_count + 1 }))} />)}
     </div>
   );
 }
 
-function PostCard({ post, focus, onLike, onRepost, onShare, isAuth, onCommented }: { post: Post; focus: boolean; onLike: () => void; onRepost: () => void; onShare: () => void; isAuth: boolean; onCommented: () => void }) {
+function PostCard({ post, focus, onLike, onRepost, tournamentId, tournamentName, isAuth, onCommented }: { post: Post; focus: boolean; onLike: () => void; onRepost: () => void; tournamentId: string; tournamentName?: string; isAuth: boolean; onCommented: () => void }) {
   const isRepost = post.kind === 'repost' && post.orig_id;
   const media = isRepost ? post.orig_media_url : post.media_url;
   const title = isRepost ? post.orig_title : post.title;
@@ -128,7 +120,7 @@ function PostCard({ post, focus, onLike, onRepost, onShare, isAuth, onCommented 
         <Action icon={<Heart className="h-3.5 w-3.5" />} label={post.likes_count} on={!!post.liked_by_me} onClick={onLike} title={isAuth ? 'Me gusta' : 'Inicia sesión para dar me gusta'} />
         <Action icon={<MessageCircle className="h-3.5 w-3.5" />} label={post.comments_count} on={open} active="text-white border-white/30 bg-white/[0.06]" onClick={() => setOpen((o) => !o)} title="Comentarios" />
         <Action icon={<Repeat2 className="h-3.5 w-3.5" />} label={(isRepost ? post.orig_reposts_count : post.reposts_count) ?? 0} on={!!post.reposted_by_me} active="text-emerald-300 border-emerald-500/40 bg-emerald-500/10" onClick={onRepost} title={isAuth ? 'Repostear' : 'Inicia sesión para repostear'} />
-        <Action icon={<Share2 className="h-3.5 w-3.5" />} label="Compartir" onClick={onShare} title="Compartir enlace" />
+        <ShareMenu url={shareUrlFromMedia(media) || `${location.origin}/tournaments/${tournamentId}?tab=social&post=${post.id}`} mp4={media || undefined} title={title || post.content || 'Highlight'} text={`${title || post.content || 'Highlight'} · ${tournamentName || 'ATAK.GG'}`} />
         {media && <a href={media} download className="ml-auto inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.14em] text-gray-500 hover:text-white"><LinkIcon className="h-3 w-3" /> MP4</a>}
       </footer>
       {open && (

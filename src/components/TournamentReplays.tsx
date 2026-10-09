@@ -7,14 +7,14 @@
 // para compartir (?tab=replays&clip=<gameId>-<key>).
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Download, Film, Clapperboard, Share2, Link as LinkIcon } from 'lucide-react';
+import { Download, Film, Clapperboard } from 'lucide-react';
+import { ShareMenu } from '@/components/ShareMenu';
 import axiosInstance from '@/lib/axios';
 import { FightStats } from '@/components/FightStats';
 import { lol } from '@/lib/lolAssets';
-import { toast } from '@/components/ui/sonner';
 
 interface Replay { matchId: string; gameId: number; region: string; patch?: string | null; gameLengthMs?: number | null; size: number; createdAt: string; url: string }
-interface Clip { matchId: string; gameId: number; region: string; key: string; tStart: number; tEnd: number; kind: string; title: string; players: Array<{ name: string; champion: string; team: string }>; size: number; createdAt: string; url: string }
+interface Clip { matchId: string; gameId: number; region: string; key: string; tStart: number; tEnd: number; kind: string; title: string; players: Array<{ name: string; champion: string; team: string }>; size: number; createdAt: string; url: string; poster?: string | null; share?: string | null }
 interface BracketMatch { id: string; round: number; team1: string; team2: string; games?: Array<{ gameId: number; winner?: string | null }> }
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -128,14 +128,6 @@ export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tour
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, loading, clips]);
 
-  const share = async (c: Clip) => {
-    const u = new URL(location.href);
-    u.search = ''; u.searchParams.set('tab', 'replays'); u.searchParams.set('clip', clipId(c));
-    const url = u.toString();
-    const text = `${c.title} · ${label(c.matchId, c.gameId)}`;
-    try { if (navigator.share) { await navigator.share({ title: text, text, url }); return; } } catch { /* cancelado */ }
-    try { await navigator.clipboard.writeText(url); toast('Enlace del clip copiado'); } catch { toast(url); }
-  };
 
   if (loading) return <div className="py-10 text-center text-sm text-gray-500">Cargando replays…</div>;
 
@@ -211,7 +203,7 @@ export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tour
                         transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                         className={`rounded-xl overflow-hidden border bg-white/[0.03] ${focus === id ? 'border-red-500/70 shadow-[0_0_0_3px_rgba(232,50,60,0.18)]' : 'border-white/[0.08]'}`}
                       >
-                        <video src={c.url} controls preload="metadata" playsInline className={`w-full bg-black ${isVertical(c.kind) ? 'aspect-[9/16]' : 'aspect-video'}`} />
+                        <video src={c.url} poster={c.poster || undefined} controls preload="metadata" playsInline className={`w-full bg-black ${isVertical(c.kind) ? 'aspect-[9/16]' : 'aspect-video'}`} />
                         <figcaption className="p-3">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
@@ -219,8 +211,8 @@ export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tour
                               <div className="mt-1 text-[11px] uppercase tracking-[0.14em] text-gray-500">{label(c.matchId, c.gameId)} · {mmss(c.tStart)}–{mmss(c.tEnd)}</div>
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
-                              <button type="button" onClick={() => share(c)} title="Compartir enlace del clip" className="grid h-8 w-8 place-items-center rounded-md border border-white/[0.1] text-gray-300 hover:border-white/30 hover:text-white"><Share2 className="h-3.5 w-3.5" /></button>
-                              <a href={c.url} download title="Descargar MP4" className="grid h-8 w-8 place-items-center rounded-md border border-white/[0.1] text-gray-300 hover:border-white/30 hover:text-white"><LinkIcon className="h-3.5 w-3.5" /></a>
+                              <ShareMenu compact url={c.share || c.url} mp4={c.url} title={c.title} text={`${c.title} · ${label(c.matchId, c.gameId)}`} />
+                              <a href={c.url} download title="Descargar MP4" className="grid h-8 w-8 place-items-center rounded-md border border-white/[0.1] text-gray-300 hover:border-white/30 hover:text-white"><Download className="h-3.5 w-3.5" /></a>
                             </div>
                           </div>
                         </figcaption>
