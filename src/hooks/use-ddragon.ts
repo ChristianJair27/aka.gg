@@ -12,6 +12,7 @@ type ChampEntry = {
   title?: string;                 // "la Hoja Siniestra"
   tags?: string[];                // clases en inglés: Assassin, Mage…
   stats?: Record<string, number>; // estadísticas base (hp, armor, attackdamage…)
+  info?: { attack?: number; defense?: number; magic?: number; difficulty?: number };
 };
 
 type ChampMaps = {
@@ -48,6 +49,7 @@ export function useChampions() {
           title: c.title,
           tags: c.tags,
           stats: c.stats,
+          info: c.info,
         };
         byKey[c.key] = entry;
         byId[c.id] = entry;

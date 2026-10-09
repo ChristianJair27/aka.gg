@@ -314,11 +314,38 @@ export default function BroadcastOverlayPage() {
       const url = `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${e.key}.png`;
       for (const k of [norm(e.name), norm(e.id)]) { icon[k] = url; slug[k] = e.id; }
     }
+    const hp: Record<string, { base: number; growth: number }> = {};
+    const cls: Record<string, string> = {};
+    const phys: Record<string, number> = {};
+    for (const e of Object.values<any>((champs as any)?.byId || {})) {
+      const k1 = norm(e.name), k2 = norm(e.id);
+      const v = { base: Number(e.stats?.hp) || 600, growth: Number(e.stats?.hpperlevel) || 100 };
+      const c = String((e.tags || [])[0] || 'Fighter');
+      const atk = Number(e.info?.attack), mag = Number(e.info?.magic);
+      const share = atk + mag > 0 ? atk / (atk + mag) : (c === 'Mage' || c === 'Support' ? 0.2 : 0.8);
+      hp[k1] = v; hp[k2] = v; cls[k1] = c; cls[k2] = c; phys[k1] = share; phys[k2] = share;
+    }
     return {
       icon: (name: string) => icon[norm(name)] || '',
       splash: (name: string) => (slug[norm(name)] ? lol.centered(slug[norm(name)]) : ''),
+      hp: (name: string) => hp[norm(name)] || { base: 600, growth: 100 },
+      cls: (name: string) => cls[norm(name)] || 'Fighter',
+      phys: (name: string) => phys[norm(name)] ?? 0.6,
     };
   }, [champs]);
+  // Vida que dan los objetos (item.json de Data Dragon), para la vida total del caído.
+  const [itemHp, setItemHp] = useState<Record<number, number>>({});
+  useEffect(() => {
+    let alive = true;
+    fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/item.json`).then((r) => r.json()).then((j) => {
+      if (!alive) return;
+      const m: Record<number, number> = {};
+      for (const [id, it] of Object.entries<any>(j?.data || {})) { const v = Number(it?.stats?.FlatHPPoolMod); if (v) m[Number(id)] = v; }
+      setItemHp(m);
+    }).catch(() => { /* sin objetos: solo vida base */ });
+    return () => { alive = false; };
+  }, [version]);
+  const itemHpRef = useRef(itemHp); itemHpRef.current = itemHp;
   const champArtRef = useRef(champArt);
   champArtRef.current = champArt;
 
@@ -534,10 +561,33 @@ export default function BroadcastOverlayPage() {
     const per = new Map<string, { kills: number; assists: number; deaths: number }>();
     const bump = (p: FeedPlayer | null, k: 'kills' | 'assists' | 'deaths') => { if (!p) return; const cur = per.get(p.riotId) || { kills: 0, assists: 0, deaths: 0 }; cur[k]++; per.set(p.riotId, cur); };
     for (const e of group) { bump(d.playerOf(e.killer), 'kills'); bump(d.playerOf(e.victim), 'deaths'); for (const a of e.assisters || []) bump(d.playerOf(a), 'assists'); }
-    const stat = (p: FeedPlayer) => { const s = per.get(p.riotId) || { kills: 0, assists: 0, deaths: 0 }; return { ...s, gold: s.kills * 300 + s.assists * 150 }; };
-    const players = { blue: [...d.order].map((p) => ({ p, ...stat(p) })).sort((a, b) => b.gold - a.gold || b.kills - a.kills), red: [...d.chaos].map((p) => ({ p, ...stat(p) })).sort((a, b) => b.gold - a.gold || b.kills - a.kills) };
+    // ── Daño estimado (modelo ATAK): el cliente no entrega daño, así que cada baja "cuesta" la vida
+    // total del caído (base por nivel + objetos, ×1.3 por resistencias) y se reparte entre quien mató
+    // (peso 1) y quienes asistieron (0.55), escalado por clase y nivel. Físico/mágico por el perfil
+    // attack/magic del campeón.
+    const CLASS_W: Record<string, number> = { Marksman: 1.4, Mage: 1.3, Assassin: 1.3, Fighter: 1.1, Tank: 0.6, Support: 0.5 };
+    const art = champArtRef.current;
+    const everyone = [...d.order, ...d.chaos];
+    const avgLvl = Math.max(1, everyone.reduce((s, p) => s + (p.level || 1), 0) / Math.max(1, everyone.length));
+    const dmg = new Map<string, { phys: number; magic: number }>();
+    for (const e of group) {
+      const victim = d.playerOf(e.victim); if (!victim) continue;
+      const hp = art.hp(victim.championName);
+      const items = (victim.items || []).reduce((s, id) => s + (itemHpRef.current[id] || 0), 0);
+      const total = (hp.base + hp.growth * Math.max(0, (victim.level || 1) - 1) + items) * 1.3;
+      const parts: Array<{ p: FeedPlayer; w: number }> = [];
+      const k = d.playerOf(e.killer); if (k) parts.push({ p: k, w: 1 });
+      for (const a of e.assisters || []) { const ap = d.playerOf(a); if (ap && !parts.some((x) => x.p === ap)) parts.push({ p: ap, w: 0.55 }); }
+      if (!parts.length) continue;
+      const weighted = parts.map((x) => ({ p: x.p, w: x.w * (CLASS_W[art.cls(x.p.championName)] ?? 1) * ((x.p.level || 1) / avgLvl) }));
+      const sumW = weighted.reduce((s, x) => s + x.w, 0) || 1;
+      for (const x of weighted) { const amt = (total * x.w) / sumW; const share = art.phys(x.p.championName); const cur = dmg.get(x.p.riotId) || { phys: 0, magic: 0 }; cur.phys += amt * share; cur.magic += amt * (1 - share); dmg.set(x.p.riotId, cur); }
+    }
+    const stat = (p: FeedPlayer) => { const s = per.get(p.riotId) || { kills: 0, assists: 0, deaths: 0 }; const dd = dmg.get(p.riotId) || { phys: 0, magic: 0 }; return { ...s, gold: s.kills * 300 + s.assists * 150, dmg: Math.round(dd.phys + dd.magic), phys: Math.round(dd.phys), magic: Math.round(dd.magic) }; };
+    const players = { blue: [...d.order].map((p) => ({ p, ...stat(p) })).sort((a, b) => b.dmg - a.dmg || b.kills - a.kills), red: [...d.chaos].map((p) => ({ p, ...stat(p) })).sort((a, b) => b.dmg - a.dmg || b.kills - a.kills) };
     const maxGold = Math.max(150, ...players.blue.map((x) => x.gold), ...players.red.map((x) => x.gold));
-    return { rows, tally, lead, t0: group[0].t, t1: group[group.length - 1].t, gold: Math.abs(tally.blue - tally.red) * 300, players, maxGold };
+    const maxDmg = Math.max(100, ...players.blue.map((x) => x.dmg), ...players.red.map((x) => x.dmg));
+    return { rows, tally, lead, t0: group[0].t, t1: group[group.length - 1].t, gold: Math.abs(tally.blue - tally.red) * 300, players, maxGold, maxDmg };
   })();
   const goldDiff = d.gold.blue - d.gold.red;
   const lead: Side | null = goldDiff > 0 ? 'blue' : goldDiff < 0 ? 'red' : null;
@@ -879,8 +929,8 @@ export default function BroadcastOverlayPage() {
               transition={{ duration: 0.4, ease: EASE }}
             >
               <div className="bo-fw-head">
-                <span className="bo-fw-title bo-disp">Oro ganado en la última pelea</span>
-                <span className="bo-fw-sub">{fmt(fight.t0)}–{fmt(fight.t1)} · <b className="blue">{fight.tally.blue}</b> – <b className="red">{fight.tally.red}</b> bajas</span>
+                <span className="bo-fw-title bo-disp">Daño a campeones · última pelea</span>
+                <span className="bo-fw-sub">{fmt(fight.t0)}–{fmt(fight.t1)} · <b className="blue">{fight.tally.blue}</b> – <b className="red">{fight.tally.red}</b> bajas · estimado</span>
               </div>
               <div className="bo-fw-body">
                 <span className="bo-fw-logo blue">{d.logo.blue ? <img src={d.logo.blue} alt="" onError={hide} /> : <b className="bo-disp">{d.team.blue.slice(0, 3)}</b>}<i>{d.team.blue}</i></span>
@@ -889,8 +939,11 @@ export default function BroadcastOverlayPage() {
                     {fight.players[side].map((x, i) => (
                       <motion.div key={x.p.riotId} className="bo-fw-row" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, delay: 0.05 * i }}>
                         <span className={`bo-fw-face${x.deaths ? ' dead' : ''}`}><img src={champArtRef.current.icon(x.p.championName) || ''} alt="" onError={hide} /></span>
-                        <span className="bo-fw-bar"><motion.i initial={{ scaleX: 0 }} animate={{ scaleX: Math.max(0.02, x.gold / fight.maxGold) }} transition={{ duration: 0.6, ease: EASE, delay: 0.1 + 0.05 * i }} /></span>
-                        <span className="bo-fw-val bo-disp">{x.gold ? `+${x.gold.toLocaleString('es-MX')}` : '0'}</span>
+                        <span className="bo-fw-bar">
+                          <motion.i className="phys" initial={{ scaleX: 0 }} animate={{ scaleX: Math.max(0.01, x.phys / fight.maxDmg) }} transition={{ duration: 0.6, ease: EASE, delay: 0.1 + 0.05 * i }} />
+                          <motion.i className="magic" style={{ ['--off' as any]: `${(x.phys / fight.maxDmg) * 100}%` }} initial={{ scaleX: 0 }} animate={{ scaleX: Math.max(0, x.magic / fight.maxDmg) }} transition={{ duration: 0.6, ease: EASE, delay: 0.15 + 0.05 * i }} />
+                        </span>
+                        <span className="bo-fw-val bo-disp">{x.dmg ? x.dmg.toLocaleString('es-MX') : '0'}</span>
                         <span className="bo-fw-ka">{x.kills ? `${x.kills}B` : ''}{x.kills && x.assists ? ' ' : ''}{x.assists ? `${x.assists}A` : ''}</span>
                       </motion.div>
                     ))}
@@ -898,7 +951,7 @@ export default function BroadcastOverlayPage() {
                 ))}
                 <span className="bo-fw-logo red">{d.logo.red ? <img src={d.logo.red} alt="" onError={hide} /> : <b className="bo-disp">{d.team.red.slice(0, 3)}</b>}<i>{d.team.red}</i></span>
               </div>
-              <div className="bo-fw-foot"><span><i className="sw blue" /> BAJA 300 ORO</span><span><i className="sw blue dim" /> ASISTENCIA 150 ORO</span><span>· ESTIMADO (EL CLIENTE ESPECTADOR NO ENTREGA DAÑO)</span></div>
+              <div className="bo-fw-foot"><span><i className="sw phys" /> DAÑO FÍSICO</span><span><i className="sw magic" /> DAÑO MÁGICO</span><span>· ESTIMACIÓN ATAK.GG: VIDA DEL CAÍDO REPARTIDA ENTRE BAJA Y ASISTENCIAS</span></div>
             </motion.div>
           )}
         </AnimatePresence>

@@ -393,3 +393,11 @@
 .bo-fw-foot span { display: inline-flex; align-items: center; gap: 6px; }
 .bo-fw-foot .sw { width: 12px; height: 8px; border-radius: 1px; background: var(--bo-blue-fill); }
 .bo-fw-foot .sw.dim { opacity: 0.5; }
+
+
+/* Barras de daño estimado: físico (sólido) + mágico (a continuación) */
+.bo-fw-bar i.phys { background: var(--side-fill); }
+.bo-fw-bar i.magic { left: var(--off, 0%); background: var(--side-fill); opacity: 0.55; background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0 3px, transparent 3px 7px); }
+.bo-fw-col.red .bo-fw-bar i.magic { left: auto; right: var(--off, 0%); }
+.bo-fw-foot .sw.phys { background: var(--bo-blue-fill); }
+.bo-fw-foot .sw.magic { background: var(--bo-blue-fill); opacity: 0.55; background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0 2px, transparent 2px 5px); }
