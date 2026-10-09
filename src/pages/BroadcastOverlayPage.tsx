@@ -325,12 +325,16 @@ export default function BroadcastOverlayPage() {
       const share = atk + mag > 0 ? atk / (atk + mag) : (c === 'Mage' || c === 'Support' ? 0.2 : 0.8);
       hp[k1] = v; hp[k2] = v; cls[k1] = c; cls[k2] = c; phys[k1] = share; phys[k2] = share;
     }
+    // Formas transformadas ("Mega Gnar", "Elise araña", "Nidalee puma", "Shyvana dragón"…): si el nombre
+    // no es exacto, se busca el campeón más largo contenido en él.
+    const keys = Object.keys(icon).sort((x, y) => y.length - x.length);
+    const resolve = (name: string) => { const n = norm(name); if (icon[n]) return n; return keys.find((k) => k.length >= 3 && n.includes(k)) || n; };
     return {
-      icon: (name: string) => icon[norm(name)] || '',
-      splash: (name: string) => (slug[norm(name)] ? lol.centered(slug[norm(name)]) : ''),
-      hp: (name: string) => hp[norm(name)] || { base: 600, growth: 100 },
-      cls: (name: string) => cls[norm(name)] || 'Fighter',
-      phys: (name: string) => phys[norm(name)] ?? 0.6,
+      icon: (name: string) => icon[resolve(name)] || '',
+      splash: (name: string) => (slug[resolve(name)] ? lol.centered(slug[resolve(name)]) : ''),
+      hp: (name: string) => hp[resolve(name)] || { base: 600, growth: 100 },
+      cls: (name: string) => cls[resolve(name)] || 'Fighter',
+      phys: (name: string) => phys[resolve(name)] ?? 0.6,
     };
   }, [champs]);
   // Vida que dan los objetos (item.json de Data Dragon), para la vida total del caído.
