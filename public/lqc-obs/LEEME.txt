@@ -7,7 +7,7 @@ A) EN LÍNEA (recomendado: los marcadores, la tabla y los partidos se actualizan
    Fuente "Navegador" en OBS -> URL -> ancho 1920, alto 1080.
    Base: https://atakgg.revolution505.com/lqc-obs/
 
-   SIN match= todas eligen solas la serie en juego (feed en vivo o última serie activa). match= solo para forzar una.
+   SIN match= las pantallas toman la serie del overlay en vivo (cuando el caster ya espectea la partida); antes, usa match=.
    inicio.html?match=r6m1&hora=20:30   "Empezamos en breve" + cuenta regresiva + la serie de la noche
    pausa.html?match=r6m1               "Volvemos en breve" (pausa técnica / entre juegos)
    fin.html                            "Gracias por ver" + redes

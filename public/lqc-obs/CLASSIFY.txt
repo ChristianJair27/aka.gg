@@ -1,16 +1,17 @@
 LQC-OBS · PANTALLAS (fuente Navegador en OBS, 1920x1080)
+SERIES DE LA RONDA 6: r6m1 Mythical Dragons vs Nephyx · r6m2 Hive vs Galaxy · r6m3 2 DOPE vs Requiem · r6m4 BreakersStorm vs False Promise · r6m5 Los Rokosos vs RAKU · r6m6 REV505 vs Axolotl · r6m7 CT&S vs Tlacuaches · r6m8 The Town Boys vs Game Over Qro · r6m9 DinoRatas vs Heralds Of Cthulhu
 
 INICIO
-https://atakgg.revolution505.com/lqc-obs/inicio.html?hora=20:30
+https://atakgg.revolution505.com/lqc-obs/inicio.html?match=r6m1&hora=20:30
 
 PAUSA
-https://atakgg.revolution505.com/lqc-obs/pausa.html
+https://atakgg.revolution505.com/lqc-obs/pausa.html?match=r6m1
 
 VERSUS
-https://atakgg.revolution505.com/lqc-obs/versus.html
+https://atakgg.revolution505.com/lqc-obs/versus.html?match=r6m1
 
 CHAMP SELECT
-https://atakgg.revolution505.com/lqc-obs/champ-select.html
+https://atakgg.revolution505.com/lqc-obs/champ-select.html?match=r6m1
 
 OVERLAY EN VIVO (in-game; marcador, oro, objetivos, tablero por línea y tarjeta de PELEA)
 https://atakgg.revolution505.com/broadcast/lqc-2026/overlay?theme=lqc&opacidad=75
@@ -36,7 +37,7 @@ STATS · FICHA DE EQUIPO
 https://atakgg.revolution505.com/lqc-obs/stats-equipo.html?equipo=Hive
 
 STATS · CARA A CARA DE LA SERIE
-https://atakgg.revolution505.com/lqc-obs/stats-h2h.html
+https://atakgg.revolution505.com/lqc-obs/stats-h2h.html?match=r6m1
 
 TABLA
 https://atakgg.revolution505.com/lqc-obs/tabla.html
@@ -53,4 +54,4 @@ https://atakgg.revolution505.com/lqc-obs/redes.html
 FIN
 https://atakgg.revolution505.com/lqc-obs/fin.html
 
-SIN match= las pantallas eligen solas la serie que se está jugando (la del overlay en vivo o la última serie activa del bracket): no hay que cambiar nada por partido. Para forzar una serie: &match=r6m1 (&juego=1 para otro juego); para un equipo: ?equipo=Hive. Las de post-partida cambian solas al último juego terminado (1 a 3 min tras acabar).
+match=r6m1 es la serie de HOY (Mythical Dragons vs Nephyx Esports); cada noche solo cambia ese código (r6m1, r6m2…). Sin match= las pantallas toman la serie del overlay en vivo cuando el caster ya está espectando la partida; antes de eso quedan sin equipos. ?equipo=Hive muestra la serie de ese equipo en la ronda actual. Las de post-partida cambian solas al último juego terminado (1 a 3 min tras acabar).

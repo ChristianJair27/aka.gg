@@ -44,8 +44,8 @@
   function autoMatch() {
     const b = bracket();
     if (LIVE && LIVE.team1 && LIVE.team2) { const m = b.find((x) => (same(x.team1, LIVE.team1) && same(x.team2, LIVE.team2)) || (same(x.team1, LIVE.team2) && same(x.team2, LIVE.team1))); if (m && m.matchStatus !== 'complete') return m; }
-    const act = b.filter((x) => x.matchStatus !== 'complete' && x.team2 !== 'BYE' && Number(x.codeActivatedAt) > 0).sort((a, c) => Number(c.codeActivatedAt) - Number(a.codeActivatedAt));
-    return act[0] || null;
+    // Varias series pueden estar activas a la vez: sin feed en vivo no se adivina (mejor nada que la serie equivocada).
+    return null;
   }
   async function loadGS() { try { const d = await getJson(`${API}/api/public/v1/tournaments/${encodeURIComponent(TID)}/stats`); GS = d.data || d; lastErr = null; } catch (e) { lastErr = e.message; } }
   const players = () => (GS && Array.isArray(GS.players) ? GS.players : []);
