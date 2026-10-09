@@ -318,7 +318,7 @@
 /* ── Transparencia del fondo de los paneles (?opacidad=, 80 % por defecto) ─────
    El fondo va en un pseudo-elemento con opacidad; texto, iconos y barras quedan
    nítidos. Más oscuro que antes: el caster lo veía pálido con todo atenuado. */
-.bo-root { --bo-alpha: 0.8; }
+.bo-root { --bo-alpha: 0.65; }
 .bo-bug, .bo-board, .bo-fight, .bo-chip, .bo-goldw, .bo-banner { isolation: isolate; background: transparent !important; }
 .bo-chip, .bo-goldw { position: relative; }
 .bo-bug::after, .bo-board::after, .bo-fight::after, .bo-chip::after, .bo-goldw::after, .bo-banner::after {

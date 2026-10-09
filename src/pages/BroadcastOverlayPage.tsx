@@ -217,7 +217,7 @@ export default function BroadcastOverlayPage() {
   // ?opacidad=0.75 (o 75): el caster pidió poder "bajar" el overlay para que estorbe menos.
   const opacityRaw = Number(params.get('opacidad') ?? params.get('opacity'));
   // Solo se atenúa el FONDO de los paneles (texto e iconos siempre nítidos).
-  const panelAlpha = Number.isFinite(opacityRaw) && opacityRaw > 0 ? Math.min(1, Math.max(0.2, opacityRaw > 1 ? opacityRaw / 100 : opacityRaw)) : 0.8;
+  const panelAlpha = Number.isFinite(opacityRaw) && opacityRaw > 0 ? Math.min(1, Math.max(0.2, opacityRaw > 1 ? opacityRaw / 100 : opacityRaw)) : 0.65;
   // ?tablero=0 oculta el tablero por línea siempre; ?auto=0 evita que se esconda solo durante las peleas.
   const boardParam = params.get('tablero') !== '0';
   const autoHide = params.get('auto') !== '0';
