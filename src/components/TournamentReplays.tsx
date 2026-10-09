@@ -24,17 +24,20 @@ const mb = (n: number) => `${(n / 1048576).toFixed(1)} MB`;
 const clipId = (c: Clip) => `${c.gameId}-${c.key}`;
 
 // ── Categorías (carpetas) ─────────────────────────────────────────────────────
-type Cat = 'all' | 'stream' | 'teamfight' | 'multikill' | 'first_blood' | 'ace' | 'objective';
-// Los clips del stream llegan como kind "stream_<tipo>": entran en su categoría y además en "Del stream".
-const base = (k: string) => k.replace(/^stream_/, '');
+type Cat = 'all' | 'stream' | 'vertical' | 'teamfight' | 'multikill' | 'first_blood' | 'ace' | 'objective';
+// Los clips del stream llegan como kind "stream_<tipo>" y los verticales como "vertical_<tipo>": entran en su
+// categoría y además en su carpeta propia.
+const base = (k: string) => k.replace(/^(stream|vertical)_/, '');
+const isVertical = (k: string) => k.startsWith('vertical_');
 const CATS: Array<{ key: Cat; label: string; color: string; icon: string; match: (kind: string) => boolean }> = [
-  { key: 'all', label: 'Todos', color: '#e8323c', icon: lol.ui('champion'), match: () => true },
+  { key: 'all', label: 'Todos', color: '#e8323c', icon: lol.ui('champion'), match: (k) => !isVertical(k) },
   { key: 'stream', label: 'Del stream', color: '#9146ff', icon: lol.ui('spells'), match: (k) => k.startsWith('stream_') },
-  { key: 'teamfight', label: 'Peleas', color: '#c8aa6e', icon: lol.stat('attack_damage'), match: (k) => base(k) === 'teamfight' },
-  { key: 'multikill', label: 'Multikills', color: '#3b3b47', icon: lol.ui('score'), match: (k) => base(k).startsWith('multikill') },
-  { key: 'first_blood', label: 'Primera sangre', color: '#8d1a22', icon: lol.stat('life_steal'), match: (k) => base(k) === 'first_blood' },
-  { key: 'ace', label: 'Aces', color: '#f0d891', icon: lol.stat('critical_chance'), match: (k) => base(k) === 'ace' },
-  { key: 'objective', label: 'Objetivos', color: '#49a3ff', icon: lol.ui('nashor'), match: (k) => ['baron_nashor', 'riftherald', 'dragon', 'horde', 'inhibitor'].includes(base(k)) },
+  { key: 'vertical', label: 'Verticales', color: '#3ddc97', icon: lol.ui('items'), match: (k) => k.startsWith('vertical_') },
+  { key: 'teamfight', label: 'Peleas', color: '#c8aa6e', icon: lol.stat('attack_damage'), match: (k) => !isVertical(k) && base(k) === 'teamfight' },
+  { key: 'multikill', label: 'Multikills', color: '#3b3b47', icon: lol.ui('score'), match: (k) => !isVertical(k) && base(k).startsWith('multikill') },
+  { key: 'first_blood', label: 'Primera sangre', color: '#8d1a22', icon: lol.stat('life_steal'), match: (k) => !isVertical(k) && base(k) === 'first_blood' },
+  { key: 'ace', label: 'Aces', color: '#f0d891', icon: lol.stat('critical_chance'), match: (k) => !isVertical(k) && base(k) === 'ace' },
+  { key: 'objective', label: 'Objetivos', color: '#49a3ff', icon: lol.ui('nashor'), match: (k) => !isVertical(k) && ['baron_nashor', 'riftherald', 'dragon', 'horde', 'inhibitor'].includes(base(k)) },
 ];
 const isCat = (v: string | null): v is Cat => !!v && CATS.some((c) => c.key === v);
 
@@ -199,7 +202,7 @@ export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tour
                         transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                         className={`rounded-xl overflow-hidden border bg-white/[0.03] ${focus === id ? 'border-red-500/70 shadow-[0_0_0_3px_rgba(232,50,60,0.18)]' : 'border-white/[0.08]'}`}
                       >
-                        <video src={c.url} controls preload="metadata" playsInline className="w-full aspect-video bg-black" />
+                        <video src={c.url} controls preload="metadata" playsInline className={`w-full bg-black ${isVertical(c.kind) ? 'aspect-[9/16] max-h-[520px] object-contain' : 'aspect-video'}`} />
                         <figcaption className="p-3">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
