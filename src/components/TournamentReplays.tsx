@@ -10,8 +10,6 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Download, Film, Clapperboard, Share2, Link as LinkIcon } from 'lucide-react';
 import axiosInstance from '@/lib/axios';
 import { FightStats } from '@/components/FightStats';
-import { Folder } from '@/components/ui/Folder';
-import { dd } from '@/lib/dataDragon';
 import { lol } from '@/lib/lolAssets';
 import { toast } from '@/components/ui/sonner';
 
@@ -24,27 +22,22 @@ const mb = (n: number) => `${(n / 1048576).toFixed(1)} MB`;
 const clipId = (c: Clip) => `${c.gameId}-${c.key}`;
 
 // ── Categorías (carpetas) ─────────────────────────────────────────────────────
-type Cat = 'all' | 'stream' | 'vertical' | 'teamfight' | 'multikill' | 'first_blood' | 'ace' | 'objective';
-// Los clips del stream llegan como kind "stream_<tipo>" y los verticales como "vertical_<tipo>": entran en su
-// categoría y además en su carpeta propia.
-const base = (k: string) => k.replace(/^(stream|vertical)_/, '');
+type Cat = 'all' | 'teamfight' | 'multikill' | 'first_blood' | 'ace' | 'objective';
+type Fmt = 'h' | 'v';
+type Src = 'all' | 'replay' | 'stream';
+// kind = [vertical_][stream_]<tipo>. El formato (horizontal/vertical) y la fuente (replay/stream) son filtros aparte.
+const base = (k: string) => k.replace(/^vertical_/, '').replace(/^stream_/, '');
 const isVertical = (k: string) => k.startsWith('vertical_');
-const CATS: Array<{ key: Cat; label: string; color: string; icon: string; match: (kind: string) => boolean }> = [
-  { key: 'all', label: 'Todos', color: '#e8323c', icon: lol.ui('champion'), match: (k) => !isVertical(k) },
-  { key: 'stream', label: 'Del stream', color: '#9146ff', icon: lol.ui('spells'), match: (k) => k.startsWith('stream_') },
-  { key: 'vertical', label: 'Verticales', color: '#3ddc97', icon: lol.ui('items'), match: (k) => k.startsWith('vertical_') },
-  { key: 'teamfight', label: 'Peleas', color: '#c8aa6e', icon: lol.stat('attack_damage'), match: (k) => !isVertical(k) && base(k) === 'teamfight' },
-  { key: 'multikill', label: 'Multikills', color: '#3b3b47', icon: lol.ui('score'), match: (k) => !isVertical(k) && base(k).startsWith('multikill') },
-  { key: 'first_blood', label: 'Primera sangre', color: '#8d1a22', icon: lol.stat('life_steal'), match: (k) => !isVertical(k) && base(k) === 'first_blood' },
-  { key: 'ace', label: 'Aces', color: '#f0d891', icon: lol.stat('critical_chance'), match: (k) => !isVertical(k) && base(k) === 'ace' },
-  { key: 'objective', label: 'Objetivos', color: '#49a3ff', icon: lol.ui('nashor'), match: (k) => !isVertical(k) && ['baron_nashor', 'riftherald', 'dragon', 'horde', 'inhibitor'].includes(base(k)) },
+const isStream = (k: string) => k.replace(/^vertical_/, '').startsWith('stream_');
+const CATS: Array<{ key: Cat; label: string; icon: string; match: (kind: string) => boolean }> = [
+  { key: 'all', label: 'Todos', icon: lol.ui('champion'), match: () => true },
+  { key: 'teamfight', label: 'Peleas', icon: lol.stat('attack_damage'), match: (k) => base(k) === 'teamfight' },
+  { key: 'multikill', label: 'Multikills', icon: lol.ui('score'), match: (k) => base(k).startsWith('multikill') },
+  { key: 'first_blood', label: 'Primera sangre', icon: lol.stat('life_steal'), match: (k) => base(k) === 'first_blood' },
+  { key: 'ace', label: 'Aces', icon: lol.stat('critical_chance'), match: (k) => base(k) === 'ace' },
+  { key: 'objective', label: 'Objetivos', icon: lol.ui('nashor'), match: (k) => ['baron_nashor', 'riftherald', 'dragon', 'horde', 'inhibitor'].includes(base(k)) },
 ];
 const isCat = (v: string | null): v is Cat => !!v && CATS.some((c) => c.key === v);
-
-function Champ({ name, size = 24 }: { name: string; size?: number }) {
-  if (!name) return <span className="inline-block rounded-md bg-white/10" style={{ width: size, height: size }} />;
-  return <img src={dd.champion(name)} alt={name} title={name} width={size} height={size} loading="lazy" className="rounded-md object-cover" style={{ width: size, height: size }} onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} />;
-}
 
 export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tournamentId: string; bracket?: BracketMatch[] }) {
   const [bracket, setBracket] = useState<BracketMatch[]>(bracketProp ?? []);
@@ -61,6 +54,8 @@ export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tour
   // Filtros (con deep link: ?cat=, ?game=, ?clip=)
   const initial = useMemo(() => new URLSearchParams(location.search), []);
   const [cat, setCat] = useState<Cat>(() => (isCat(initial.get('cat')) ? (initial.get('cat') as Cat) : 'all'));
+  const [fmt, setFmt] = useState<Fmt>(() => (initial.get('formato') === 'v' ? 'v' : 'h'));
+  const [src, setSrc] = useState<Src>(() => (initial.get('fuente') === 'stream' || initial.get('fuente') === 'replay' ? (initial.get('fuente') as Src) : 'all'));
   const [round, setRound] = useState<number | 'all'>('all');
   const [game, setGame] = useState<number | 'all'>(() => Number(initial.get('game')) || 'all');
   const [focus, setFocus] = useState<string | null>(() => initial.get('clip'));
@@ -82,10 +77,12 @@ export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tour
     const u = new URL(location.href);
     u.searchParams.set('tab', 'replays');
     if (cat === 'all') u.searchParams.delete('cat'); else u.searchParams.set('cat', cat);
+    if (fmt === 'h') u.searchParams.delete('formato'); else u.searchParams.set('formato', fmt);
+    if (src === 'all') u.searchParams.delete('fuente'); else u.searchParams.set('fuente', src);
     if (game === 'all') u.searchParams.delete('game'); else u.searchParams.set('game', String(game));
     if (!focus) u.searchParams.delete('clip');
     history.replaceState(history.state, '', u);
-  }, [cat, game, focus]);
+  }, [cat, fmt, src, game, focus]);
 
   const matchOf = useMemo(() => {
     const m = new Map<string, BracketMatch>();
@@ -111,17 +108,21 @@ export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tour
   const rounds = useMemo(() => [...new Set(games.map((g) => g.round))].sort((a, b) => a - b), [games]);
   const gamesInRound = round === 'all' ? games : games.filter((g) => g.round === round);
 
+  const byFmt = (c: Clip) => (fmt === 'v') === isVertical(c.kind);
+  const bySrc = (c: Clip) => src === 'all' || (src === 'stream') === isStream(c.kind);
   const byCat = (c: Clip) => CATS.find((x) => x.key === cat)!.match(c.kind);
   const byGame = (c: Clip) => (game === 'all' ? (round === 'all' || matchOf(c.matchId)?.round === round) : c.gameId === game);
-  const visible = clips.filter((c) => byCat(c) && byGame(c));
-  const countFor = (k: Cat) => clips.filter((c) => CATS.find((x) => x.key === k)!.match(c.kind) && byGame(c)).length;
+  const visible = clips.filter((c) => byFmt(c) && bySrc(c) && byCat(c) && byGame(c));
+  const countFor = (k: Cat) => clips.filter((c) => byFmt(c) && bySrc(c) && CATS.find((x) => x.key === k)!.match(c.kind) && byGame(c)).length;
+  const countFmt = (f: Fmt) => clips.filter((c) => (f === 'v') === isVertical(c.kind) && bySrc(c) && byGame(c)).length;
+  const countSrc = (x: Src) => clips.filter((c) => byFmt(c) && (x === 'all' || (x === 'stream') === isStream(c.kind)) && byGame(c)).length;
 
   // Deep link a un clip: mostrarlo aunque los filtros lo escondan y hacer scroll.
   useEffect(() => {
     if (!focus || loading) return;
     const c = clips.find((x) => clipId(x) === focus);
     if (!c) { setFocus(null); return; }
-    if (!byCat(c) || !byGame(c)) { setCat('all'); setGame('all'); setRound('all'); }
+    if (!byFmt(c) || !bySrc(c) || !byCat(c) || !byGame(c)) { setCat('all'); setGame('all'); setRound('all'); setSrc('all'); setFmt(isVertical(c.kind) ? 'v' : 'h'); }
     const t = window.setTimeout(() => document.getElementById(`clip-${focus}`)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' }), 120);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -152,22 +153,30 @@ export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tour
           </p>
         ) : (
           <>
-            {/* Carpetas por categoría */}
-            <div className="flex flex-wrap items-end justify-center gap-x-6 gap-y-4 sm:gap-x-10 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 pb-3 overflow-hidden" role="tablist" aria-label="Categorías de clips">
-              {CATS.map((k) => {
-                const n = countFor(k.key);
-                const sample = clips.filter((c) => k.match(c.kind) && byGame(c)).slice(0, 3);
-                return (
-                  <Folder
-                    key={k.key} color={k.color} size={0.8} open={cat === k.key}
-                    label={`${k.label} · ${n}`}
-                    onToggle={() => { setCat(k.key); setFocus(null); }}
-                    badge={<img src={k.icon} alt="" aria-hidden width={22} height={22} className="h-[22px] w-[22px] object-contain drop-shadow" />}
-                    items={sample.map((c) => <Champ key={clipId(c)} name={c.players?.[0]?.champion || ''} size={28} />)}
-                    className={n === 0 && cat !== k.key ? 'opacity-40' : ''}
-                  />
-                );
-              })}
+            {/* Filtros: formato · fuente · categoría */}
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Seg label="Formato">
+                  <SegBtn active={fmt === 'h'} onClick={() => { setFmt('h'); setFocus(null); }}>Horizontal <Count n={countFmt('h')} /></SegBtn>
+                  <SegBtn active={fmt === 'v'} onClick={() => { setFmt('v'); setFocus(null); }}>Vertical <Count n={countFmt('v')} /></SegBtn>
+                </Seg>
+                <Seg label="Fuente">
+                  <SegBtn active={src === 'all'} onClick={() => setSrc('all')}>Todo <Count n={countSrc('all')} /></SegBtn>
+                  <SegBtn active={src === 'replay'} onClick={() => setSrc('replay')}>Replay <Count n={countSrc('replay')} /></SegBtn>
+                  <SegBtn active={src === 'stream'} onClick={() => setSrc('stream')}>Stream <Count n={countSrc('stream')} /></SegBtn>
+                </Seg>
+              </div>
+              <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Categoría">
+                {CATS.map((k) => {
+                  const n = countFor(k.key);
+                  return (
+                    <button key={k.key} type="button" role="tab" aria-selected={cat === k.key} onClick={() => { setCat(k.key); setFocus(null); }}
+                      className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-[12px] font-bold uppercase tracking-[0.1em] transition-colors ${cat === k.key ? 'border-red-500/60 bg-red-500/10 text-white' : n === 0 ? 'border-white/[0.06] text-gray-600' : 'border-white/[0.1] text-gray-300 hover:border-white/30 hover:text-white'}`}>
+                      <img src={k.icon} alt="" aria-hidden className="h-4 w-4 object-contain" />{k.label}<Count n={n} />
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Filtro por ronda y partida */}
@@ -191,7 +200,7 @@ export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tour
             {visible.length === 0 ? (
               <p className="mt-4 text-sm text-gray-500 bg-white/[0.03] border border-white/[0.08] rounded-xl p-4">No hay clips de esta categoría con los filtros actuales.</p>
             ) : (
-              <motion.div layout className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <motion.div layout className={`mt-4 grid gap-4 ${fmt === 'v' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' : 'sm:grid-cols-2 lg:grid-cols-3'}`}>
                 <AnimatePresence initial={false}>
                   {visible.map((c) => {
                     const id = clipId(c);
@@ -202,7 +211,7 @@ export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tour
                         transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                         className={`rounded-xl overflow-hidden border bg-white/[0.03] ${focus === id ? 'border-red-500/70 shadow-[0_0_0_3px_rgba(232,50,60,0.18)]' : 'border-white/[0.08]'}`}
                       >
-                        <video src={c.url} controls preload="metadata" playsInline className={`w-full bg-black ${isVertical(c.kind) ? 'aspect-[9/16] max-h-[520px] object-contain' : 'aspect-video'}`} />
+                        <video src={c.url} controls preload="metadata" playsInline className={`w-full bg-black ${isVertical(c.kind) ? 'aspect-[9/16]' : 'aspect-video'}`} />
                         <figcaption className="p-3">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
@@ -215,7 +224,7 @@ export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tour
                             </div>
                           </div>
                         </figcaption>
-                        <FightStats region={c.region} gameId={c.gameId} start={c.tStart} end={c.tEnd} defaultOpen={false} dense />
+                        {!isVertical(c.kind) && <FightStats region={c.region} gameId={c.gameId} start={c.tStart} end={c.tEnd} defaultOpen={false} dense />}
                       </motion.figure>
                     );
                   })}
@@ -257,6 +266,25 @@ export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tour
   );
 }
 
+function Count({ n }: { n: number }) {
+  return <span className="rounded bg-white/[0.08] px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-gray-300">{n}</span>;
+}
+function Seg({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="inline-flex items-center gap-2">
+      <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500">{label}</span>
+      <div className="inline-flex overflow-hidden rounded-md border border-white/[0.1]">{children}</div>
+    </div>
+  );
+}
+function SegBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={active}
+      className={`inline-flex h-9 items-center gap-1.5 px-3 text-[12px] font-bold uppercase tracking-[0.08em] transition-colors border-r border-white/[0.08] last:border-r-0 ${active ? 'bg-red-500/15 text-white' : 'text-gray-400 hover:bg-white/[0.04] hover:text-white'}`}>
+      {children}
+    </button>
+  );
+}
 function RoundChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button type="button" onClick={onClick} aria-pressed={active}
