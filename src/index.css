@@ -437,3 +437,10 @@ body::after {
   .atak-modal-body { padding: 16px; }
   .atak-modal-foot { padding: 12px 16px 16px; }
 }
+
+/* Reels: barra de progreso arrastrable (relleno rojo hasta --p) */
+.reel-seek { background: linear-gradient(to right, #e8323c var(--p, 0%), rgba(255, 255, 255, 0.18) var(--p, 0%)); background-size: 100% 3px; background-repeat: no-repeat; background-position: center; }
+.reel-seek::-webkit-slider-runnable-track { height: 3px; background: transparent; }
+.reel-seek::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -5.5px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(232, 50, 60, 0.45); }
+.reel-seek::-moz-range-track { height: 3px; background: transparent; }
+.reel-seek::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(232, 50, 60, 0.45); }
