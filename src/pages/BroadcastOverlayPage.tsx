@@ -82,7 +82,7 @@ interface FeedPlayer {
   /** Hechizos ("SummonerFlash") y runa clave (id): los manda el companion ≥ 0.4.1. */
   spells?: string[]; keystone?: number;
 }
-interface FeedEvent { id: number; t: number; name: string; killer: string; victim: string; extra: string }
+interface FeedEvent { id: number; t: number; name: string; killer: string; victim: string; extra: string; assisters?: string[] }
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${Math.floor(Math.max(0, s) % 60).toString().padStart(2, '0')}`;
 const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -497,7 +497,7 @@ export default function BroadcastOverlayPage() {
 
   // ── Pelea en curso: bajas agrupadas (≤ 20 s entre una y otra), visible 9 s tras la última ──
   // El cliente en modo espectador no da daño; lo que sí hay son las bajas y el oro que reparten.
-  const FIGHT_GAP = 20, FIGHT_HOLD = 9;
+  const FIGHT_GAP = 20, FIGHT_HOLD = 12;
   const fight = (() => {
     const kills = (d.events as FeedEvent[]).filter((e) => e.name === 'ChampionKill').sort((a, b) => a.t - b.t);
     let group: FeedEvent[] = [];
@@ -510,7 +510,14 @@ export default function BroadcastOverlayPage() {
     });
     const tally = { blue: rows.filter((r) => r.side === 'blue').length, red: rows.filter((r) => r.side === 'red').length };
     const lead: Side | null = tally.blue > tally.red ? 'blue' : tally.red > tally.blue ? 'red' : null;
-    return { rows, tally, lead, t0: group[0].t, t1: group[group.length - 1].t, gold: Math.abs(tally.blue - tally.red) * 300 };
+    // Por jugador: bajas, asistencias, muertes y oro estimado (baja 300 · asistencia 150)
+    const per = new Map<string, { kills: number; assists: number; deaths: number }>();
+    const bump = (p: FeedPlayer | null, k: 'kills' | 'assists' | 'deaths') => { if (!p) return; const cur = per.get(p.riotId) || { kills: 0, assists: 0, deaths: 0 }; cur[k]++; per.set(p.riotId, cur); };
+    for (const e of group) { bump(d.playerOf(e.killer), 'kills'); bump(d.playerOf(e.victim), 'deaths'); for (const a of e.assisters || []) bump(d.playerOf(a), 'assists'); }
+    const stat = (p: FeedPlayer) => { const s = per.get(p.riotId) || { kills: 0, assists: 0, deaths: 0 }; return { ...s, gold: s.kills * 300 + s.assists * 150 }; };
+    const players = { blue: [...d.order].map((p) => ({ p, ...stat(p) })).sort((a, b) => b.gold - a.gold || b.kills - a.kills), red: [...d.chaos].map((p) => ({ p, ...stat(p) })).sort((a, b) => b.gold - a.gold || b.kills - a.kills) };
+    const maxGold = Math.max(150, ...players.blue.map((x) => x.gold), ...players.red.map((x) => x.gold));
+    return { rows, tally, lead, t0: group[0].t, t1: group[group.length - 1].t, gold: Math.abs(tally.blue - tally.red) * 300, players, maxGold };
   })();
   const goldDiff = d.gold.blue - d.gold.red;
   const lead: Side | null = goldDiff > 0 ? 'blue' : goldDiff < 0 ? 'red' : null;
@@ -851,31 +858,27 @@ export default function BroadcastOverlayPage() {
               initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40, transition: { duration: 0.25 } }}
               transition={{ duration: 0.4, ease: EASE }}
             >
-              <div className="bo-fight-head">
-                <span className="bo-fight-team blue">{d.team.blue}</span>
-                <span className="bo-fight-mid">
-                  <span className="bo-fight-tally bo-disp"><b className="blue">{fight.tally.blue}</b><i>–</i><b className="red">{fight.tally.red}</b></span>
-                  <span className="bo-fight-title bo-disp">Pelea · {fmt(fight.t0)}–{fmt(fight.t1)}</span>
-                  {fight.lead && <span className={`bo-fight-gold ${fight.lead}`}><img src={ICON.gold} alt="" onError={hide} />+{kFmt(fight.gold)} oro</span>}
-                </span>
-                <span className="bo-fight-team red">{d.team.red}</span>
+              <div className="bo-fw-head">
+                <span className="bo-fw-title bo-disp">Oro ganado en la última pelea</span>
+                <span className="bo-fw-sub">{fmt(fight.t0)}–{fmt(fight.t1)} · <b className="blue">{fight.tally.blue}</b> – <b className="red">{fight.tally.red}</b> bajas</span>
               </div>
-              <div className="bo-fight-cols">
+              <div className="bo-fw-body">
+                <span className="bo-fw-logo blue">{d.logo.blue ? <img src={d.logo.blue} alt="" onError={hide} /> : <b className="bo-disp">{d.team.blue.slice(0, 3)}</b>}<i>{d.team.blue}</i></span>
                 {(['blue', 'red'] as Side[]).map((side) => (
-                  <div key={side} className={`bo-fight-col ${side}`}>
-                    {fight.rows.filter((r) => r.side === side).map((r) => (
-                      <motion.div key={r.id} className="bo-fight-row" initial={{ opacity: 0, x: side === 'blue' ? -10 : 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, ease: EASE }}>
-                        <span className="bo-fight-face">{r.killer ? <img src={champArtRef.current.icon(r.killer.championName) || ICON.kill} alt="" onError={hide} /> : <img src={ICON.kill} alt="" onError={hide} />}</span>
-                        <span className="bo-fight-name">{r.killer ? shortName(r.killer.riotId) : 'Ejecución'}</span>
-                        <span className="bo-fight-arrow" aria-hidden>›</span>
-                        <span className="bo-fight-face dead">{r.victim && <img src={champArtRef.current.icon(r.victim.championName) || ICON.kill} alt="" onError={hide} />}</span>
-                        <span className="bo-fight-name dim">{r.victim ? shortName(r.victim.riotId) : ''}</span>
+                  <div key={side} className={`bo-fw-col ${side}`}>
+                    {fight.players[side].map((x, i) => (
+                      <motion.div key={x.p.riotId} className="bo-fw-row" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, delay: 0.05 * i }}>
+                        <span className={`bo-fw-face${x.deaths ? ' dead' : ''}`}><img src={champArtRef.current.icon(x.p.championName) || ''} alt="" onError={hide} /></span>
+                        <span className="bo-fw-bar"><motion.i initial={{ scaleX: 0 }} animate={{ scaleX: Math.max(0.02, x.gold / fight.maxGold) }} transition={{ duration: 0.6, ease: EASE, delay: 0.1 + 0.05 * i }} /></span>
+                        <span className="bo-fw-val bo-disp">{x.gold ? `+${x.gold.toLocaleString('es-MX')}` : '0'}</span>
+                        <span className="bo-fw-ka">{x.kills ? `${x.kills}B` : ''}{x.kills && x.assists ? ' ' : ''}{x.assists ? `${x.assists}A` : ''}</span>
                       </motion.div>
                     ))}
-                    {!fight.rows.some((r) => r.side === side) && <div className="bo-fight-none">Sin bajas</div>}
                   </div>
                 ))}
+                <span className="bo-fw-logo red">{d.logo.red ? <img src={d.logo.red} alt="" onError={hide} /> : <b className="bo-disp">{d.team.red.slice(0, 3)}</b>}<i>{d.team.red}</i></span>
               </div>
+              <div className="bo-fw-foot"><span><i className="sw blue" /> BAJA 300 ORO</span><span><i className="sw blue dim" /> ASISTENCIA 150 ORO</span><span>· ESTIMADO (EL CLIENTE ESPECTADOR NO ENTREGA DAÑO)</span></div>
             </motion.div>
           )}
         </AnimatePresence>

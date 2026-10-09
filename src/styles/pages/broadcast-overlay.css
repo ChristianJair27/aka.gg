@@ -362,3 +362,34 @@
 .bo-objs-soul { font-size: calc(22px * var(--bo-display-scale)); color: var(--bo-gold); }
 .bo-objs-next { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: var(--bo-text); }
 .bo-objs-next img { width: 20px; height: 20px; object-fit: contain; }
+
+
+/* ── Pelea al estilo Worlds: barras por jugador (oro y participación) ───────── */
+.bo-fight { width: 1160px; margin-left: -580px; padding: 10px 22px 10px; }
+.bo-fw-head { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0 8px; }
+.bo-fw-title { font-size: calc(30px * var(--bo-display-scale)); color: var(--bo-text); letter-spacing: 0.04em; }
+.bo-fw-sub { font-size: 13px; font-weight: 700; letter-spacing: 0.16em; color: var(--bo-text-2); }
+.bo-fw-sub b { font-weight: 800; }
+.bo-fw-sub b.blue { color: var(--bo-blue); } .bo-fw-sub b.red { color: var(--bo-red); }
+.bo-fw-body { display: grid; grid-template-columns: 130px 1fr 1fr 130px; gap: 0 18px; align-items: center; }
+.bo-fw-logo { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.bo-fw-logo img { width: 84px; height: 84px; object-fit: contain; }
+.bo-fw-logo b { font-size: calc(30px * var(--bo-display-scale)); color: var(--side); }
+.bo-fw-logo i { font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bo-text-2); text-align: center; max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bo-fw-col { display: flex; flex-direction: column; gap: 5px; }
+.bo-fw-row { display: grid; grid-template-columns: 30px 1fr 70px 46px; align-items: center; gap: 8px; height: 30px; }
+.bo-fw-col.red .bo-fw-row { grid-template-columns: 46px 70px 1fr 30px; direction: rtl; }
+.bo-fw-face { width: 30px; height: 30px; border-radius: 4px; overflow: hidden; background: rgba(0, 0, 0, 0.5); box-shadow: 0 0 0 1.5px var(--side); }
+.bo-fw-face img { width: 100%; height: 100%; object-fit: cover; }
+.bo-fw-face.dead img { filter: grayscale(1) brightness(0.7); }
+.bo-fw-bar { position: relative; height: 18px; background: rgba(255, 255, 255, 0.08); border-radius: 2px; overflow: hidden; }
+.bo-fw-bar i { position: absolute; inset: 0; display: block; background: var(--side-fill); transform-origin: left; }
+.bo-fw-col.red .bo-fw-bar i { transform-origin: right; }
+.bo-fw-val { font-size: calc(20px * var(--bo-display-scale)); color: var(--side); text-align: left; direction: ltr; }
+.bo-fw-col.red .bo-fw-val { text-align: right; }
+.bo-fw-ka { font-size: 11.5px; font-weight: 800; letter-spacing: 0.08em; color: var(--bo-text-2); direction: ltr; text-align: left; }
+.bo-fw-col.red .bo-fw-ka { text-align: right; }
+.bo-fw-foot { display: flex; justify-content: center; gap: 18px; padding-top: 8px; font-size: 10.5px; font-weight: 800; letter-spacing: 0.12em; color: var(--bo-text-2); }
+.bo-fw-foot span { display: inline-flex; align-items: center; gap: 6px; }
+.bo-fw-foot .sw { width: 12px; height: 8px; border-radius: 1px; background: var(--bo-blue-fill); }
+.bo-fw-foot .sw.dim { opacity: 0.5; }
