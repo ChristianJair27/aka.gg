@@ -235,6 +235,25 @@ export default function BroadcastOverlayPage() {
 
   useEffect(() => { ensureBroadcastFont(theme); }, [theme]);
 
+  // OBS no recarga la fuente Navegador: cuando el sitio se despliega (cambia index.html)
+  // el overlay se recarga solo, pero nunca mientras hay una pelea o un aviso en pantalla.
+  const indexRef = useRef<string | null>(null);
+  const busyRef = useRef(false);
+  useEffect(() => {
+    let alive = true;
+    const check = async () => {
+      try {
+        const txt = await (await fetch('/index.html', { cache: 'no-store' })).text();
+        if (!alive) return;
+        if (indexRef.current === null) indexRef.current = txt;
+        else if (txt !== indexRef.current && !busyRef.current) window.location.reload();
+      } catch { /* sin red: nada */ }
+    };
+    void check();
+    const t = window.setInterval(check, 90_000);
+    return () => { alive = false; window.clearInterval(t); };
+  }, []);
+
   // Fondo transparente real para OBS (html/body traen tema oscuro global).
   useEffect(() => {
     const prevHtml = document.documentElement.style.background;
@@ -493,6 +512,7 @@ export default function BroadcastOverlayPage() {
   }
 
   const d = derived;
+  busyRef.current = !!moment || !!(d.events as FeedEvent[]).some((e) => e.name === 'ChampionKill' && d.t - e.t < 40);
   const itemIcon = (id: number) => `https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${id}.png`;
 
   // ── Pelea en curso: bajas agrupadas (≤ 20 s entre una y otra), visible 9 s tras la última ──
