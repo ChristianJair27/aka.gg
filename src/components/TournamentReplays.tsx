@@ -24,14 +24,17 @@ const mb = (n: number) => `${(n / 1048576).toFixed(1)} MB`;
 const clipId = (c: Clip) => `${c.gameId}-${c.key}`;
 
 // ── Categorías (carpetas) ─────────────────────────────────────────────────────
-type Cat = 'all' | 'teamfight' | 'multikill' | 'first_blood' | 'ace' | 'objective';
+type Cat = 'all' | 'stream' | 'teamfight' | 'multikill' | 'first_blood' | 'ace' | 'objective';
+// Los clips del stream llegan como kind "stream_<tipo>": entran en su categoría y además en "Del stream".
+const base = (k: string) => k.replace(/^stream_/, '');
 const CATS: Array<{ key: Cat; label: string; color: string; icon: string; match: (kind: string) => boolean }> = [
   { key: 'all', label: 'Todos', color: '#e8323c', icon: lol.ui('champion'), match: () => true },
-  { key: 'teamfight', label: 'Peleas', color: '#c8aa6e', icon: lol.stat('attack_damage'), match: (k) => k === 'teamfight' },
-  { key: 'multikill', label: 'Multikills', color: '#3b3b47', icon: lol.ui('score'), match: (k) => k.startsWith('multikill') },
-  { key: 'first_blood', label: 'Primera sangre', color: '#8d1a22', icon: lol.stat('life_steal'), match: (k) => k === 'first_blood' },
-  { key: 'ace', label: 'Aces', color: '#f0d891', icon: lol.stat('critical_chance'), match: (k) => k === 'ace' },
-  { key: 'objective', label: 'Objetivos', color: '#49a3ff', icon: lol.ui('nashor'), match: (k) => ['baron_nashor', 'riftherald', 'dragon', 'horde', 'inhibitor'].includes(k) },
+  { key: 'stream', label: 'Del stream', color: '#9146ff', icon: lol.ui('spells'), match: (k) => k.startsWith('stream_') },
+  { key: 'teamfight', label: 'Peleas', color: '#c8aa6e', icon: lol.stat('attack_damage'), match: (k) => base(k) === 'teamfight' },
+  { key: 'multikill', label: 'Multikills', color: '#3b3b47', icon: lol.ui('score'), match: (k) => base(k).startsWith('multikill') },
+  { key: 'first_blood', label: 'Primera sangre', color: '#8d1a22', icon: lol.stat('life_steal'), match: (k) => base(k) === 'first_blood' },
+  { key: 'ace', label: 'Aces', color: '#f0d891', icon: lol.stat('critical_chance'), match: (k) => base(k) === 'ace' },
+  { key: 'objective', label: 'Objetivos', color: '#49a3ff', icon: lol.ui('nashor'), match: (k) => ['baron_nashor', 'riftherald', 'dragon', 'horde', 'inhibitor'].includes(base(k)) },
 ];
 const isCat = (v: string | null): v is Cat => !!v && CATS.some((c) => c.key === v);
 
