@@ -12,6 +12,7 @@ import { toast } from '@/components/ui/sonner';
 import { ShareMenu, shareUrlFromMedia } from '@/components/ShareMenu';
 import { StickerPicker, uploadMedia, type Sticker } from '@/components/social/StickerPicker';
 import { AtakModal, AtakModalBody, AtakModalContent, AtakModalHeader } from '@/components/ui/atak-modal';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ARENA_MODAL } from '@/components/tournament/forms';
 
 interface Meta { team1?: string; team2?: string; round?: number; gameNumber?: number; tStart?: number; tEnd?: number; kind?: string }
@@ -97,7 +98,19 @@ export function SocialReels({ tournamentId, tournamentName }: { tournamentId: st
   };
   const go = (dir: 1 | -1) => scrollerRef.current?.querySelector(`[data-index="${Math.max(0, Math.min(posts.length - 1, active + dir))}"]`)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
 
-  if (loading) return <div className="py-10 text-center text-sm text-gray-500">Cargando highlights…</div>;
+  if (loading) return (
+    <div className="mx-auto max-w-[980px]">
+      <div className="mb-3 flex items-center justify-between"><Skeleton className="h-6 w-48" /><Skeleton className="h-10 w-28" /></div>
+      <div className="mx-auto w-full max-w-[440px] overflow-hidden rounded-2xl bg-black/40">
+        <div className="relative aspect-[9/16] w-full">
+          <Skeleton className="absolute inset-0 rounded-none" />
+          <div className="absolute left-3 top-3 flex items-center gap-2"><Skeleton className="h-9 w-9 rounded-full" /><Skeleton className="h-4 w-28" /></div>
+          <div className="absolute bottom-10 left-3 right-16 space-y-2"><Skeleton className="h-5 w-3/4" /><Skeleton className="h-3 w-1/2" /></div>
+          <div className="absolute bottom-10 right-2 space-y-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-11 w-11 rounded-full" />)}</div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="relative mx-auto max-w-[980px]">
@@ -116,7 +129,7 @@ export function SocialReels({ tournamentId, tournamentName }: { tournamentId: st
         </div>
       ) : (
         (() => { const feed = (
-        <div className={fs ? 'fixed inset-0 z-[80] bg-black' : 'relative flex justify-center gap-4'}>
+        <div className={fs ? 'reels-fs fixed inset-0 z-[80] bg-black' : 'relative flex justify-center gap-4'}>
           {fs && <button type="button" onClick={() => setFs(false)} aria-label="Salir de pantalla completa" className="absolute left-3 top-3 z-[90] grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white backdrop-blur"><X className="h-5 w-5" /></button>}
           {fs && <motion.button whileTap={{ scale: 0.95 }} type="button" onClick={() => (isAuthenticated ? setPublishOpen(true) : toast('Inicia sesión para publicar'))} aria-label="Publicar" className="absolute right-3 top-3 z-[90] grid h-9 w-9 place-items-center rounded-full bg-red-600 text-white"><Plus className="h-5 w-5" /></motion.button>}
           <div ref={scrollerRef} className={`reels-scroller snap-y snap-mandatory overflow-y-auto overscroll-contain bg-black [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${fs ? 'h-[100dvh] w-full' : 'h-[min(82vh,860px)] w-full max-w-[440px] rounded-2xl'}`}>
@@ -275,19 +288,19 @@ function CommentsSheet({ post, onClose, isAuth, onCommented }: { post: Post | nu
     if (f.size > 8 * 1024 * 1024) return toast('La foto debe pesar menos de 8 MB');
     try { const m = await uploadMedia(f, 'image', f.name); await send({ media_id: m.id }); } catch (e: any) { toast(e?.response?.data?.error || 'No se pudo subir la foto'); }
   };
-  return (
+  return createPortal(
     <AnimatePresence>
       {post && (
         <>
-          <motion.div key="bg" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-40 bg-black/60" />
-          <motion.div key="sheet" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 320, damping: 32 }} role="dialog" aria-label="Comentarios" className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[78vh] w-full max-w-[560px] flex-col rounded-t-2xl border border-white/[0.1] bg-[#121216] shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.9)]">
+          <motion.div key="bg" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.22 }} onClick={onClose} className="fixed inset-0 z-[90] bg-black/45" />
+          <motion.div key="sheet" initial={{ y: '100%', opacity: 0.6 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '100%', opacity: 0.6 }} transition={{ type: 'spring', stiffness: 340, damping: 34, mass: 0.9 }} role="dialog" aria-label="Comentarios" className="fixed inset-x-0 bottom-0 z-[91] mx-auto flex max-h-[78vh] w-full max-w-[560px] flex-col rounded-t-2xl border border-white/[0.12] bg-[#121216]/80 shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.9)] backdrop-blur-xl">
             <div className="flex items-center justify-between px-4 pb-2 pt-3">
               <div className="mx-auto h-1 w-10 rounded-full bg-white/20 absolute left-1/2 top-2 -translate-x-1/2" />
               <span className="pt-2 text-sm font-bold uppercase tracking-[0.12em] text-white">Comentarios <span className="text-gray-500">{post.comments_count}</span></span>
               <button type="button" onClick={onClose} aria-label="Cerrar" className="pt-2 text-gray-400 hover:text-white"><X className="h-5 w-5" /></button>
             </div>
             <div className="flex-1 space-y-3 overflow-y-auto px-4 pb-3">
-              {list === null && <div className="py-6 text-center text-xs text-gray-500">Cargando…</div>}
+              {list === null && [0, 1, 2].map((i) => <div key={i} className="flex gap-3"><Skeleton className="h-8 w-8 rounded-full" /><div className="flex-1 space-y-2 pt-1"><Skeleton className="h-3 w-32" /><Skeleton className="h-3 w-3/4" /></div></div>)}
               {list?.length === 0 && <div className="py-6 text-center text-sm text-gray-500">Sé el primero en comentar.</div>}
               {list?.map((c, i) => (
                 <motion.div key={c.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 8) * 0.03 }} className="flex gap-3">
@@ -314,7 +327,8 @@ function CommentsSheet({ post, onClose, isAuth, onCommented }: { post: Post | nu
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 

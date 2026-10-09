@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Download, Film, Clapperboard } from 'lucide-react';
 import { ShareMenu } from '@/components/ShareMenu';
+import { Skeleton } from '@/components/ui/skeleton';
 import axiosInstance from '@/lib/axios';
 import { FightStats } from '@/components/FightStats';
 import { lol } from '@/lib/lolAssets';
@@ -129,7 +130,17 @@ export function TournamentReplays({ tournamentId, bracket: bracketProp }: { tour
   }, [focus, loading, clips]);
 
 
-  if (loading) return <div className="py-10 text-center text-sm text-gray-500">Cargando replays…</div>;
+  if (loading) return (
+    <div className="space-y-8">
+      <section>
+        <div className="mb-3 flex items-end justify-between"><Skeleton className="h-6 w-40" /><Skeleton className="h-4 w-16" /></div>
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3"><div className="flex flex-wrap gap-2">{[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-9 w-28" />)}</div></div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03]"><Skeleton className="aspect-video w-full rounded-none" /><div className="space-y-2 p-3"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-3 w-1/2" /></div></div>)}
+        </div>
+      </section>
+    </div>
+  );
 
   return (
     <div className="space-y-8">

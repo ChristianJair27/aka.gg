@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { ChevronDown, Swords, Crown } from 'lucide-react';
 import axiosInstance from '@/lib/axios';
 import { dd } from '@/lib/dataDragon';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface FightPlayer { id: number; name: string; champion: string; team: 'blue' | 'red'; kills: number; deaths: number; assists: number; damage: number; damageTaken: number; gold: number; killDamage: number; damagePct: number }
 interface FightKill { t: number; killer: { name: string; champion: string; team: string } | null; victim: { name: string; champion: string; team: string } | null; assists: string[]; shutdown: number }
@@ -44,7 +45,7 @@ export function FightStats({ region, gameId, start, end, defaultOpen = true, den
   const { fight, error, ok } = useFight(region, gameId, start, end);
   const [open, setOpen] = useState(defaultOpen);
   if (!ok || error) return null;
-  if (!fight) return <div className="px-4 py-2 text-[11px] uppercase tracking-[0.14em] text-gray-600">Calculando stats de la pelea…</div>;
+  if (!fight) return <div className="space-y-2 border-t border-white/[0.06] px-4 py-3"><Skeleton className="h-3 w-40" /><Skeleton className="h-1.5 w-full" /></div>;
   const { blue, red } = fight.teams;
   const totalDmg = blue.damage + red.damage || 1;
   const bluePct = Math.round((blue.damage / totalDmg) * 100);

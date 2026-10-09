@@ -444,3 +444,20 @@ body::after {
 .reel-seek::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -5.5px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(232, 50, 60, 0.45); }
 .reel-seek::-moz-range-track { height: 3px; background: transparent; }
 .reel-seek::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(232, 50, 60, 0.45); }
+
+
+/* ── Modales: cristal y entrada/salida suaves (sin saltos) ─────────────────── */
+.atak-modal-overlay { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: atak-fade-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.atak-modal-overlay[data-state='closed'] { animation: atak-fade-out 180ms ease-in both; }
+.atak-modal { background: rgba(18, 18, 22, 0.82); backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2); animation: atak-modal-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both; will-change: transform, opacity; }
+.atak-modal[data-state='closed'] { animation: atak-modal-out 180ms ease-in both; }
+@keyframes atak-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes atak-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes atak-modal-in { from { opacity: 0; transform: translateY(14px) scale(0.965); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes atak-modal-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(10px) scale(0.975); } }
+@media (prefers-reduced-motion: reduce) { .atak-modal, .atak-modal-overlay, .atak-modal[data-state='closed'], .atak-modal-overlay[data-state='closed'] { animation: none; } }
+/* Con el feed de reels a pantalla completa (z 80), los modales deben quedar encima. */
+body:has(.reels-fs) .atak-modal-overlay { z-index: 95; }
+body:has(.reels-fs) .atak-modal { z-index: 96; }
+/* La piel Arena (.td-root.tf-modal) es opaca: en cristal también, con más peso que su selector. */
+.atak-modal.td-root.tf-modal { background: rgba(18, 18, 22, 0.84); backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2); }
