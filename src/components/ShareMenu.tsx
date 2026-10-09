@@ -43,7 +43,7 @@ export function ShareMenu({ url, mp4, title, text, compact = false, rail = false
         {rail ? <><span className="grid h-11 w-11 place-items-center rounded-full bg-black/50 backdrop-blur"><Share2 className="h-6 w-6" /></span><span className="text-[11px] font-bold drop-shadow">Compartir</span></> : <><Share2 className="h-3.5 w-3.5" />{!compact && <span>Compartir</span>}</>}
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 z-30 mt-2 w-64 rounded-xl border border-white/[0.1] bg-[#121216] p-2 shadow-[0_18px_44px_-14px_rgba(0,0,0,0.9)]">
+        <div role="menu" className={`absolute right-0 z-30 w-64 rounded-xl border border-white/[0.1] bg-[#121216] p-2 shadow-[0_18px_44px_-14px_rgba(0,0,0,0.9)] ${rail ? 'bottom-full mb-2' : 'mt-2'}`}>
           <div className="flex items-center justify-between px-2 pb-2 pt-1">
             <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Compartir clip</span>
             <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar" className="text-gray-500 hover:text-white"><CloseIcon className="h-3.5 w-3.5" /></button>
