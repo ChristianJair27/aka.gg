@@ -38,7 +38,7 @@ export function ResponsiveStyles() {
       @media (max-width: 900px) { .td-admin-grid { grid-template-columns: 1fr; } }
 
       /* Pestañas pegajosas (tablet/escritorio) / nav flotante inferior (móvil):
-         la regla vive en arena.css (.td-tabs-desktop). */
+         la regla vive en arena.css (.td-tabs). */
 
       /* Standings / tablas compactas */
       .td-strow { display: grid; grid-template-columns: 34px minmax(0,1fr) 64px 170px 92px 46px; gap: 12px; align-items: center; }
@@ -71,10 +71,6 @@ export function ResponsiveStyles() {
       @media (max-width: 1100px) {
         .td-dash-grid { grid-template-columns: 1fr; }
         .td-dash-tiles { grid-template-columns: repeat(2, 1fr); }
-      }
-      @media (max-width: 760px) {
-        .td-tabs-desktop { display: none; }
-        .td-bottomnav { display: flex !important; }
       }
       @media (max-width: 720px) {
         .td-leaders { grid-template-columns: 1fr; }

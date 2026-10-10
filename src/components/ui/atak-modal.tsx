@@ -16,6 +16,7 @@ import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useHistoryModal } from '@/hooks/use-history-modal';
 
 /** Acento de marca del modal. Tiñe el riel superior, la X y los focos. */
 export type AtakTone = 'red' | 'gold' | 'green' | 'violet';
@@ -34,7 +35,12 @@ const SIZE: Record<'sm' | 'md' | 'lg' | 'xl', string> = {
   xl: '1040px',
 };
 
-export const AtakModal = DialogPrimitive.Root;
+/** Root del modal. Si es controlado (open/onOpenChange), el botón "Atrás" lo cierra en vez de salir de la página. */
+export function AtakModal({ open, onOpenChange, children, ...rest }: React.ComponentProps<typeof DialogPrimitive.Root>) {
+  const layerId = `atak-modal-${React.useId()}`;
+  useHistoryModal(!!open, () => onOpenChange?.(false), layerId);
+  return <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} {...rest}>{children}</DialogPrimitive.Root>;
+}
 export const AtakModalClose = DialogPrimitive.Close;
 
 export interface AtakModalContentProps

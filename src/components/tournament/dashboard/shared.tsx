@@ -121,8 +121,7 @@ export const NAV_TIPS: Record<Tab, string> = {
   reglas: 'Reglamento y formato del torneo',
 };
 
-// Sidebar de navegación (desktop). En móvil se oculta y toma el relevo la
-// BottomNav flotante.
+// Barra de secciones (Nav.tsx): la misma en escritorio y móvil.
 
 export function CountUp({ to }: { to: number }) {
   const [v, setV] = useState(0);

@@ -18,20 +18,20 @@ const TEAM = { blue: { text: 'text-sky-300', bar: 'bg-sky-400', label: 'Azul' },
 
 const cache = new Map<string, Fight>();
 
-export function useFight(region?: string | null, gameId?: number | null, start?: number | null, end?: number | null) {
+export function useFight(region?: string | null, gameId?: number | null, start?: number | null, end?: number | null, enabled = true) {
   const ok = !!region && !!gameId && end != null && start != null && end > start;
   const key = ok ? `${region}:${gameId}:${start}-${end}` : '';
   const [fight, setFight] = useState<Fight | null>(() => (key && cache.get(key)) || null);
   const [error, setError] = useState(false);
   useEffect(() => {
-    if (!key) return;
+    if (!key || !enabled) return;
     const c = cache.get(key); if (c) { setFight(c); return; }
     let alive = true;
     axiosInstance.get(`/api/replays/${region}/${gameId}/fight`, { params: { start, end } })
       .then((r) => { if (!alive) return; cache.set(key, r.data); setFight(r.data); })
       .catch(() => alive && setError(true));
     return () => { alive = false; };
-  }, [key, region, gameId, start, end]);
+  }, [key, region, gameId, start, end, enabled]);
   return { fight, error, ok };
 }
 
@@ -40,12 +40,21 @@ function Champ({ name, size = 22 }: { name: string; size?: number }) {
   return <img src={dd.champion(name)} alt={name} title={name} width={size} height={size} loading="lazy" className="rounded object-cover shrink-0" style={{ width: size, height: size }} onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} />;
 }
 
-/** Panel de stats de la pelea. `defaultOpen` controla si el detalle por jugador arranca desplegado. */
-export function FightStats({ region, gameId, start, end, defaultOpen = true, dense = false }: { region?: string | null; gameId?: number | null; start?: number | null; end?: number | null; defaultOpen?: boolean; dense?: boolean }) {
-  const { fight, error, ok } = useFight(region, gameId, start, end);
+/** Panel de stats de la pelea. `defaultOpen` controla si el detalle por jugador arranca desplegado.
+ *  `lazy`: no pide nada al servidor hasta que el usuario despliega (en rejillas de cientos de clips). */
+export function FightStats({ region, gameId, start, end, defaultOpen = true, dense = false, lazy = false }: { region?: string | null; gameId?: number | null; start?: number | null; end?: number | null; defaultOpen?: boolean; dense?: boolean; lazy?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
+  const { fight, error, ok } = useFight(region, gameId, start, end, !lazy || open);
   if (!ok || error) return null;
-  if (!fight) return <div className="space-y-2 border-t border-white/[0.06] px-4 py-3"><Skeleton className="h-3 w-40" /><Skeleton className="h-1.5 w-full" /></div>;
+  if (!fight) {
+    if (lazy && !open) return (
+      <button type="button" onClick={() => setOpen(true)} aria-expanded={false} className={`flex w-full items-center justify-between gap-2 border-t border-white/[0.06] ${dense ? 'px-3' : 'px-4'} py-2.5 text-left transition-colors hover:bg-white/[0.03]`}>
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400"><Swords className="h-3.5 w-3.5 text-red-500" /> Daño en la pelea</span>
+        <ChevronDown className="h-4 w-4 text-gray-500" />
+      </button>
+    );
+    return <div className="space-y-2 border-t border-white/[0.06] px-4 py-3"><Skeleton className="h-3 w-40" /><Skeleton className="h-1.5 w-full" /></div>;
+  }
   const { blue, red } = fight.teams;
   const totalDmg = blue.damage + red.damage || 1;
   const bluePct = Math.round((blue.damage / totalDmg) * 100);

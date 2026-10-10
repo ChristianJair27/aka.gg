@@ -99,37 +99,6 @@
 }
 .td-root .td-nav-item[data-active='true'] .td-nav-ind { transform: translateY(-50%) scaleY(1); }
 
-/* ── Nav inferior flotante (móvil) ────────────────────────────────────────── */
-.td-root .td-bottomnav {
-  position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  z-index: 40;
-  display: none; gap: 2px; align-items: stretch;
-  padding: 6px;
-  max-width: calc(100vw - 24px);
-  background: rgba(14, 14, 18, 0.92);
-  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  border: 1px solid var(--td-border-hov);
-  border-radius: 22px;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.55);
-  overflow-x: auto; scrollbar-width: none;
-}
-.td-root .td-bottomnav::-webkit-scrollbar { display: none; }
-.td-root .td-bottomnav-item {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  min-width: 58px; padding: 9px 11px; border-radius: 16px;
-  border: none; background: transparent; cursor: pointer;
-  color: #d4d4d8; transition: background .15s, color .15s;
-  font-family: var(--td-font-ui);
-}
-.td-root .td-bottomnav-item:hover { color: var(--td-text); }
-.td-root .td-bottomnav-item[data-active='true'] {
-  background: rgba(232,50,60,0.22); color: #fff;
-  box-shadow: inset 0 0 0 1px rgba(232,50,60,0.4);
-}
-.td-root .td-bottomnav-item[data-active='true'] svg { color: var(--td-red); }
-.td-root .td-bottomnav-label { font-size: 10px; font-weight: 700; letter-spacing: .3px; }
-
 /* ── Modal de equipo ──────────────────────────────────────────────────────── */
 /* Filo animado del borde superior: barrido crimson→oro en bucle lento.
    transform/background-position solo — cero repaints caros. */
@@ -425,13 +394,6 @@
   transition: border-color .15s, color .15s;
 }
 .td-root .td-fearless-team:hover { border-color: var(--td-border-hov); color: var(--td-text); }
-
-/* Nav inferior: a 360px las 6 secciones cabían justas y el carril scrolleaba
-   sin indicio visible. Se estrechan los ítems para que entren todos de una. */
-@media (max-width: 380px) {
-  .td-root .td-bottomnav-item { min-width: 50px; padding: 8px 6px; }
-  .td-root .td-bottomnav-label { font-size: 8.5px; }
-}
 
 /* Cabecera del cajón de detalle de serie (móvil / tablet) */
 .td-root .td-drawer-head {

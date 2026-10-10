@@ -202,46 +202,46 @@
 .td-root .td-seg-count { font-size: 12px; font-weight: 700; opacity: 0.6; font-variant-numeric: tabular-nums; }
 @media (pointer: coarse) { .td-root .td-seg-item { height: 40px; } }
 
-/* ── Barra de pestañas del torneo (sustituye al sidebar) ───────────────────── */
-/* El pegajoso va en el envoltorio: dentro de un padre de su mismo alto no
-   tendría recorrido. Se pega bajo la pastilla del sitio y, cuando esta se
-   esconde al bajar (html[data-nav-hidden]), sube a ocupar su hueco. */
-.td-root .td-tabs-desktop {
+/* ── Barra de secciones del torneo (una sola para escritorio y móvil) ───────
+   Pegajosa bajo la pastilla del sitio; cuando esta se esconde al bajar
+   (html[data-nav-hidden]) sube a ocupar su hueco. 44 px de alto (táctil),
+   tipografía mono pequeña y subrayado animado: no compite con el contenido. */
+.td-root .td-tabs {
   position: sticky; top: 76px; z-index: 30; margin-top: 18px;
   transition: top 0.45s cubic-bezier(0.32, 0.72, 0, 1);
 }
-html[data-nav-hidden] .td-root .td-tabs-desktop { top: 12px; }
+html[data-nav-hidden] .td-root .td-tabs { top: 10px; }
 .td-root .ax-tabs {
-  display: flex; align-items: stretch; gap: 2px; padding: 0 6px;
-  background: rgba(14, 14, 17, 0.94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  border: 1px solid var(--td-border); border-radius: var(--td-r-panel);
-  box-shadow: 0 14px 30px -18px rgba(0, 0, 0, 0.95);
-  overflow-x: auto; scrollbar-width: none;
+  display: flex; align-items: stretch; gap: 2px; padding: 0 4px;
+  background: rgba(14, 14, 17, 0.86); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--td-border); border-radius: var(--td-r-ctl, 10px);
+  box-shadow: 0 10px 28px -18px rgba(0, 0, 0, 0.9);
+  overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none;
 }
 .td-root .ax-tabs::-webkit-scrollbar { display: none; }
 .td-root .ax-tab {
-  position: relative; display: inline-flex; align-items: center; gap: 9px; height: 50px; padding: 0 16px;
-  border: none; background: none; cursor: pointer; white-space: nowrap; color: var(--td-text-2);
-  font-family: var(--td-font-display); font-size: 16px; font-weight: 600; letter-spacing: 1.1px; text-transform: uppercase;
-  transition: color var(--td-dur) var(--td-ease);
+  position: relative; display: inline-flex; align-items: center; gap: 7px; height: 44px; padding: 0 12px;
+  flex: none; scroll-snap-align: center; border: none; background: none; cursor: pointer; white-space: nowrap;
+  color: var(--td-text-2); border-radius: 7px;
+  font-family: var(--td-font-mono); font-size: 12.5px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase;
+  transition: color var(--td-dur) var(--td-ease), background var(--td-dur) var(--td-ease);
 }
-.td-root .ax-tab svg { color: var(--td-muted); transition: color var(--td-dur) var(--td-ease); }
-.td-root .ax-tab:hover { color: var(--td-text); }
-.td-root .ax-tab::after {
-  content: ''; position: absolute; left: 12px; right: 12px; bottom: 0; height: 3px;
-  background: var(--td-red); transform: scaleX(0); transform-origin: left center;
-  transition: transform 0.26s var(--td-ease);
-}
+.td-root .ax-tab svg { width: 15px; height: 15px; color: var(--td-muted); transition: color var(--td-dur) var(--td-ease); }
+.td-root .ax-tab:hover { color: var(--td-text); background: rgba(255, 255, 255, 0.04); }
+.td-root .ax-tab:focus-visible { outline: 2px solid var(--td-red); outline-offset: -2px; }
 .td-root .ax-tab[data-active='true'] { color: #fff; }
 .td-root .ax-tab[data-active='true'] svg { color: var(--td-red-hover); }
-.td-root .ax-tab[data-active='true']::after { transform: scaleX(1); }
-.td-root .ax-tab-live { width: 7px; height: 7px; border-radius: 50%; background: var(--td-red); }
+.td-root .ax-tab-underline { position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px; border-radius: 2px; background: var(--td-red); }
+.td-root .ax-tab-live { width: 6px; height: 6px; border-radius: 50%; background: var(--td-red); }
+@media (min-width: 761px) { .td-root .ax-tabs { padding: 0 6px; } }
+@media (max-width: 760px) {
+  .td-root .td-tabs { margin-left: -8px; margin-right: -8px; }
+  .td-root .ax-tabs { border-radius: 0; border-left: none; border-right: none;
+    mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%); }
+  .td-root .ax-tab { padding: 0 11px; font-size: 12px; }
+}
 
-/* Nav inferior (móvil) y FAB: mismas superficies que el resto */
-.td-root .td-bottomnav { background: rgba(14, 14, 17, 0.96); border-radius: 14px; border-color: var(--td-border-hov); }
-.td-root .td-bottomnav-item { border-radius: 9px; color: var(--td-text-2); min-height: 48px; }
-.td-root .td-bottomnav-item[data-active='true'] { background: var(--td-red-wash); box-shadow: inset 0 -2px 0 var(--td-red); color: #fff; }
-.td-root .td-bottomnav-label { font-family: var(--td-font-mono); font-size: 11px; letter-spacing: 0.4px; }
 .td-root .td-guide-fab { border-radius: var(--td-r-ctl); font-family: var(--td-font-mono); font-size: 13px; letter-spacing: 0.5px; }
 
 @media (min-width: 761px) and (max-width: 1100px) {
@@ -525,7 +525,7 @@ html[data-nav-hidden] .td-root .td-tabs-desktop { top: 12px; }
   .td-root .td-btn, .td-root .ax-row, .td-root .ax-feature, .td-root .td-hoverable { transition: none; }
   .td-root .ax-row:hover, .td-root .ax-feature:hover, .td-root .td-hoverable:hover { transform: none; }
   .td-root .ax-tab::after { transition: none; }
-  .td-root .td-tabs-desktop { transition: none; }
+  .td-root .td-tabs { transition: none; }
 }
 
 /* ============================================================================

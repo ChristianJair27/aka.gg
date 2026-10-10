@@ -5,7 +5,7 @@
 // src/components/tournament/dashboard/.
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useTournamentDashboard } from '@/hooks/queries/tournaments';
 import {
   DiscoveryBanner, GuiaRapidaButton, type DiscoverySamplesData,
@@ -14,7 +14,7 @@ import { TournamentRegisterModal } from '@/components/TournamentRegisterModal';
 import {
   ErrorCard, type Tab,
   Hero, Breadcrumbs, BroadcastBanner,
-  TabBar, BottomNav,
+  TabBar,
   ResumenGrid, BracketTab, EquiposTab, PartidasTab, StatsTab, ReglasTab,
   AdminPanel, DashboardSkeleton, ResponsiveStyles,
 } from '@/components/tournament/dashboard';
@@ -37,8 +37,18 @@ export default function TournamentDashboardPage() {
       ? 'equipos'
       : 'resumen';
   const tab = (params.get('tab') as Tab) || defaultTab;
-  const setTab = (t: Tab) =>
-    setParams((prev) => { const p = new URLSearchParams(prev); p.set('tab', t); return p; }, { replace: true });
+  // Cada sección es una entrada de historial: "Atrás" vuelve a la sección
+  // anterior del torneo en vez de salir de él. Los filtros internos de cada
+  // pestaña sí usan replace (no son "páginas").
+  const setTab = (t: Tab) => {
+    if (t === tab) return;
+    setParams((prev) => {
+      const p = new URLSearchParams();
+      if (prev.get('register')) p.set('register', prev.get('register')!);
+      p.set('tab', t);
+      return p;
+    });
+  };
 
   // Muestras del descubrimiento: se calculan del payload real para que cada
   // chip aterrice en algo que existe (equipo inscrito, serie ya jugada, ronda
@@ -93,24 +103,23 @@ export default function TournamentDashboardPage() {
                 discordWebhookUrl={(data.tournament as any).discordWebhookUrl}
                 playoffsSize={(data.tournament as any).playoffsSize} />
             )}
-            {/* Pestañas pegajosas: la sección activa sigue a la vista al hacer scroll */}
-            <div className="td-tabs-desktop">
+            {/* Pestañas pegajosas (una sola barra para escritorio y móvil) */}
+            <div className="td-tabs">
               <TabBar value={tab} onChange={setTab} live={data.tournament.status === 'live'} />
             </div>
             <main style={{ minWidth: 0, marginTop: 18 }}>
-              <AnimatePresence mode="wait">
-                <motion.div
+              {/* Sin animación de salida: la sección nueva aparece al instante */}
+              <motion.div
                   key={tab}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                 >
                   {tab === 'resumen' && (
                     <ResumenGrid data={data} id={id} navigate={go} onStats={() => setTab('stats')}
                       onRound={(r) => setParams((prev) => {
                         const p = new URLSearchParams(prev); p.set('tab', 'partidas'); p.set('round', r); return p;
-                      }, { replace: true })} />
+                      })} />
                   )}
                   {tab === 'bracket' && <BracketTab id={id} data={data} />}
                   {tab === 'equipos' && (
@@ -121,13 +130,10 @@ export default function TournamentDashboardPage() {
                     <StatsTab id={id} name={data.tournament.name} standings={data.standings} region={data.tournament.region} />
                   )}
                   {tab === 'social' && <SocialReels tournamentId={id} tournamentName={data.tournament.name} />}
-                  {tab === 'replays' && <TournamentReplays tournamentId={id} />}
+                  {tab === 'replays' && <TournamentReplays tournamentId={id} bracket={data.bracket as any} />}
                   {tab === 'reglas' && <ReglasTab data={data} />}
                 </motion.div>
-              </AnimatePresence>
             </main>
-            {/* Nav flotante inferior (móvil / tablet) */}
-            <BottomNav value={tab} onChange={setTab} live={data.tournament.status === 'live'} />
             {/* Reabre las muestras a petición del jugador — nunca solo */}
             <GuiaRapidaButton data={discovery} />
 

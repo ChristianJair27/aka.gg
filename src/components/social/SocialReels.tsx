@@ -13,6 +13,7 @@ import { ShareMenu, shareUrlFromMedia } from '@/components/ShareMenu';
 import { StickerPicker, uploadMedia, type Sticker } from '@/components/social/StickerPicker';
 import { AtakModal, AtakModalBody, AtakModalContent, AtakModalHeader } from '@/components/ui/atak-modal';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useHistoryModal } from '@/hooks/use-history-modal';
 import { ARENA_MODAL } from '@/components/tournament/forms';
 
 interface Meta { team1?: string; team2?: string; round?: number; gameNumber?: number; tStart?: number; tEnd?: number; kind?: string }
@@ -48,6 +49,9 @@ export function SocialReels({ tournamentId, tournamentName }: { tournamentId: st
   const [publishOpen, setPublishOpen] = useState(false);
   // En móvil el feed ocupa toda la pantalla (como Reels/TikTok); en escritorio va en una columna centrada.
   const [fs, setFs] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches);
+  // En móvil el feed arranca a pantalla completa: "Atrás" lo cierra (vuelve al dashboard) en vez de salir del torneo.
+  useHistoryModal(fs, () => setFs(false), 'reels-fs');
+  useHistoryModal(!!commentsFor, () => setCommentsFor(null), 'reels-comments');
   useEffect(() => { if (!fs) return; const prev = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = prev; }; }, [fs]);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const focusId = useMemo(() => Number(new URLSearchParams(location.search).get('post')) || null, []);
@@ -316,6 +320,7 @@ function CommentsSheet({ post, onClose, isAuth, onCommented }: { post: Post | nu
             </div>
             <div className="relative border-t border-white/[0.08] p-3">
               <StickerPicker open={stickers} onClose={() => setStickers(false)} isAuth={isAuth} onPick={(s: Sticker) => void send({ sticker_id: s.id })} />
+              <StickerHistory open={stickers} onClose={() => setStickers(false)} />
               <form onSubmit={(e) => { e.preventDefault(); void send(); }} className="flex items-center gap-2">
                 <button type="button" onClick={() => setStickers((o) => !o)} aria-label="Stickers" className={`grid h-10 w-10 place-items-center rounded-md border ${stickers ? 'border-red-500/60 text-white' : 'border-white/[0.1] text-gray-300'} hover:text-white`}><Smile className="h-5 w-5" /></button>
                 <button type="button" onClick={() => fileRef.current?.click()} aria-label="Foto" className="grid h-10 w-10 place-items-center rounded-md border border-white/[0.1] text-gray-300 hover:text-white"><ImageIcon className="h-5 w-5" /></button>
@@ -384,4 +389,11 @@ function PublishModal({ open, onOpenChange, tournamentId, userName, onPublished 
       </AtakModalContent>
     </AtakModal>
   );
+}
+
+
+/** El selector de stickers también es una capa: su "Atrás" lo cierra. */
+function StickerHistory({ open, onClose }: { open: boolean; onClose: () => void }) {
+  useHistoryModal(open, onClose, 'reels-stickers');
+  return null;
 }

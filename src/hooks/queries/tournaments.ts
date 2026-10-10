@@ -629,3 +629,33 @@ export function useCreateTournament() {
     },
   });
 }
+
+
+// ── Replays y clips del torneo ───────────────────────────────────────────────
+// Caché de un minuto: cambiar de pestaña y volver no vuelve a pedir la lista.
+export interface TournamentReplay { matchId: string; gameId: number; region: string; patch?: string | null; gameLengthMs?: number | null; size: number; createdAt: string; url: string }
+export interface TournamentClip { matchId: string; gameId: number; region: string; key: string; tStart: number; tEnd: number; kind: string; title: string; players: Array<{ name: string; champion: string; team: string }>; size: number; createdAt: string; url: string; poster?: string | null; share?: string | null }
+
+export function useTournamentReplays(id?: string) {
+  return useQuery({
+    queryKey: id ? qk.replays(id) : qk.replays("_"),
+    enabled: Boolean(id),
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<{ replays: TournamentReplay[]; pending: number }>(`/api/replays/tournament/${id}`);
+      return { replays: data?.replays ?? [], pending: data?.pending ?? 0 };
+    },
+  });
+}
+
+export function useTournamentClips(id?: string) {
+  return useQuery({
+    queryKey: id ? qk.clips(id) : qk.clips("_"),
+    enabled: Boolean(id),
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<{ clips: TournamentClip[] }>(`/api/replays/tournament/${id}/clips`);
+      return { clips: data?.clips ?? [] };
+    },
+  });
+}
