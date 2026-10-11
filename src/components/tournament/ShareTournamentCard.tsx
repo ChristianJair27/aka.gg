@@ -9,8 +9,8 @@
 // navigator.share() pierde la activación de usuario mientras cargan las
 // imágenes, y en escritorio fallaba en silencio.
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Download, Loader2, Share2, X } from 'lucide-react';
+import { AtakModal, AtakModalBody, AtakModalContent, AtakModalFooter, AtakModalHeader } from '@/components/ui/atak-modal';
+import { Download, Loader2, Share2 } from 'lucide-react';
 import {
   SHARE_FONT_COND, SHARE_FONT_DISPLAY, SHARE_SITE,
   downloadBlobUrl, drawContain, loadImage, roundRectPath, shareFile, wrapText,
@@ -253,51 +253,30 @@ export function ShareTournamentButton({ data, className }: {
         {busy ? 'Generando…' : 'Compartir póster'}
       </button>
 
-      {preview && createPortal(
-        <div
-          onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 120, display: 'grid', placeItems: 'center',
-            padding: 20, background: 'rgba(4,4,6,0.86)', backdropFilter: 'blur(10px)',
-          }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '92vh' }}>
-            <img src={preview.url} alt={`Póster de ${data.name}`}
-              style={{ maxHeight: '72vh', width: 'auto', borderRadius: 16, border: '1px solid rgba(255,255,255,0.12)' }} />
+      {/* Vista previa: misma carcasa que el resto de modales (cristal, hoja inferior en móvil, "Atrás" la cierra). */}
+      <AtakModal open={!!preview} onOpenChange={(o) => { if (!o) close(); }}>
+        <AtakModalContent size="sm" className="td-root tf-modal">
+          <AtakModalHeader icon={<Share2 className="h-5 w-5" />} eyebrow="Compartir" title="Póster del torneo" description="1080 × 1350, el formato vertical de Instagram." />
+          <AtakModalBody>
+            {preview && (
+              <img src={preview.url} alt={`Póster de ${data.name}`}
+                style={{ display: 'block', maxHeight: '56vh', maxWidth: '100%', width: 'auto', margin: '0 auto', borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)' }} />
+            )}
+          </AtakModalBody>
+          <AtakModalFooter>
             <div style={{ display: 'flex', gap: 10 }}>
               {share?.supported && (
-                <button type="button"
-                  onClick={() => navigator.share(share.data).catch(() => { /* cancelado */ })}
-                  style={{
-                    flex: 1, padding: '12px 18px', borderRadius: 12, border: 0, cursor: 'pointer',
-                    background: 'linear-gradient(135deg,#ef4444,#b91c1c)', color: '#fff', fontWeight: 800,
-                  }}>
-                  Compartir
+                <button type="button" className="td-btn td-btn--primary" data-full="true" onClick={() => navigator.share(share.data).catch(() => { /* cancelado */ })}>
+                  <Share2 size={15} /> Compartir
                 </button>
               )}
-              <button type="button" onClick={() => downloadBlobUrl(preview.url, fileName)}
-                style={{
-                  flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  padding: '12px 18px', borderRadius: 12, cursor: 'pointer', fontWeight: 700,
-                  border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.05)', color: '#fff',
-                }}>
+              <button type="button" className="td-btn td-btn--secondary" data-full="true" onClick={() => preview && downloadBlobUrl(preview.url, fileName)}>
                 <Download size={15} /> Descargar
               </button>
-              <button type="button" onClick={close} aria-label="Cerrar"
-                style={{
-                  padding: '12px 14px', borderRadius: 12, cursor: 'pointer',
-                  border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.05)', color: '#fff',
-                }}>
-                <X size={15} />
-              </button>
             </div>
-            <p style={{ margin: 0, textAlign: 'center', fontSize: 11.5, color: 'rgba(255,255,255,0.45)' }}>
-              1080 × 1350 — el formato vertical de Instagram.
-            </p>
-          </div>
-        </div>,
-        document.body,
-      )}
+          </AtakModalFooter>
+        </AtakModalContent>
+      </AtakModal>
     </>
   );
 }

@@ -56,22 +56,35 @@ export function SocialReels({ tournamentId, tournamentName }: { tournamentId: st
   const scrollerRef = useRef<HTMLDivElement>(null);
   const focusId = useMemo(() => Number(new URLSearchParams(location.search).get('post')) || null, []);
 
-  const load = useCallback(async () => {
+  // Paginado: 12 por página y la siguiente se pide al acercarse al final del
+  // carrete (antes se bajaban 50 de golpe y cada uno montaba su <video>).
+  const PAGE = 12;
+  const seenRef = useRef(new Map<string, Post>());
+  const pageRef = useRef(0);
+  const busyRef = useRef(false);
+  const [hasMore, setHasMore] = useState(true);
+  const load = useCallback(async (reset = false) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    const page = reset ? 1 : pageRef.current + 1;
     try {
-      const { data } = await axiosInstance.get('/api/social/posts', { params: { tournament: tournamentId, limit: 50 } });
+      const { data } = await axiosInstance.get('/api/social/posts', { params: { tournament: tournamentId, limit: PAGE, page } });
       const list: Post[] = data?.posts ?? [];
+      if (reset) seenRef.current = new Map();
       // Un clip de replay existe en horizontal y vertical: en reels se muestra solo el vertical si lo hay.
-      const seen = new Map<string, Post>();
+      const seen = seenRef.current;
       for (const p of list) {
         const key = p.kind === 'clip' && p.clip_key ? `${p.clip_game_id}:${baseKey(p.clip_key)}` : `post:${p.id}`;
         const cur = seen.get(key);
         if (!cur) seen.set(key, p);
         else if (isVerticalKey(p.clip_key) && !isVerticalKey(cur.clip_key)) seen.set(key, p);
       }
+      pageRef.current = page;
+      setHasMore(list.length >= PAGE);
       setPosts([...seen.values()]);
-    } catch { /* feed vacío */ } finally { setLoading(false); }
+    } catch { /* feed vacío */ } finally { setLoading(false); busyRef.current = false; }
   }, [tournamentId]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(true); }, [load]);
 
   // Reel activo: el que ocupa el centro del contenedor
   useEffect(() => {
@@ -87,6 +100,9 @@ export function SocialReels({ tournamentId, tournamentName }: { tournamentId: st
     const i = posts.findIndex((p) => p.id === focusId);
     if (i >= 0) scrollerRef.current?.querySelector(`[data-index="${i}"]`)?.scrollIntoView({ block: 'start' });
   }, [focusId, posts]);
+
+  // Siguiente página cuando el usuario va por el antepenúltimo reel.
+  useEffect(() => { if (hasMore && posts.length && active >= posts.length - 3) void load(); }, [active, posts.length, hasMore, load]);
 
   const patch = (id: number, fn: (p: Post) => Post) => setPosts((ps) => ps.map((p) => (p.id === id ? fn(p) : p)));
   const like = async (p: Post) => {
@@ -138,7 +154,7 @@ export function SocialReels({ tournamentId, tournamentName }: { tournamentId: st
           {fs && <motion.button whileTap={{ scale: 0.95 }} type="button" onClick={() => (isAuthenticated ? setPublishOpen(true) : toast('Inicia sesión para publicar'))} aria-label="Publicar" className="absolute right-3 top-3 z-[90] grid h-9 w-9 place-items-center rounded-full bg-red-600 text-white"><Plus className="h-5 w-5" /></motion.button>}
           <div ref={scrollerRef} className={`reels-scroller snap-y snap-mandatory overflow-y-auto overscroll-contain bg-black [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${fs ? 'h-[100dvh] w-full' : 'h-[min(82vh,860px)] w-full max-w-[440px] rounded-2xl'}`}>
             {posts.map((p, i) => (
-              <ReelCard key={p.id} post={p} index={i} active={i === active} muted={muted} onMute={() => setMuted((m) => !m)} onLike={() => like(p)} onRepost={() => repost(p)} onComments={() => setCommentsFor(p)} tournamentId={tournamentId} tournamentName={tournamentName} reduce={!!reduce} fs={fs} />
+              <ReelCard key={p.id} post={p} index={i} active={i === active} near={Math.abs(i - active) <= 1} muted={muted} onMute={() => setMuted((m) => !m)} onLike={() => like(p)} onRepost={() => repost(p)} onComments={() => setCommentsFor(p)} tournamentId={tournamentId} tournamentName={tournamentName} reduce={!!reduce} fs={fs} />
             ))}
           </div>
           {!fs && <button type="button" onClick={() => setFs(true)} className="absolute -bottom-9 left-1/2 -translate-x-1/2 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500 hover:text-white md:hidden">Pantalla completa</button>}
@@ -152,13 +168,13 @@ export function SocialReels({ tournamentId, tournamentName }: { tournamentId: st
       )}
 
       <CommentsSheet post={commentsFor} onClose={() => setCommentsFor(null)} isAuth={isAuthenticated} onCommented={() => { if (commentsFor) patch(commentsFor.id, (x) => ({ ...x, comments_count: x.comments_count + 1 })); }} />
-      <PublishModal open={publishOpen} onOpenChange={setPublishOpen} tournamentId={tournamentId} userName={user?.name || ''} onPublished={() => { void load(); }} />
+      <PublishModal open={publishOpen} onOpenChange={setPublishOpen} tournamentId={tournamentId} userName={user?.name || ''} onPublished={() => { void load(true); }} />
     </div>
   );
 }
 
 // ── Un reel ──────────────────────────────────────────────────────────────────
-function ReelCard({ post, index, active, muted, onMute, onLike, onRepost, onComments, tournamentId, tournamentName, reduce, fs }: { post: Post; index: number; active: boolean; muted: boolean; onMute: () => void; onLike: () => void; onRepost: () => void; onComments: () => void; tournamentId: string; tournamentName?: string; reduce: boolean; fs: boolean }) {
+function ReelCard({ post, index, active, near, muted, onMute, onLike, onRepost, onComments, tournamentId, tournamentName, reduce, fs }: { post: Post; index: number; active: boolean; near: boolean; muted: boolean; onMute: () => void; onLike: () => void; onRepost: () => void; onComments: () => void; tournamentId: string; tournamentName?: string; reduce: boolean; fs: boolean }) {
   const isRepost = post.kind === 'repost' && post.orig_id;
   const media = isRepost ? post.orig_media_url : post.media_url;
   const rawTitle = (isRepost ? post.orig_title : post.title) || post.content || '';
@@ -207,9 +223,11 @@ function ReelCard({ post, index, active, muted, onMute, onLike, onRepost, onComm
   return (
     <section data-index={index} className="relative h-full w-full snap-start" style={{ perspective: 1200 }}>
       <motion.div style={fs ? undefined : { rotateX: rx, rotateY: ry, transformStyle: 'preserve-3d' }} onMouseMove={fs ? undefined : onMove} onMouseLeave={onLeave} className={`relative h-full w-full overflow-hidden bg-black ${fs ? '' : 'rounded-2xl'}`}>
-        {isVideo ? (
+        {isVideo ? (near ? (
           <video ref={videoRef} src={media || undefined} poster={posterOf(media)} loop playsInline muted={muted} preload={active ? 'auto' : 'metadata'} onClick={onTap} onTimeUpdate={(e) => { const v = e.currentTarget; if (v.duration) setProgress(v.currentTime / v.duration); }} className={`h-full w-full ${vertical ? 'object-cover' : 'object-contain'}`} />
-        ) : media ? (
+        ) : (
+          <img src={posterOf(media) || undefined} alt="" loading="lazy" decoding="async" className={`h-full w-full ${vertical ? 'object-cover' : 'object-contain'}`} />
+        )) : media ? (
           <img src={media} alt="" className="h-full w-full object-contain" onDoubleClick={() => { if (!post.liked_by_me) onLike(); setBurst((b) => b + 1); }} />
         ) : (
           <div className="grid h-full place-items-center p-8 text-center text-lg font-semibold text-white">{post.content}</div>
