@@ -9,6 +9,7 @@
 //  - las stats de la pelea se piden solo al desplegarlas;
 //  - la rejilla se pagina por lotes al hacer scroll (sin animaciones de layout);
 //  - los filtros y sus contadores se calculan en una sola pasada memoizada.
+import { TdSelect } from '@/components/ui/td-select';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Film, Clapperboard, Play } from 'lucide-react';
 import { ShareMenu } from '@/components/ShareMenu';
@@ -192,14 +193,15 @@ export function TournamentReplays({ tournamentId, bracket = [] }: { tournamentId
                   <RoundChip active={round === 'all'} onClick={() => { setRound('all'); setGame('all'); }}>Todas las rondas</RoundChip>
                   {rounds.map((r) => <RoundChip key={r} active={round === r} onClick={() => { setRound(r); setGame('all'); }}>R{r}</RoundChip>)}
                 </div>
-                <select
-                  value={game === 'all' ? 'all' : String(game)} aria-label="Partida"
-                  onChange={(e) => { const v = e.target.value; setGame(v === 'all' ? 'all' : Number(v)); setFocus(null); }}
-                  className="h-8 max-w-full rounded-md border border-white/[0.1] bg-[#121216] px-2 text-xs font-semibold text-gray-200 focus:border-red-500/60 focus:outline-none"
-                >
-                  <option value="all">{round === 'all' ? 'Todas las partidas' : `Todas las partidas de la ronda ${round}`}</option>
-                  {gamesInRound.map((g) => <option key={g.gameId} value={g.gameId}>{label(g.matchId, g.gameId, round === 'all')} · {g.count} clips</option>)}
-                </select>
+                <div className="td-root" style={{ display: 'contents' }}>
+                  <TdSelect
+                    size="sm" ariaLabel="Partida"
+                    value={game === 'all' ? 'all' : String(game)}
+                    onValueChange={(v) => { setGame(v === 'all' ? 'all' : Number(v)); setFocus(null); }}
+                    style={{ width: 'auto', maxWidth: '100%', minWidth: 220 }}
+                    options={[{ value: 'all', label: round === 'all' ? 'Todas las partidas' : `Todas las partidas de la ronda ${round}` }, ...gamesInRound.map((g) => ({ value: String(g.gameId), label: label(g.matchId, g.gameId, round === 'all'), hint: `${g.count} clips` }))]}
+                  />
+                </div>
               </div>
             )}
 

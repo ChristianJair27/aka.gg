@@ -1,4 +1,5 @@
 // Tournament team registration — linked LoL account auto-fill + email invitations
+import { RiotLookupChip } from '@/components/tournament/RiotIdLookup';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -111,8 +112,9 @@ export const TournamentRegisterModal = ({
         return;
       }
       if (p.mode === 'invite') {
-        if (!p.inviteEmail.trim() || !p.inviteEmail.includes('@')) {
-          toast.error(`Correo inválido en jugador ${i + 1}`);
+        const who = p.inviteEmail.trim();
+        if (!who.includes('@') && !looksLikeRiotId(who)) {
+          toast.error(`Jugador ${i + 1}: escribe su correo o su Riot ID (Nombre#TAG)`);
           return;
         }
       } else if (!p.riotId.trim() || !looksLikeRiotId(p.riotId)) {
@@ -130,7 +132,7 @@ export const TournamentRegisterModal = ({
         players: players.map(p => ({
           name: p.name.trim(),
           ...(p.mode === 'invite'
-            ? { inviteEmail: p.inviteEmail.trim() }
+            ? (looksLikeRiotId(p.inviteEmail) ? { inviteRiotId: p.inviteEmail.trim() } : { inviteEmail: p.inviteEmail.trim() })
             : { riotId: p.riotId.trim() }),
         })),
       };
@@ -249,10 +251,11 @@ export const TournamentRegisterModal = ({
                             className="td-input tf-mono" />
                         </Field>
                       ) : player.mode === 'invite' ? (
-                        <Field label="Correo de su cuenta ATAK.GG" htmlFor={`trm-p${i}-mail`}>
-                          <input id={`trm-p${i}-mail`} placeholder="correo@ejemplo.com (cuenta ATAK.GG)" value={player.inviteEmail}
+                        <Field label="Riot ID o correo de su cuenta ATAK.GG" htmlFor={`trm-p${i}-mail`}>
+                          <input id={`trm-p${i}-mail`} placeholder="Nombre#TAG o correo@ejemplo.com" value={player.inviteEmail}
                             onChange={e => handlePlayerChange(i, 'inviteEmail', e.target.value)} required
-                            type="email" className="td-input" autoComplete="off" />
+                            className="td-input" autoComplete="off" />
+                          <RiotLookupChip riotId={player.inviteEmail} compact />
                         </Field>
                       ) : (
                         <Field label="Riot ID" htmlFor={`trm-p${i}-riot`}>

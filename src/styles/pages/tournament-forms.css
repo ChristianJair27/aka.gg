@@ -340,3 +340,26 @@
   .td-root .tf-step .ax-pos, .td-root .tf-linkbtn, .td-root.tf-modal .atak-modal-x { transition: none; }
   .td-root .ax-artcard.tf-map:hover { transform: none; }
 }
+
+
+/* ── Vista previa de perfil al invitar por Riot ID ─────────────────────────── */
+.td-root .tf-lookup {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 30px; margin-top: 8px; padding: 4px 10px 4px 6px;
+  border-radius: var(--td-r-chip); border: 1px solid var(--td-border); background: var(--td-subcard);
+  font-size: 13px; color: var(--td-text-2); overflow-wrap: anywhere;
+}
+.td-root .tf-lookup[data-state='found'] { border-color: rgba(47, 191, 138, 0.35); color: var(--td-text); }
+.td-root .tf-lookup[data-state='found'] svg { color: var(--td-green); }
+.td-root .tf-lookup[data-state='missing'] { border-color: rgba(232, 50, 60, 0.35); }
+.td-root .tf-lookup[data-state='missing'] svg { color: var(--td-neg); }
+.td-root .tf-lookup-avatar { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; background: var(--td-strip); flex: none; }
+.td-root .tf-lookup .tf-mono { color: var(--td-muted); }
+.td-root .tf-invite img { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; }
+
+/* ── Zona de peligro del organizador: archivar / eliminar ──────────────────── */
+.td-root .tf-danger { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--td-border); }
+.td-root .tf-danger .td-over { color: var(--td-neg); }
+.td-root .tf-danger-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.td-root .td-btn.tf-btn-danger { border-color: rgba(232, 50, 60, 0.45); color: #ff8a90; }
+.td-root .td-btn.tf-btn-danger:hover { background: rgba(232, 50, 60, 0.12); color: #fff; }
+.td-root .tf-archived-tag { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: var(--td-r-chip); border: 1px solid var(--td-border-hov); background: var(--td-subcard); font-family: var(--td-font-mono); font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; color: var(--td-text-2); }

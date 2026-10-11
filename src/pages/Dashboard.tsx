@@ -2,6 +2,7 @@
 // Héroe con el campeón principal del jugador (splash + modelo 3D), tira de
 // métricas y pestañas. Misma lógica y datos de siempre: solo cambia la capa
 // visual (ver design-system/atak-gg/MASTER.md).
+import { TdSelect } from '@/components/ui/td-select';
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, syncAuthFromStorage } from "@/features/auth/useAuth";
@@ -286,13 +287,8 @@ const Dashboard = () => {
           </div>
           <div className="td-field">
             <label className="td-label" htmlFor="db-region">Región</label>
-            <select id="db-region" className="td-select" value={platform} onChange={(e) => setPlatform(e.target.value)}>
-              {REGIONS.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label} — {r.name}
-                </option>
-              ))}
-            </select>
+            <TdSelect id="db-region" value={platform} onValueChange={setPlatform}
+              options={REGIONS.map((r) => ({ value: r.value, label: `${r.label} — ${r.name}` }))} />
           </div>
           {err && <div className="td-error" role="alert">{err}</div>}
           <Button type="submit" variant="primary" full disabled={!canLink} icon={<Zap size={15} />}>

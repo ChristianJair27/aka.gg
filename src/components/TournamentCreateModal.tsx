@@ -12,6 +12,7 @@
 //
 // Arena no usa códigos de Riot (no hay lobbies personalizados): se juega como
 // ladder por ventana de tiempo, y por eso oculta bracket, series y códigos.
+import { TdSelect } from '@/components/ui/td-select';
 import { useEffect, useMemo, useState } from 'react';
 import {
   CalendarClock, ChevronLeft, ChevronRight, Globe, Loader2, Lock,
@@ -64,12 +65,14 @@ const SERIES = [
 ];
 
 // 'auto' deja que el backend elija: ARAM → ALL_RANDOM, 5v5 → TOURNAMENT_DRAFT,
-// formatos cortos → BLIND_PICK. Es lo correcto en la mayoría de los casos.
+// formatos cortos → BLIND_PICK. Riot acepta cualquier selección en el Abismo
+// (verificado con códigos reales), así que en ARAM también se puede draftear.
 const PICK_TYPES = [
   { value: 'auto', label: 'Automático (recomendado)' },
   { value: 'TOURNAMENT_DRAFT', label: 'Tournament Draft (con bans)' },
   { value: 'DRAFT_MODE', label: 'Draft normal' },
   { value: 'BLIND_PICK', label: 'Selección a ciegas' },
+  { value: 'ALL_RANDOM', label: 'Aleatorio (ARAM clásico)' },
 ];
 
 const STEPS: Step[] = [
@@ -325,16 +328,12 @@ export const TournamentCreateModal = ({ open, onOpenChange, onCreated, initial }
                       {isArena ? (
                         <>
                           <Field label="Duración de la ventana" hint="Desde la hora de inicio" htmlFor="tcm-duration">
-                            <select
+                            <TdSelect
                               id="tcm-duration"
                               value={durationHours}
-                              onChange={(e) => setDurationHours(e.target.value)}
-                              className="td-select tf-select"
-                            >
-                              {[2, 3, 4, 6, 12, 24].map((h) => (
-                                <option key={h} value={String(h)}>{h} horas</option>
-                              ))}
-                            </select>
+                              onValueChange={setDurationHours}
+                              options={[2, 3, 4, 6, 12, 24].map((h) => ({ value: String(h), label: `${h} horas` }))}
+                            />
                           </Field>
 
                           <Notice tone="warn" icon={<Swords size={18} />} title="Modo ladder (sin códigos)">
@@ -365,38 +364,26 @@ export const TournamentCreateModal = ({ open, onOpenChange, onCreated, initial }
 
                           {bracketType === 'swiss' && (
                             <Field label="Piloto automático" hint="Rondas suizas" htmlFor="tcm-swiss">
-                              <select
+                              <TdSelect
                                 id="tcm-swiss"
                                 value={swissRounds}
-                                onChange={(e) => setSwissRounds(e.target.value)}
-                                className="td-select tf-select"
-                              >
-                                <option value="0">Manual (botón siguiente ronda)</option>
-                                {[3, 4, 5].map((n) => (
-                                  <option key={n} value={String(n)}>
-                                    {n} rondas · avance automático
-                                  </option>
-                                ))}
-                              </select>
+                                onValueChange={setSwissRounds}
+                                options={[{ value: '0', label: 'Manual (botón siguiente ronda)' }, ...[3, 4, 5, 6, 7, 8, 9].map((n) => ({ value: String(n), label: `${n} rondas · avance automático` }))]}
+                              />
                             </Field>
                           )}
 
                           <Field
                             label="Selección de campeones"
-                            hint={gameMap === 'ARAM' ? 'ARAM siempre es aleatorio' : undefined}
+                            hint={gameMap === 'ARAM' ? 'Automático = aleatorio; también puedes draftear en el Abismo' : teamSize < 5 ? 'Automático = a ciegas' : 'Automático = Tournament Draft'}
                             htmlFor="tcm-pick"
                           >
-                            <select
+                            <TdSelect
                               id="tcm-pick"
-                              value={gameMap === 'ARAM' ? 'auto' : pickType}
-                              onChange={(e) => setPickType(e.target.value)}
-                              disabled={gameMap === 'ARAM'}
-                              className="td-select tf-select"
-                            >
-                              {PICK_TYPES.map((p) => (
-                                <option key={p.value} value={p.value}>{p.label}</option>
-                              ))}
-                            </select>
+                              value={pickType}
+                              onValueChange={setPickType}
+                              options={PICK_TYPES.map((p) => ({ value: p.value, label: p.label }))}
+                            />
                           </Field>
 
                           <Notice

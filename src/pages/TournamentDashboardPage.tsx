@@ -96,7 +96,7 @@ export default function TournamentDashboardPage() {
             <DiscoveryBanner tournamentId={id} data={discovery} />
             <BroadcastBanner channel={id} navigate={go} />
             {data.viewerAccess === 'owner' && (
-              <AdminPanel id={id} phase={data.tournament.phase} bracketType={data.tournament.bracketType}
+              <AdminPanel id={id} name={data.tournament.name} archived={(data.tournament as any).archived} phase={data.tournament.phase} bracketType={data.tournament.bracketType}
                 seriesTo={data.tournament.seriesTo} finalSeriesTo={data.tournament.finalSeriesTo}
                 swissRounds={data.tournament.swissRounds ?? null}
                 isPrivate={(data.tournament as any).isPrivate}

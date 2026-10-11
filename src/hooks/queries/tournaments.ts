@@ -82,6 +82,7 @@ export interface TournamentDashboardData {
     maxParticipants: number;
     startDate: string;
     codesAvailable?: number;
+    archived?: boolean;
   }>;
   linkedRiotId: string | null;
 }

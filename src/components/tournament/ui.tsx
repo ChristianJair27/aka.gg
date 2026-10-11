@@ -21,16 +21,16 @@ export function monogram(name?: string | null): string {
 // Estados (hover / active / foco / disabled) en CSS: ver .td-btn en arena.css.
 type BtnVariant = 'primary' | 'secondary' | 'ghost';
 export function Button({
-  variant = 'primary', children, icon, onClick, disabled, full, type = 'button', ariaLabel,
+  variant = 'primary', children, icon, onClick, disabled, full, type = 'button', ariaLabel, className,
 }: {
   variant?: BtnVariant; children: ReactNode; icon?: ReactNode;
   onClick?: () => void; disabled?: boolean; full?: boolean;
-  type?: 'button' | 'submit'; ariaLabel?: string;
+  type?: 'button' | 'submit'; ariaLabel?: string; className?: string;
 }) {
   return (
     <button
       type={type} onClick={disabled ? undefined : onClick} disabled={disabled} aria-label={ariaLabel}
-      className={`td-btn td-btn--${variant}`} data-full={full ? 'true' : undefined}
+      className={`td-btn td-btn--${variant}${className ? ` ${className}` : ''}`} data-full={full ? 'true' : undefined}
     >
       {icon}{children}
     </button>

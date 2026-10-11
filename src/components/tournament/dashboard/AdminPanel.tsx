@@ -3,12 +3,15 @@
 
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { axiosInstance } from '@/lib/axios';
+import { TdSelect } from '@/components/ui/td-select';
+import { RiotLookupChip, looksLikeRiotId } from '@/components/tournament/RiotIdLookup';
 import { qk } from '@/hooks/queries/keys';
 import { toast } from 'sonner';
 import {
   Settings2, Lock, KeySquare, FolderSync, Play, Check, Trophy, Users, Network,
-  Mail, Send, ChevronDown, ChevronUp, RefreshCw, Zap, ArrowRight,
+  Mail, Send, ChevronDown, ChevronUp, RefreshCw, Zap, ArrowRight, Archive, ArchiveRestore, Trash2,
 } from 'lucide-react';
 import { Button, StatusChip } from '@/components/tournament/ui';
 import { OptionTile } from '@/components/tournament/forms';
@@ -19,11 +22,12 @@ import {
 } from '@/hooks/queries/tournaments';
 import { RED, Card } from './shared';
 
-export function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, swissRounds, isPrivate, discordWebhookUrl, playoffsSize }: {
-  id: string; phase: string; bracketType?: string; seriesTo?: number; finalSeriesTo?: number;
+export function AdminPanel({ id, name, phase, bracketType, seriesTo, finalSeriesTo, swissRounds, isPrivate, discordWebhookUrl, playoffsSize, archived }: {
+  id: string; name?: string; phase: string; bracketType?: string; seriesTo?: number; finalSeriesTo?: number;
   swissRounds?: number | null; isPrivate?: boolean; discordWebhookUrl?: string | null;
-  playoffsSize?: number;
+  playoffsSize?: number; archived?: boolean;
 }) {
+  const navigate = useNavigate();
   // Plegado por defecto; la preferencia del organizador persiste.
   const [adminOpen, setAdminOpen] = useState(() => {
     try { return window.localStorage.getItem('td-admin-open') === '1'; } catch { return false; }
@@ -118,7 +122,7 @@ export function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, sw
   // ── Invitados (torneo privado): invitar por correo + lista de accesos ──
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteBusy, setInviteBusy] = useState(false);
-  const [invites, setInvites] = useState<Array<{ id: number; status: string; email: string; name: string | null }> | null>(null);
+  const [invites, setInvites] = useState<Array<{ id: number; status: string; email: string; name: string | null; riotId?: string | null; avatarUrl?: string | null }> | null>(null);
   const loadInvites = () => {
     axiosInstance.get(`/api/tournaments/${id}/invites`)
       .then(r => setInvites(Array.isArray(r.data) ? r.data : []))
@@ -126,11 +130,12 @@ export function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, sw
   };
   useEffect(() => { if (isPrivate) loadInvites(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [isPrivate, id]);
   const sendInvite = async () => {
-    const email = inviteEmail.trim();
-    if (!email.includes('@')) { toast.error('Correo inválido'); return; }
+    const who = inviteEmail.trim();
+    const byRiot = looksLikeRiotId(who);
+    if (!byRiot && !who.includes('@')) { toast.error('Escribe un correo o un Riot ID (Nombre#TAG)'); return; }
     setInviteBusy(true);
     try {
-      const { data } = await axiosInstance.post(`/api/tournaments/${id}/invite`, { email });
+      const { data } = await axiosInstance.post(`/api/tournaments/${id}/invite`, byRiot ? { riotId: who } : { email: who });
       toast.success(data.message || 'Invitación enviada');
       setInviteEmail('');
       loadInvites();
@@ -146,7 +151,35 @@ export function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, sw
     webhookDraft.trim() ? 'Discord conectado — avisos de códigos, resultados y campeón' : 'Webhook de Discord eliminado',
   );
 
-  if (!visible.length && !canPickFormat && !isPrivate) return null;
+  // Archivar / eliminar (zona de peligro): siempre disponible para el organizador.
+  const [dangerBusy, setDangerBusy] = useState(false);
+  const toggleArchive = async () => {
+    if (dangerBusy) return;
+    if (!archived && !window.confirm(`¿Archivar "${name || id}"? Deja de aparecer en la lista de torneos (los participantes siguen viéndolo desde "Mis torneos"). Puedes restaurarlo cuando quieras.`)) return;
+    setDangerBusy(true);
+    try {
+      await axiosInstance.patch(`/api/tournaments/${id}`, { archived: !archived });
+      qc.invalidateQueries({ queryKey: qk.tournamentBoard(id) });
+      qc.invalidateQueries({ queryKey: qk.tournaments() });
+      qc.invalidateQueries({ queryKey: qk.tournamentDashboard() });
+      toast.success(archived ? 'Torneo restaurado: vuelve a la lista' : 'Torneo archivado: ya no aparece en la lista');
+    } catch (e: any) { toast.error(e?.response?.data?.error ?? 'No se pudo cambiar'); }
+    finally { setDangerBusy(false); }
+  };
+  const deleteT = async () => {
+    if (dangerBusy) return;
+    const typed = window.prompt(`Esto borra el torneo con sus equipos, invitaciones, stats, replays, clips y publicaciones. No se puede deshacer.\n\nEscribe el nombre exacto para confirmar:\n${name || id}`);
+    if (typed == null) return;
+    if (typed.trim() !== String(name || id).trim()) { toast.error('El nombre no coincide: no se eliminó nada'); return; }
+    setDangerBusy(true);
+    try {
+      await axiosInstance.delete(`/api/tournaments/${id}`);
+      qc.invalidateQueries({ queryKey: qk.tournaments() });
+      qc.invalidateQueries({ queryKey: qk.tournamentDashboard() });
+      toast.success('Torneo eliminado');
+      navigate('/tournaments');
+    } catch (e: any) { toast.error(e?.response?.data?.error ?? 'No se pudo eliminar'); setDangerBusy(false); }
+  };
 
   // Guía de fase: qué sigue, en lenguaje claro
   const stepHint =
@@ -237,23 +270,24 @@ export function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, sw
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); sendInvite(); } }}
-              placeholder="correo@delcapitan.com (debe tener cuenta ATAK.GG)"
-              aria-label="Correo del invitado"
-              inputMode="email"
+              placeholder="Riot ID (Nombre#TAG) o correo de su cuenta ATAK.GG"
+              aria-label="Riot ID o correo del invitado"
               autoComplete="off"
               className="td-input"
-              style={{ flexBasis: 260 }}
+              style={{ flexBasis: 300 }}
             />
             <Button variant="secondary" icon={<Send size={15} />} disabled={inviteBusy} onClick={sendInvite}>
               {inviteBusy ? '...' : 'INVITAR'}
             </Button>
           </div>
+          <RiotLookupChip riotId={inviteEmail} />
           {invites && invites.length > 0 && (
             <div className="tf-invites">
               {invites.map(inv => (
-                <span key={inv.id} className="tf-invite" data-status={inv.status}>
+                <span key={inv.id} className="tf-invite" data-status={inv.status} title={inv.email || undefined}>
                   <i aria-hidden />
-                  {inv.email}
+                  {inv.avatarUrl && <img src={inv.avatarUrl} alt="" />}
+                  {inv.riotId || inv.name || inv.email}
                   <small>
                     {inv.status === 'accepted' ? 'aceptó' : inv.status === 'declined' ? 'rechazó' : 'pendiente'}
                   </small>
@@ -262,7 +296,7 @@ export function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, sw
             </div>
           )}
           <p className="td-help">
-            El invitado recibe un correo y la invitación en su dashboard; con ella puede ver el torneo e inscribir a su equipo.
+            Busca por Riot ID (se muestra su perfil ATAK.GG) o por correo. El invitado recibe la invitación en su dashboard y por correo; al aceptarla puede ver el torneo e inscribir a su equipo.
           </p>
         </div>
       )}
@@ -274,50 +308,32 @@ export function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, sw
             MOVER JUGADOR DE EQUIPO <span className="tf-admin-sub">para equipos duplicados por error de nombre</span>
           </div>
           <div className="tf-inline">
-            <select
+            <TdSelect
               value={moveFrom}
-              onChange={(e) => { setMoveFrom(e.target.value); setMovePlayer(''); }}
-              aria-label="Equipo origen"
-              className="td-select tf-select"
-              style={{ flexBasis: 170 }}
-            >
-              <option value="">Equipo origen…</option>
-              {regs.map((r: any) => (
-                <option key={r.id} value={r.teamName}>
-                  {r.teamName} ({r.players?.length ?? 0})
-                </option>
-              ))}
-            </select>
-            <select
+              onValueChange={(v) => { setMoveFrom(v); setMovePlayer(''); }}
+              ariaLabel="Equipo origen"
+              placeholder="Equipo origen…"
+              style={{ flex: '1 1 170px', width: 'auto', height: 44 }}
+              options={regs.map((r: any) => ({ value: r.teamName, label: r.teamName, hint: `${r.players?.length ?? 0}` }))}
+            />
+            <TdSelect
               value={movePlayer}
-              onChange={(e) => setMovePlayer(e.target.value)}
+              onValueChange={setMovePlayer}
               disabled={!fromReg}
-              aria-label="Jugador a mover"
-              className="td-select tf-select"
-              style={{ flexBasis: 190 }}
-            >
-              <option value="">Jugador…</option>
-              {(fromReg?.players ?? []).map((p: any, i: number) => (
-                <option key={i} value={p.riotId || p.name}>
-                  {p.riotId || p.name}
-                </option>
-              ))}
-            </select>
+              ariaLabel="Jugador a mover"
+              placeholder="Jugador…"
+              style={{ flex: '1 1 190px', width: 'auto', height: 44 }}
+              options={(fromReg?.players ?? []).map((p: any) => ({ value: p.riotId || p.name, label: p.riotId || p.name }))}
+            />
             <ArrowRight size={16} color="var(--td-muted)" aria-hidden />
-            <select
+            <TdSelect
               value={moveTo}
-              onChange={(e) => setMoveTo(e.target.value)}
-              aria-label="Equipo destino"
-              className="td-select tf-select"
-              style={{ flexBasis: 170 }}
-            >
-              <option value="">Equipo destino…</option>
-              {regs.filter((r: any) => r.teamName !== moveFrom).map((r: any) => (
-                <option key={r.id} value={r.teamName}>
-                  {r.teamName} ({r.players?.length ?? 0})
-                </option>
-              ))}
-            </select>
+              onValueChange={setMoveTo}
+              ariaLabel="Equipo destino"
+              placeholder="Equipo destino…"
+              style={{ flex: '1 1 170px', width: 'auto', height: 44 }}
+              options={regs.filter((r: any) => r.teamName !== moveFrom).map((r: any) => ({ value: r.teamName, label: r.teamName, hint: `${r.players?.length ?? 0}` }))}
+            />
             <Button variant="secondary" disabled={moveBusy || !moveFrom || !movePlayer || !moveTo} onClick={doMovePlayer}>
               {moveBusy ? '...' : 'MOVER'}
             </Button>
@@ -418,6 +434,25 @@ export function AdminPanel({ id, phase, bracketType, seriesTo, finalSeriesTo, sw
           ))}
         </div>
       )}
+
+      {/* Zona de peligro: archivar (reversible) y eliminar (definitivo) */}
+      <div className="tf-danger">
+        <div className="td-over">
+          {archived ? <ArchiveRestore size={14} aria-hidden /> : <Archive size={14} aria-hidden />} ARCHIVAR O ELIMINAR
+          {archived && <span className="tf-archived-tag" style={{ marginLeft: 8 }}>Archivado</span>}
+        </div>
+        <div className="tf-danger-row">
+          <Button variant="secondary" icon={archived ? <ArchiveRestore size={14} /> : <Archive size={14} />} disabled={dangerBusy} onClick={toggleArchive}>
+            {archived ? 'RESTAURAR A LA LISTA' : 'ARCHIVAR'}
+          </Button>
+          <Button variant="secondary" icon={<Trash2 size={14} />} disabled={dangerBusy} onClick={deleteT} className="tf-btn-danger">
+            ELIMINAR TORNEO
+          </Button>
+        </div>
+        <p className="td-help">
+          Archivar lo quita de la lista pública sin borrar nada; lo encuentras en tu dashboard y puedes restaurarlo. Eliminar borra todo (equipos, resultados, replays, clips y feed) y pide escribir el nombre.
+        </p>
+      </div>
       </CollapsibleContent>
       </Card>
     </Collapsible>

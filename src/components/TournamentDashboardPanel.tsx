@@ -250,6 +250,7 @@ export function TournamentDashboardPanel() {
                     <div className="db-admin-top">
                       <p className="db-admin-name">{t.name}</p>
                       <PhaseChip phase={t.phase} />
+                      {t.archived && <span className="tf-archived-tag">Archivado</span>}
                     </div>
                     <div className="db-admin-cap">
                       <ProgressBar kind="red" pct={pct} height={6} />

@@ -5,6 +5,7 @@
 //
 // Visual: sistema "Arena" (td-panel, td-field/td-label/td-input). Requiere un
 // ancestro .td-root; las clases db-* viven en src/styles/pages/dashboard.css.
+import { TdSelect } from '@/components/ui/td-select';
 import { useEffect, useState } from 'react';
 import { axiosInstance } from '@/lib/axios';
 import { toast } from '@/components/ui/sonner';
@@ -174,59 +175,42 @@ export function DailySchedulesAdmin() {
             <div className="td-field">
               <span className="td-label" id="ds-hour">Hora (local liga)</span>
               <div className="db-time" role="group" aria-labelledby="ds-hour">
-                <select className="td-select td-num" aria-label="Hora" value={form.startHour}
-                  onChange={e => set({ startHour: Number(e.target.value) })}>
-                  {Array.from({ length: 24 }, (_, h) => (
-                    <option key={h} value={h}>{String(h).padStart(2, '0')}</option>
-                  ))}
-                </select>
+                <TdSelect className="td-num" ariaLabel="Hora" value={String(form.startHour)} onValueChange={(v) => set({ startHour: Number(v) })}
+                  options={Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: String(h).padStart(2, '0') }))} />
                 <span aria-hidden style={{ color: 'var(--td-muted)' }}>:</span>
-                <select className="td-select td-num" aria-label="Minutos" value={form.startMinute}
-                  onChange={e => set({ startMinute: Number(e.target.value) })}>
-                  {[0, 15, 30, 45].map(m => (
-                    <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
-                  ))}
-                </select>
+                <TdSelect className="td-num" ariaLabel="Minutos" value={String(form.startMinute)} onValueChange={(v) => set({ startMinute: Number(v) })}
+                  options={[0, 15, 30, 45].map((m) => ({ value: String(m), label: String(m).padStart(2, '0') }))} />
               </div>
             </div>
             {!isArena ? (
               <>
                 <div className="td-field">
                   <label className="td-label" htmlFor="ds-bracket">Bracket</label>
-                  <select id="ds-bracket" className="td-select" value={form.bracketType} onChange={e => set({ bracketType: e.target.value })}>
-                    <option value="single_elim">Eliminación</option>
-                    <option value="round_robin">Liga</option>
-                    <option value="swiss">Suizo</option>
-                  </select>
+                  <TdSelect id="ds-bracket" value={form.bracketType} onValueChange={(v) => set({ bracketType: v })}
+                    options={[{ value: 'single_elim', label: 'Eliminación' }, { value: 'round_robin', label: 'Liga' }, { value: 'swiss', label: 'Suizo' }]} />
                 </div>
                 <div className="td-field">
                   <label className="td-label" htmlFor="ds-series">Series</label>
-                  <select id="ds-series" className="td-select" value={form.seriesTo} onChange={e => set({ seriesTo: Number(e.target.value) })}>
-                    <option value={1}>Bo1</option>
-                    <option value={2}>Bo3</option>
-                    <option value={3}>Bo5</option>
-                  </select>
+                  <TdSelect id="ds-series" value={String(form.seriesTo)} onValueChange={(v) => set({ seriesTo: Number(v) })}
+                    options={[{ value: '1', label: 'Bo1' }, { value: '2', label: 'Bo3' }, { value: '3', label: 'Bo5' }]} />
                 </div>
               </>
             ) : (
               <div className="td-field">
                 <label className="td-label" htmlFor="ds-window">Ventana (horas)</label>
-                <select id="ds-window" className="td-select" value={form.durationHours} onChange={e => set({ durationHours: Number(e.target.value) })}>
-                  {[2, 3, 4, 6].map(h => <option key={h} value={h}>{h}h</option>)}
-                </select>
+                <TdSelect id="ds-window" value={String(form.durationHours)} onValueChange={(v) => set({ durationHours: Number(v) })}
+                  options={[2, 3, 4, 6].map((h) => ({ value: String(h), label: `${h}h` }))} />
               </div>
             )}
             <div className="td-field">
               <label className="td-label" htmlFor="ds-min">Mín. equipos</label>
-              <select id="ds-min" className="td-select" value={form.minTeams} onChange={e => set({ minTeams: Number(e.target.value) })}>
-                {[2, 4, 8].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
+              <TdSelect id="ds-min" value={String(form.minTeams)} onValueChange={(v) => set({ minTeams: Number(v) })}
+                options={[2, 4, 8].map((n) => ({ value: String(n), label: String(n) }))} />
             </div>
             <div className="td-field">
               <label className="td-label" htmlFor="ds-max">Máx. equipos</label>
-              <select id="ds-max" className="td-select" value={form.maxParticipants} onChange={e => set({ maxParticipants: Number(e.target.value) })}>
-                {[8, 16, 32, 64].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
+              <TdSelect id="ds-max" value={String(form.maxParticipants)} onValueChange={(v) => set({ maxParticipants: Number(v) })}
+                options={[8, 16, 32, 64].map((n) => ({ value: String(n), label: String(n) }))} />
             </div>
           </div>
 
