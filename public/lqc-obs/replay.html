@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920">
+<title>LQC · Repetición</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@800;900&family=JetBrains+Mono:wght@700;800&display=swap">
+<style>
+  /* Insignia "REPETICIÓN" para la escena de replay de OBS (fondo transparente).
+     ?texto=REPETICIÓN&pos=tl|tr|bl|br&marco=1 (marco rojo alrededor del video) */
+  html, body { margin: 0; background: transparent; width: 1920px; height: 1080px; overflow: hidden; font-family: 'JetBrains Mono', monospace; }
+  .frame { position: absolute; inset: 0; pointer-events: none; display: none; box-shadow: inset 0 0 0 6px #e8323c, inset 0 0 60px rgba(232, 50, 60, 0.35); }
+  body[data-marco='1'] .frame { display: block; }
+  .badge { position: absolute; top: 40px; left: 40px; display: inline-flex; align-items: center; gap: 14px; height: 64px; padding: 0 26px 0 18px;
+    background: linear-gradient(90deg, #e8323c, #a3141c); color: #fff; border-radius: 6px; box-shadow: 0 16px 40px -14px rgba(0,0,0,0.9);
+    font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 30px; letter-spacing: 0.08em; text-transform: uppercase;
+    animation: in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .badge::before { content: ''; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 0 rgba(255,255,255,0.7); animation: pulse 1.6s ease-out infinite; }
+  .badge small { font-family: 'JetBrains Mono', monospace; font-size: 14px; letter-spacing: 0.2em; opacity: 0.85; padding-left: 14px; border-left: 1px solid rgba(255,255,255,0.4); }
+  body[data-pos='tr'] .badge { left: auto; right: 40px; }
+  body[data-pos='bl'] .badge { top: auto; bottom: 150px; }
+  body[data-pos='br'] .badge { top: auto; bottom: 150px; left: auto; right: 40px; }
+  @keyframes in { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: none; } }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.7); } 100% { box-shadow: 0 0 0 14px rgba(255,255,255,0); } }
+</style>
+</head>
+<body>
+<div class="frame"></div>
+<div class="badge" id="badge">REPETICIÓN <small>LQC 2026</small></div>
+<script>
+  const q = new URLSearchParams(location.search);
+  document.body.dataset.pos = q.get('pos') || 'tl';
+  document.body.dataset.marco = q.get('marco') || '0';
+  if (q.get('texto')) document.getElementById('badge').firstChild.textContent = q.get('texto') + ' ';
+</script>
+</body>
+</html>

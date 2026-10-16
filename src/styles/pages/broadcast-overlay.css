@@ -91,6 +91,9 @@
 .bo-stat { flex: none; display: inline-flex; align-items: center; gap: 5px; font-size: 20px; font-weight: 700; line-height: 1; color: var(--bo-text); }
 .bo-stat img { width: 20px; height: 20px; object-fit: contain; }
 .bo-stat.gold { color: var(--bo-gold); }
+/* Ventaja de oro: pastilla sólida del color del lado, junto al oro del equipo que va ganando. */
+.bo-golddiff { display: inline-grid; place-items: center; height: 22px; padding: 0 7px; margin-left: 2px; border-radius: 3px; background: var(--side-fill); color: #fff; font-family: var(--bo-font-data); font-size: 14px; font-weight: 800; letter-spacing: 0.02em; line-height: 1; box-shadow: 0 2px 10px -4px rgba(0, 0, 0, 0.9); }
+.bo-team.red .bo-golddiff { margin-left: 0; margin-right: 2px; }
 .bo-team.red .bo-stat { flex-direction: row-reverse; }
 
 .bo-kills { position: relative; overflow: hidden; display: grid; place-items: center; background: var(--side-fill); color: #fff; font-size: calc(50px * var(--bo-display-scale)); }
@@ -395,9 +398,10 @@
 .bo-fw-foot .sw.dim { opacity: 0.5; }
 
 
-/* Barras de daño estimado: físico (sólido) + mágico (a continuación) */
-.bo-fw-bar i.phys { background: var(--side-fill); }
-.bo-fw-bar i.magic { left: var(--off, 0%); background: var(--side-fill); opacity: 0.55; background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0 3px, transparent 3px 7px); }
+/* Barras de daño estimado: físico (naranja sólido) + mágico (violeta sólido), legibles sobre cualquier fondo */
+.bo-fw-bar { background: rgba(0, 0, 0, 0.55); }
+.bo-fw-bar i.phys { background: #ff8a3d; }
+.bo-fw-bar i.magic { left: var(--off, 0%); background: #7c6bff; opacity: 1; }
 .bo-fw-col.red .bo-fw-bar i.magic { left: auto; right: var(--off, 0%); }
-.bo-fw-foot .sw.phys { background: var(--bo-blue-fill); }
-.bo-fw-foot .sw.magic { background: var(--bo-blue-fill); opacity: 0.55; background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0 2px, transparent 2px 5px); }
+.bo-fw-foot .sw.phys { background: #ff8a3d; }
+.bo-fw-foot .sw.magic { background: #7c6bff; opacity: 1; }

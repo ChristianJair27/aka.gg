@@ -26,6 +26,7 @@ const MatchDetailPage      = lazy(() => import('@/pages/MatchDetailPage'));
 const LiveSpectatePage     = lazy(() => import('@/pages/LiveSpectatePage'));
 const BroadcastPage        = lazy(() => import('@/pages/BroadcastPage'));
 const BroadcastOverlayPage = lazy(() => import('@/pages/BroadcastOverlayPage'));
+const BroadcastControlPage = lazy(() => import('@/pages/BroadcastControlPage'));
 
 function PageLoader() {
   return (
@@ -67,6 +68,7 @@ export const AppRouter = () => (
       <Route path="/broadcast/:channel"       element={<BroadcastPage />} />
       {/* Overlay de caster para OBS (transparente, branding LQC). */}
       <Route path="/broadcast/:channel/overlay" element={<BroadcastOverlayPage />} />
+      <Route path="/broadcast/:channel/control" element={<BroadcastControlPage />} />
       <Route path="/tournaments"              element={<TournamentsPage />} />
       {/* Enlace corto para campañas: misma página, modal de creación abierto. */}
       <Route path="/crear-torneo"             element={<TournamentsPage />} />

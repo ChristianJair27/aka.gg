@@ -1,17 +1,17 @@
 LQC-OBS · PANTALLAS (fuente Navegador en OBS, 1920x1080)
-SERIES DE LA RONDA 6: r6m1 Mythical Dragons vs Nephyx · r6m2 Hive vs Galaxy · r6m3 2 DOPE vs Requiem · r6m4 BreakersStorm vs False Promise · r6m5 Los Rokosos vs RAKU · r6m6 REV505 vs Axolotl · r6m7 CT&S vs Tlacuaches · r6m8 The Town Boys vs Game Over Qro · r6m9 DinoRatas vs Heralds Of Cthulhu
+SERIES DE LA RONDA 7: r7m1 Mythical Dragons vs False Promise · r7m2 Hive vs Nephyx · r7m3 2 DOPE vs Galaxy · r7m4 RAKU vs Requiem · r7m5 BreakersStorm vs Los Rokosos · r7m6 Game Over Qro vs Axolotl · r7m7 CT&S vs DinoRatas · r7m8 REV505 vs Los Forjadores · r7m9 Tlacuaches vs The Town Boys · descansa Heralds Of Cthulhu
 
 INICIO
-https://atakgg.revolution505.com/lqc-obs/inicio.html?match=r6m1&hora=20:30
+https://atakgg.revolution505.com/lqc-obs/inicio.html?match=r7m4&hora=20:30
 
 PAUSA
-https://atakgg.revolution505.com/lqc-obs/pausa.html?match=r6m1
+https://atakgg.revolution505.com/lqc-obs/pausa.html?match=r7m4
 
 VERSUS
-https://atakgg.revolution505.com/lqc-obs/versus.html?match=r6m1
+https://atakgg.revolution505.com/lqc-obs/versus.html?match=r7m4
 
 CHAMP SELECT
-https://atakgg.revolution505.com/lqc-obs/champ-select.html?match=r6m1
+https://atakgg.revolution505.com/lqc-obs/champ-select.html?match=r7m4
 
 OVERLAY EN VIVO (in-game; marcador, oro, objetivos, tablero por línea y tarjeta de PELEA)
 https://atakgg.revolution505.com/broadcast/lqc-2026/overlay?theme=lqc&opacidad=75
@@ -19,7 +19,22 @@ https://atakgg.revolution505.com/broadcast/lqc-2026/overlay?theme=lqc&opacidad=7
    · En cada pelea (2+ bajas seguidas) el tablero de abajo se esconde solo y aparece el panel PELEA con las bajas de cada lado y el oro; vuelve a los 9 s.
    · El tablero de abajo rota solo cada 25 s: LÍNEAS → LÍDERES → OBJETIVOS (rotar=40 cambia el ritmo; rotar=0 lo deja fijo en líneas).
    · tablero=0 → sin tablero (solo marcador y avisos) · auto=0 → el tablero no se esconde en las peleas · objetivos=0 → oculta dragón/foso.
-   · Dragones, larvas, heraldo y barón solo salen cuando un JUGADOR de la partida tiene abierto el ATAK Companion (el espectador no los recibe).
+   · Dragones, larvas, heraldo y barón: el espectador NO los recibe. Dos formas de tenerlos:
+     1) un JUGADOR de la partida con el ATAK Companion abierto (llegan solos), o
+     2) la MESA DE CONTROL del caster (abajo): un clic por objetivo y el overlay lo pinta al instante.
+
+MESA DE CONTROL (objetivos a mano: dragón por tipo, larvas, heraldo, barón; deshacer; se limpia sola al empezar otra partida)
+https://atakgg.revolution505.com/broadcast/lqc-2026/control
+   · Pide el token del feed (el mismo que lleva el modo caster del companion) y lo recuerda en ese navegador.
+   · Ábrela en el celular o en una segunda pestaña: marca el objetivo en cuanto caiga.
+
+REPETICIÓN (insignia para la escena de replay instantáneo de OBS; fondo transparente)
+https://atakgg.revolution505.com/lqc-obs/replay.html?pos=tl&marco=1
+   · pos=tl|tr|bl|br (esquina) · marco=1 pinta un marco rojo alrededor del video · texto=REPLAY cambia el rótulo.
+   · Cómo armar la repetición en OBS: Ajustes → Salida → "Búfer de repetición" (30 s) → Ajustes → Atajos: "Guardar repetición".
+     Herramientas → Scripts → añadir instant-replay.lua (viene con OBS, carpeta data/obs-plugins/frontend-tools/scripts),
+     elegir una fuente "Multimedia" llamada Replay dentro de una escena REPLAY con esta insignia encima, y asignarle atajo.
+     Al pulsar el atajo guarda los últimos 30 s y los reproduce en esa fuente; cambias a la escena REPLAY y vuelves.
 
 POST-PARTIDA · BARRA (tercio inferior transparente: marcador, victoria, objetivos y MVP)
 https://atakgg.revolution505.com/lqc-obs/stats-partido.html?modo=overlay
@@ -37,7 +52,7 @@ STATS · FICHA DE EQUIPO
 https://atakgg.revolution505.com/lqc-obs/stats-equipo.html?equipo=Hive
 
 STATS · CARA A CARA DE LA SERIE
-https://atakgg.revolution505.com/lqc-obs/stats-h2h.html?match=r6m1
+https://atakgg.revolution505.com/lqc-obs/stats-h2h.html?match=r7m4
 
 TABLA
 https://atakgg.revolution505.com/lqc-obs/tabla.html
@@ -54,4 +69,4 @@ https://atakgg.revolution505.com/lqc-obs/redes.html
 FIN
 https://atakgg.revolution505.com/lqc-obs/fin.html
 
-match=r6m1 es la serie de HOY (Mythical Dragons vs Nephyx Esports); cada noche solo cambia ese código (r6m1, r6m2…). Sin match= las pantallas toman la serie del overlay en vivo cuando el caster ya está espectando la partida; antes de eso quedan sin equipos. ?equipo=Hive muestra la serie de ese equipo en la ronda actual. Las de post-partida cambian solas al último juego terminado (1 a 3 min tras acabar).
+match=r7m4 es la serie de HOY (Mythical Dragons vs Nephyx Esports); cada noche solo cambia ese código (r6m1, r6m2…). Sin match= las pantallas toman la serie del overlay en vivo cuando el caster ya está espectando la partida; antes de eso quedan sin equipos. ?equipo=Hive muestra la serie de ese equipo en la ronda actual. Las de post-partida cambian solas al último juego terminado (1 a 3 min tras acabar).

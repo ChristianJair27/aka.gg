@@ -469,7 +469,8 @@ export default function BroadcastOverlayPage() {
   // ceros falsos. ?objetivos=0|1 lo fuerza.
   const objParam = params.get('objetivos');
   // El companion ≥ 0.4.4 dice quién manda el feed: un jugador (eventos completos) o el espectador.
-  const spectator = feed?.source === 'spectator';
+  // Con objetivos marcados a mano por el caster (/broadcast/:canal/control) el feed del espectador también vale.
+  const spectator = feed?.source === 'spectator' && !(Number(feed?.manualEvents) > 0);
   const epicOk = objParam === '1' || (objParam !== '0' && !!feed && !spectator && (
     (feed.events || []).some((e: FeedEvent) => EPIC_EVENTS.has(e.name)) || (feed.gameTime || 0) < EPIC_CHECK_AT));
   const derived = useMemo(() => {
@@ -647,7 +648,13 @@ export default function BroadcastOverlayPage() {
           {/* Línea 1: nombre + oro del equipo */}
           <div className="bo-team-l1">
             <span className="bo-team-name bo-disp" style={{ ['--fit' as any]: fitName(name) }}>{name}</span>
-            <span className="bo-stat gold" title="Oro del equipo (estimado)"><img src={ICON.gold} alt="Oro" onError={hide} />{kFmt(d.gold[side])}</span>
+            {/* Oro del equipo + ventaja en pastilla sólida del lado que va ganando (estilo Worlds: "12.9K +0.8K") */}
+            <span className="bo-stat gold" title="Oro del equipo (estimado)">
+              <img src={ICON.gold} alt="Oro" onError={hide} />{kFmt(d.gold[side])}
+              {(side === 'blue' ? d.gold.blue - d.gold.red : d.gold.red - d.gold.blue) >= 300 && (
+                <b className={`bo-golddiff ${side}`}>+{kFmt(Math.abs(d.gold.blue - d.gold.red))}</b>
+              )}
+            </span>
           </div>
           {/* Línea 2: dragones hacia el alma + torres, vacuolarvas, heraldo y barones */}
           <div className="bo-team-l2">

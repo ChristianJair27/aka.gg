@@ -8,11 +8,11 @@ A) EN LÍNEA (recomendado: los marcadores, la tabla y los partidos se actualizan
    Base: https://atakgg.revolution505.com/lqc-obs/
 
    SIN match= las pantallas toman la serie del overlay en vivo (cuando el caster ya espectea la partida); antes, usa match=.
-   inicio.html?match=r6m1&hora=20:30   "Empezamos en breve" + cuenta regresiva + la serie de la noche
-   pausa.html?match=r6m1               "Volvemos en breve" (pausa técnica / entre juegos)
+   inicio.html?match=r7m4&hora=20:30   "Empezamos en breve" + cuenta regresiva + la serie de la noche
+   pausa.html?match=r7m4               "Volvemos en breve" (pausa técnica / entre juegos)
    fin.html                            "Gracias por ver" + redes
-   versus.html?match=r6m1              Cara a cara con logos, récord, marcador de la serie y juego actual
-   champ-select.html?match=r6m1        Marco TRANSPARENTE para la selección de campeones:
+   versus.html?match=r7m4              Cara a cara con logos, récord, marcador de la serie y juego actual
+   champ-select.html?match=r7m4        Marco TRANSPARENTE para la selección de campeones:
                                        equipos y marcador arriba en las esquinas (el centro queda libre
                                        para el temporizador del cliente) y barra inferior con ronda/juego/redes
    redes.html                          Pantalla completa de redes
@@ -26,12 +26,12 @@ A) EN LÍNEA (recomendado: los marcadores, la tabla y los partidos se actualizan
                                        cspm | vision | kills | winrate · min=4 (juegos mínimos) · n=10
    stats-equipo.html?equipo=Hive       Ficha del equipo: récord, KDA, kills por juego, daño, oro, multikills y
                                        la plantilla con campeones, K/D/A, winrate y puntos
-   stats-h2h.html?match=r6m2           Cara a cara de la serie: 8 métricas en barras + jugador destacado
+   stats-h2h.html?match=r7m4           Cara a cara de la serie: 8 métricas en barras + jugador destacado
    stats-partido.html                  POST-PARTIDA automática: en cuanto ATAK.GG procesa un juego (1 a 3 min
                                        tras terminar) muestra el último juego terminado del torneo: marcador,
                                        objetivos, tabla 5v5 con daño/oro/CS/visión/objetos, MVP del juego con
                                        su splash y comparativa de equipos. Déjala puesta: cambia sola.
-                                       ?equipo=Hive (solo juegos de ese equipo) · ?match=r6m2 (una serie) ·
+                                       ?equipo=Hive (solo juegos de ese equipo) · ?match=r7m4 (una serie) ·
                                        &juego=1 (otro juego de la serie)
    stats-partido.html?modo=overlay     La misma info en una barra inferior TRANSPARENTE (marcador, victoria,
                                        objetivos y MVP) para poner encima de la pantalla de fin de partida o
@@ -89,3 +89,12 @@ Los archivos .html también funcionan abiertos en local (doble clic o fuente Nav
 pero en ese modo el marcador en vivo puede no cargar: usa los parámetros t1/t2/s1/s2.
 
 Generado por ATAK.GG · 6-oct-2026
+
+
+D) OBJETIVOS SIN COMPANION DE JUGADOR · MESA DE CONTROL
+   https://atakgg.revolution505.com/broadcast/lqc-2026/control  (token del feed; dragón por tipo, larvas, heraldo, barón; deshacer)
+   El overlay los mezcla con el feed del espectador: contadores, dragones hacia el alma, timers y avisos.
+
+E) REPETICIÓN INSTANTÁNEA
+   replay.html?pos=tl&marco=1  → insignia "REPETICIÓN" transparente para la escena de replay.
+   OBS: Búfer de repetición (30 s) + atajo "Guardar repetición" + script instant-replay.lua (fuente Multimedia "Replay").
