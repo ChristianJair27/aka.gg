@@ -88,6 +88,8 @@ const fmt = (s: number) => `${Math.floor(s / 60)}:${Math.floor(Math.max(0, s) % 
 const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const shortName = (r: string) => (r.includes('#') ? r.slice(0, r.indexOf('#')) : r);
 const kFmt = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n)));
+// Formato Worlds para la ventaja por línea: "1.4K" a partir de mil, el número tal cual por debajo.
+const wFmt = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(Math.round(n)));
 
 /** Oro estimado de un jugador: pasiva desde 1:50 + CS + kills/asistencias. */
 function estGold(p: FeedPlayer, t: number): number {
@@ -737,7 +739,6 @@ export default function BroadcastOverlayPage() {
   const matchupRow = (m: (typeof d.matchups)[number], index: number) => {
     const gB = m.blue ? d.goldOf.get(m.blue.riotId) || 0 : 0;
     const gR = m.red ? d.goldOf.get(m.red.riotId) || 0 : 0;
-    const pctB = (gB / Math.max(1, gB + gR)) * 100;
     const diff = gB - gR;
     return (
       <motion.div
@@ -747,17 +748,10 @@ export default function BroadcastOverlayPage() {
         transition={{ duration: 0.45, ease: EASE, delay: 0.55 + index * 0.07 }}
       >
         {playerCell(m.blue, 'blue', diff > 0)}
-        {/* La ventaja de oro de la línea se escribe del lado que va ganando */}
-        <div className="bo-mid">
-          <span className="bo-mid-top">
-            <b className="blue">{diff > 0 ? `+${kFmt(diff)}` : ''}</b>
-            {m.pos ? <img src={lol.lane(m.pos)} alt={m.pos} onError={hide} /> : <span>VS</span>}
-            <b className="red">{diff < 0 ? `+${kFmt(-diff)}` : ''}</b>
-          </span>
-          <div className="bo-goldbar">
-            <i className="blue" style={{ width: `${pctB}%` }} />
-            <i className="red" style={{ width: `${100 - pctB}%` }} />
-          </div>
+        {/* Ventaja de oro de la línea, formato Worlds: una cifra centrada ("1.4K" / "555") y una barra gruesa del color del lado que va arriba. */}
+        <div className={`bo-mid ${diff > 0 ? 'blue' : diff < 0 ? 'red' : 'even'}`} title={`${m.pos || ''} · ${kFmt(gB)} vs ${kFmt(gR)}`}>
+          {m.pos && <img className="bo-mid-lane" src={lol.lane(m.pos)} alt={m.pos} onError={hide} />}
+          <b className="bo-mid-diff">{Math.abs(diff) < 50 ? '—' : wFmt(Math.abs(diff))}</b>
         </div>
         {playerCell(m.red, 'red', diff < 0)}
       </motion.div>

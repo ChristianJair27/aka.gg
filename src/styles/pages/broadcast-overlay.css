@@ -240,15 +240,15 @@
 .bo-item { width: 23px; height: 23px; border-radius: 3px; overflow: hidden; background: var(--bo-sub); }
 .bo-item img { width: 100%; height: 100%; object-fit: cover; }
 
-/* Centro de la fila: línea + ventaja de oro del lado que la tiene. */
-.bo-mid { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
-.bo-mid-top { display: grid; grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr); align-items: center; gap: 6px; height: 18px; font-size: 13.5px; font-weight: 700; color: var(--bo-muted); }
-.bo-mid-top img { width: 18px; height: 18px; object-fit: contain; opacity: 0.9; }
-.bo-mid-top > span { text-align: center; font-size: 11px; }
-.bo-mid-top b { color: var(--side); white-space: nowrap; }
-.bo-mid-top b.blue { text-align: right; }
-.bo-mid-top b.red { text-align: left; }
-.bo-mid .bo-goldbar { height: 5px; }
+/* Centro de la fila (formato Worlds): cifra de la ventaja centrada y una barra gruesa
+   pegada al lado del equipo que va arriba en esa línea; el icono de la línea, pequeño encima. */
+.bo-mid { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; height: 100%; min-height: 40px; background: rgba(0, 0, 0, 0.35); border-radius: 3px; }
+.bo-mid::before { content: ''; position: absolute; top: 4px; bottom: 4px; width: 5px; border-radius: 2px; background: var(--side); opacity: 0; }
+.bo-mid.blue::before { left: 0; opacity: 1; }
+.bo-mid.red::before { right: 0; opacity: 1; }
+.bo-mid-lane { width: 14px; height: 14px; object-fit: contain; opacity: 0.6; }
+.bo-mid-diff { font-family: var(--bo-font-data); font-size: 19px; font-weight: 800; line-height: 1; letter-spacing: 0.02em; color: var(--bo-text); font-variant-numeric: tabular-nums; }
+.bo-mid.even .bo-mid-diff { color: var(--bo-muted); }
 
 /* ── Tema LQC: datos en monoespaciada y en mayúsculas, como sus publicaciones ── */
 /* Sus títulos son más gruesos que Orbitron 900: se engorda el trazo. */
