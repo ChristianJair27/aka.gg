@@ -1,17 +1,17 @@
 LQC-OBS · PANTALLAS (fuente Navegador en OBS, 1920x1080)
-SERIES DE LA RONDA 7: r7m1 Mythical Dragons vs False Promise · r7m2 Hive vs Nephyx · r7m3 2 DOPE vs Galaxy · r7m4 RAKU vs Requiem · r7m5 BreakersStorm vs Los Rokosos · r7m6 Game Over Qro vs Axolotl · r7m7 CT&S vs DinoRatas · r7m8 REV505 vs Los Forjadores · r7m9 Tlacuaches vs The Town Boys · descansa Heralds Of Cthulhu
+SERIES DE LA RONDA 8: r8m1 Mythical Dragons vs RAKU · r8m2 Hive vs False Promise · r8m3 Nephyx vs CT&S · r8m4 2 DOPE vs BreakersStorm · r8m5 Galaxy vs Game Over Qro · r8m6 Requiem vs Los Rokosos · r8m7 Axolotl vs The Town Boys · r8m8 Heralds Of Cthulhu vs Los Forjadores · r8m9 REV505 vs Tlacuaches · descansa DinoRatas
 
 INICIO
-https://atakgg.revolution505.com/lqc-obs/inicio.html?match=r7m4&hora=20:30
+https://atakgg.revolution505.com/lqc-obs/inicio.html?match=r8m7&hora=20:30
 
 PAUSA
-https://atakgg.revolution505.com/lqc-obs/pausa.html?match=r7m4
+https://atakgg.revolution505.com/lqc-obs/pausa.html?match=r8m7
 
 VERSUS
-https://atakgg.revolution505.com/lqc-obs/versus.html?match=r7m4
+https://atakgg.revolution505.com/lqc-obs/versus.html?match=r8m7
 
 CHAMP SELECT
-https://atakgg.revolution505.com/lqc-obs/champ-select.html?match=r7m4
+https://atakgg.revolution505.com/lqc-obs/champ-select.html?match=r8m7
 
 OVERLAY EN VIVO (in-game; marcador, oro, objetivos, tablero por línea y tarjeta de PELEA)
 https://atakgg.revolution505.com/broadcast/lqc-2026/overlay?theme=lqc&opacidad=75
@@ -52,7 +52,7 @@ STATS · FICHA DE EQUIPO
 https://atakgg.revolution505.com/lqc-obs/stats-equipo.html?equipo=Hive
 
 STATS · CARA A CARA DE LA SERIE
-https://atakgg.revolution505.com/lqc-obs/stats-h2h.html?match=r7m4
+https://atakgg.revolution505.com/lqc-obs/stats-h2h.html?match=r8m7
 
 TABLA
 https://atakgg.revolution505.com/lqc-obs/tabla.html
@@ -69,4 +69,4 @@ https://atakgg.revolution505.com/lqc-obs/redes.html
 FIN
 https://atakgg.revolution505.com/lqc-obs/fin.html
 
-match=r7m4 es la serie de HOY (Mythical Dragons vs Nephyx Esports); cada noche solo cambia ese código (r6m1, r6m2…). Sin match= las pantallas toman la serie del overlay en vivo cuando el caster ya está espectando la partida; antes de eso quedan sin equipos. ?equipo=Hive muestra la serie de ese equipo en la ronda actual. Las de post-partida cambian solas al último juego terminado (1 a 3 min tras acabar).
+match=r8m7 es la serie de HOY (Mythical Dragons vs Nephyx Esports); cada noche solo cambia ese código (r6m1, r6m2…). Sin match= las pantallas toman la serie del overlay en vivo cuando el caster ya está espectando la partida; antes de eso quedan sin equipos. ?equipo=Hive muestra la serie de ese equipo en la ronda actual. Las de post-partida cambian solas al último juego terminado (1 a 3 min tras acabar).
