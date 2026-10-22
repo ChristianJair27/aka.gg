@@ -3,6 +3,7 @@
 // (<MatchStatsDetail/>, alimentado por /api/stats/match-stats), repetición 2D y
 // lista de jugadores con enlace a su perfil. Sistema "Arena": el fondo es el
 // splash del campeón del jugador enfocado (o del MVP del equipo ganador).
+import { useSeo } from '@/lib/seo';
 import { useMemo } from 'react';
 import { useLocation, useParams, useNavigate, Link } from 'react-router-dom';
 import { MatchStatsDetail } from '@/components/MatchStatsDetail';
@@ -34,6 +35,7 @@ function profileHref(region: string, gameName?: string, tagLine?: string) {
 const mvpScore = (p: any) => (p.kills + p.assists - p.deaths);
 
 export default function MatchDetailPage() {
+  useSeo({ title: 'Detalle de partida', noindex: true });
   const { regional, matchId } = useParams<{ regional: string; matchId: string }>();
   const { state } = useLocation() as { state?: { puuid?: string; region?: string } };
   const navigate = useNavigate();

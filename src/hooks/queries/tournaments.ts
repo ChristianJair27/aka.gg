@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { axiosInstance } from "@/lib/axios";
 import { qk } from "./keys";
+import { trackEvent } from "@/lib/analytics";
 
 export interface Standing {
   position: number;
@@ -622,6 +623,7 @@ export function useCreateTournament() {
       });
     },
     onSuccess: (data) => {
+      trackEvent('tournament_created', { tournament: data.tournament?.id, map: (data.tournament as any)?.gameMap });
       toast.success('Torneo creado', { description: data.tournament?.name });
     },
     onSettled: () => {

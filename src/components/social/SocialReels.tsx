@@ -14,6 +14,7 @@ import { StickerPicker, uploadMedia, type Sticker } from '@/components/social/St
 import { AtakModal, AtakModalBody, AtakModalContent, AtakModalHeader } from '@/components/ui/atak-modal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useHistoryModal } from '@/hooks/use-history-modal';
+import { trackEvent } from '@/lib/analytics';
 import { ARENA_MODAL } from '@/components/tournament/forms';
 
 interface Meta { team1?: string; team2?: string; round?: number; gameNumber?: number; tStart?: number; tEnd?: number; kind?: string }
@@ -107,6 +108,7 @@ export function SocialReels({ tournamentId, tournamentName }: { tournamentId: st
   const patch = (id: number, fn: (p: Post) => Post) => setPosts((ps) => ps.map((p) => (p.id === id ? fn(p) : p)));
   const like = async (p: Post) => {
     if (!isAuthenticated) return toast('Inicia sesión para dar me gusta');
+    trackEvent('reel_like', { post: p.id });
     const was = !!p.liked_by_me;
     patch(p.id, (x) => ({ ...x, liked_by_me: !was, likes_count: x.likes_count + (was ? -1 : 1) }));
     try { await axiosInstance.post(`/api/social/posts/${p.id}/like`); } catch { patch(p.id, (x) => ({ ...x, liked_by_me: was, likes_count: x.likes_count + (was ? 1 : -1) })); }

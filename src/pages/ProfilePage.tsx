@@ -2,6 +2,7 @@
 // Perfil de invocador — sistema de diseño "Arena" (design-system/atak-gg/MASTER.md).
 // La capa de datos (/api/stats/* vía hooks, OP.GG, spectator) no cambia: aquí solo
 // se decide cómo se pinta. Estilos de página en src/styles/pages/profile.css.
+import { useSeo } from '@/lib/seo';
 import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -190,6 +191,7 @@ export default function ProfilePage() {
   const platform = normalizePlatform(region);
   const continent = platformToContinent(platform);
   const { gameName, tagLine } = useMemo(() => splitNameTag(name, platform), [name, platform]);
+  useSeo({ title: `${gameName}#${tagLine} · Stats de League of Legends (${String(platform).toUpperCase()})`, description: `Estadísticas de ${gameName}#${tagLine} en ${String(platform).toUpperCase()}: rango, historial de partidas, campeones más jugados y rendimiento. Sin anuncios.`, canonical: `/stats/${platform}/${encodeURIComponent(`${gameName}#${tagLine}`)}` }, [gameName, tagLine, platform]);
 
   const qc = useQueryClient();
   // 20 partidas por defecto: el análisis (recap/IA/roles) se corta a los últimos

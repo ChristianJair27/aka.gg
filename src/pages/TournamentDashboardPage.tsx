@@ -19,6 +19,8 @@ import {
   AdminPanel, DashboardSkeleton, ResponsiveStyles,
 } from '@/components/tournament/dashboard';
 import { SocialReels } from '@/components/social/SocialReels';
+import { useSeo, tournamentJsonLd } from '@/lib/seo';
+import { trackEvent } from '@/lib/analytics';
 import { TournamentReplays } from '@/components/TournamentReplays';
 import '@/styles/tournament-dashboard.css';
 import '@/styles/arena.css';
@@ -37,11 +39,21 @@ export default function TournamentDashboardPage() {
       ? 'equipos'
       : 'resumen';
   const tab = (params.get('tab') as Tab) || defaultTab;
+  const t = data?.tournament;
+  useSeo(t ? {
+    title: t.name,
+    description: `${t.name}: torneo de League of Legends (${t.format}). ${t.participants}/${t.maxParticipants} equipos${t.prize ? ` · Premio: ${t.prize}` : ''}. Bracket, partidas, estadísticas y clips en ATAK.GG.`,
+    image: (t as any).bannerUrl || (t as any).logoUrl || null,
+    canonical: `/tournaments/${id}`,
+    jsonLd: tournamentJsonLd({ id, name: t.name, startDate: t.startDate, endDate: (t as any).endDate, description: t.description, prize: t.prize, logoUrl: (t as any).logoUrl, bannerUrl: (t as any).bannerUrl, phase: t.phase }),
+  } : { title: 'Torneo' }, [t?.name, t?.phase, t?.participants, id]);
+  useEffect(() => { if (t) trackEvent('tournament_view', { tournament: id, phase: t.phase }); }, [id, t?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
   // Cada sección es una entrada de historial: "Atrás" vuelve a la sección
   // anterior del torneo en vez de salir de él. Los filtros internos de cada
   // pestaña sí usan replace (no son "páginas").
   const setTab = (t: Tab) => {
     if (t === tab) return;
+    trackEvent('tournament_tab', { tournament: id, tab: t });
     setParams((prev) => {
       const p = new URLSearchParams();
       if (prev.get('register')) p.set('register', prev.get('register')!);
@@ -91,7 +103,7 @@ export default function TournamentDashboardPage() {
         ) : (
           <>
             <Breadcrumbs name={data.tournament.name} tab={tab} onHome={() => go('/tournaments')} />
-            <Hero data={data} onBracket={() => setTab('bracket')} onRegister={() => setRegisterOpen(true)} />
+            <Hero data={data} onBracket={() => setTab('bracket')} onRegister={() => { trackEvent('register_open', { tournament: id }); setRegisterOpen(true); }} />
             {/* Descubrimiento: banner descartable con muestras reales (no bloquea) */}
             <DiscoveryBanner tournamentId={id} data={discovery} />
             <BroadcastBanner channel={id} navigate={go} />

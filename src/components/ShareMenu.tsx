@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Share2, Link as LinkIcon, Download, Smartphone, X as CloseIcon } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent } from '@/lib/analytics';
 
 export function ShareMenu({ url, mp4, title, text, compact = false, rail = false, className = '' }: { url: string; mp4?: string | null; title: string; text?: string; compact?: boolean; rail?: boolean; className?: string }) {
   const [open, setOpen] = useState(false);
@@ -39,7 +40,7 @@ export function ShareMenu({ url, mp4, title, text, compact = false, rail = false
   ];
   return (
     <div ref={ref} className={`relative ${className}`}>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="menu" title="Compartir" className={btn}>
+      <button type="button" onClick={() => { if (!open) trackEvent('clip_share', { title }); setOpen((o) => !o); }} aria-expanded={open} aria-haspopup="menu" title="Compartir" className={btn}>
         {rail ? <><span className="grid h-11 w-11 place-items-center rounded-full bg-black/50 backdrop-blur"><Share2 className="h-6 w-6" /></span><span className="text-[11px] font-bold drop-shadow">Compartir</span></> : <><Share2 className="h-3.5 w-3.5" />{!compact && <span>Compartir</span>}</>}
       </button>
       {open && (

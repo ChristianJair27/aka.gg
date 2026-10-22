@@ -1,6 +1,7 @@
 // src/pages/ChampionPage.tsx — Detalle de campeón (OP.GG MCP): runas, build,
 // orden de skills, counters y stats. Rediseño "Arena": el campeón es el héroe
 // de la página — su splash de fondo y su modelo 3D en el escenario.
+import { useSeo } from '@/lib/seo';
 import { useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -48,6 +49,7 @@ export default function ChampionPage() {
   const { runes, items } = useStaticData();
   const entry = champs?.byId?.[slug] ?? Object.values(champs?.byId ?? {}).find((c) => c.id.toLowerCase() === slug.toLowerCase());
   const displayName = entry?.name ?? slug;
+  useSeo({ title: `${displayName}: build, runas y counters`, description: `Build, runas, hechizos, orden de habilidades y counters de ${displayName} por línea, con winrate del parche actual.`, canonical: `/champion/${slug}` }, [displayName, slug]);
 
   const buildQ = useQuery({
     queryKey: ['champ', 'build', displayName, pos],

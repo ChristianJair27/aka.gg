@@ -12,3 +12,6 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://atakgg.revolution505.com/sitemap.xml
+Sitemap: https://atakback.revolution505.com/api/sitemap.xml

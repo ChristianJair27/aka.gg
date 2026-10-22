@@ -16,6 +16,7 @@ import { ShareMenu } from '@/components/ShareMenu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FightStats } from '@/components/FightStats';
 import { lol } from '@/lib/lolAssets';
+import { trackEvent } from '@/lib/analytics';
 import { useTournamentClips, useTournamentReplays, type TournamentClip as Clip } from '@/hooks/queries/tournaments';
 
 interface BracketLite { id: string; round: number; team1: string | null; team2: string | null; games?: Array<{ gameId: number; winner?: string | null }> }
@@ -267,7 +268,7 @@ const ClipCard = memo(function ClipCard({ clip: c, caption, focused }: { clip: C
         {playing ? (
           <video src={c.url} poster={c.poster || undefined} controls autoPlay playsInline preload="auto" className="absolute inset-0 h-full w-full bg-black" />
         ) : (
-          <button type="button" onClick={() => setPlaying(true)} aria-label={`Reproducir: ${c.title}`} className="group absolute inset-0 block h-full w-full text-left">
+          <button type="button" onClick={() => { setPlaying(true); trackEvent('clip_play', { clip: c.key, kind: c.kind, game: c.gameId }); }} aria-label={`Reproducir: ${c.title}`} className="group absolute inset-0 block h-full w-full text-left">
             {c.poster ? (
               <img src={c.poster} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
             ) : (

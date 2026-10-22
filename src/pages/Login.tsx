@@ -1,4 +1,5 @@
 // src/pages/Login.tsx — inicio de sesión de ATAK.GG (rediseño "Arena").
+import { useSeo } from '@/lib/seo';
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -28,6 +29,7 @@ const OAUTH_ERRORS: Record<string, string> = {
 };
 
 export default function Login() {
+  useSeo({ title: 'Iniciar sesión', noindex: true });
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();

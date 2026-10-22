@@ -2,6 +2,7 @@
 // Héroe con el campeón principal del jugador (splash + modelo 3D), tira de
 // métricas y pestañas. Misma lógica y datos de siempre: solo cambia la capa
 // visual (ver design-system/atak-gg/MASTER.md).
+import { useSeo } from '@/lib/seo';
 import { TdSelect } from '@/components/ui/td-select';
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -113,6 +114,7 @@ const PHASE_CHIP = {
 const hideImg = (e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.display = "none"; };
 
 const Dashboard = () => {
+  useSeo({ title: 'Mi dashboard', noindex: true });
   const { user } = useAuth();
   // Sesiones anteriores quedaron guardadas con el nombre roto por el `atob`
   // viejo: se repara al mostrar (y una vez en localStorage, ya que el

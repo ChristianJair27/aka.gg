@@ -2,6 +2,7 @@
 // tier list por línea, calendario esports y skins en oferta.
 // Rediseño "Arena": el n.º 1 de la línea elegida es el héroe (splash + modelo 3D)
 // y el podio usa el arte vertical de cada campeón.
+import { useSeo } from '@/lib/seo';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -238,6 +239,7 @@ function SkinsTab() {
 }
 
 export default function MetaPage() {
+  useSeo({ title: 'Meta y tier list de League of Legends', description: 'Tier list por línea con winrate y pick rate del parche actual, builds y calendario de esports.', canonical: '/meta' });
   const [tab, setTab] = useState<TabKey>('tier');
   const [lane, setLane] = useState<LaneKey>('mid');
   const { data: champs } = useChampions();

@@ -1,4 +1,5 @@
 // src/pages/Register.tsx — registro de ATAK.GG (rediseño "Arena", espejo del Login).
+import { useSeo } from '@/lib/seo';
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -19,6 +20,7 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 const API_BASE = (import.meta.env.VITE_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
 
 const Register = () => {
+  useSeo({ title: 'Crear cuenta', noindex: true });
   const navigate = useNavigate();
   const { register: registerUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);

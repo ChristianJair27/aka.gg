@@ -1,6 +1,7 @@
 // src/pages/Tournaments.tsx — listado de torneos (rediseño "Arena").
 // Una cartelera: el torneo que importa ahora va destacado arriba y el resto en
 // filas que se leen de un vistazo. Tokens y clases en src/styles/arena.css.
+import { useSeo } from '@/lib/seo';
 import { useState, useMemo, useEffect, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -195,6 +196,7 @@ function RowSkeleton() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function TournamentsPage() {
+  useSeo({ title: 'Torneos de League of Legends en LATAM', description: 'Torneos con códigos oficiales de Riot, brackets automáticos, suizo y eliminación, inscripción por equipos y stats en vivo. Crea el tuyo gratis.', canonical: '/tournaments' });
   const navigate = useNavigate();
   const [filter, setFilter] = useState<FilterKey>('todos');
   const [registerOpen, setRegisterOpen] = useState(false);

@@ -1,6 +1,7 @@
 // src/pages/StatsSearch.tsx — búsqueda de invocador (rediseño "Arena").
 // Misma barra que el héroe de la portada (SummonerPrompt) y, debajo, solo lo que
 // ayuda a buscar: tus recientes y jugadores conocidos con su carril.
+import { useSeo } from '@/lib/seo';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -37,6 +38,7 @@ const profileHref = (id: string, region: string) => `/stats/${region}/${encodeUR
 const regionLabel = (region: string) => REGIONS.find((rg) => rg.value === region)?.label;
 
 export default function StatsSearch() {
+  useSeo({ title: 'Buscar invocador: stats de League of Legends', description: 'Busca cualquier Riot ID de LAN, LAS o NA y mira su rango, historial, campeones y rendimiento. En tiempo real y sin anuncios.', canonical: '/stats' });
   const [recent, setRecent] = useState(getRecentSearches);
 
   const drop = (id: string) => {

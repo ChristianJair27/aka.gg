@@ -1,5 +1,6 @@
 // src/pages/TournamentLivePage.tsx — Torneo en vivo: cada serie como un marcador de retransmisión
 // (sistema "Arena": design-system/atak-gg/MASTER.md · src/styles/pages/match.css).
+import { useSeo } from '@/lib/seo';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -619,6 +620,7 @@ function BracketSidebar({ matches, total }: { matches: LiveMatch[]; total: numbe
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function TournamentLivePage() {
+  useSeo({ title: 'Torneo en vivo', noindex: true });
   const { id } = useParams<{ id: string }>();
   const [data, setData]           = useState<LiveData | null>(null);
   const [loading, setLoading]     = useState(true);

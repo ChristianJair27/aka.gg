@@ -7,6 +7,7 @@
 // el video embebido. Todo sin instalar nada para el espectador.
 // Tema (src/lib/broadcastTheme.ts): "atak" (Arena) o "lqc" (azul de la liga),
 // según el canal o ?theme=. ?demo=1 muestra una partida simulada.
+import { useSeo } from '@/lib/seo';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -145,6 +146,7 @@ function PlayerLine({ p, champIcon, champSplash, itemIcon, side, index }: {
 }
 
 export default function BroadcastPage() {
+  useSeo({ title: 'Transmisión en vivo', description: 'Marcador, oro, objetivos y eventos de la partida en tiempo real desde el ATAK Spectator Companion.' });
   const { channel } = useParams<{ channel: string }>();
   const [params] = useSearchParams();
   const demo = params.get('demo') === '1';

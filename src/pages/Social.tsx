@@ -1,6 +1,7 @@
 // src/pages/Social.tsx — feed de la comunidad (sistema "Arena").
 // React Query con likes / comentarios / publicaciones optimistas: la lógica de
 // datos no cambia, solo la capa visual (ver design-system/atak-gg/MASTER.md).
+import { useSeo } from '@/lib/seo';
 import { useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import {
   Heart, MessageSquare, Trash2, Send, Users, Zap, Trophy, HelpCircle, Video, Star,
@@ -376,6 +377,7 @@ function SideLink({ to, icon, children }: { to: string; icon: ReactNode; childre
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function Social() {
+  useSeo({ title: 'Social: clips y comunidad', description: 'Clips, highlights y publicaciones de la comunidad competitiva de League of Legends en LATAM.', canonical: '/social' });
   const [tagFilter, setTagFilter] = useState<FilterKey>('all');
   const user   = getUser();
   const isAuth = !!localStorage.getItem('access_token');

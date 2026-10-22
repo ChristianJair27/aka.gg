@@ -3,6 +3,7 @@
 // crear un torneo y enseñar de qué va el sitio — con un campeón en 3D entre
 // ambas, distinto en cada visita. El resto de la página usa arte de League of Legends
 // ligado a cada función en lugar de los cuatro videos en bucle de antes.
+import { useSeo } from '@/lib/seo';
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform, useReducedMotion, type MotionValue } from 'framer-motion';
@@ -120,6 +121,7 @@ function MetaStrip() {
 }
 
 export default function Home() {
+  useSeo({ canonical: '/' });
   const navigate = useNavigate();
   const searchRef = useRef<HTMLDivElement>(null);
 
