@@ -42,7 +42,11 @@ export default function TournamentDashboardPage() {
   const t = data?.tournament;
   useSeo(t ? {
     title: t.name,
-    description: `${t.name}: torneo de League of Legends (${t.format}). ${t.participants}/${t.maxParticipants} equipos${t.prize ? ` · Premio: ${t.prize}` : ''}. Bracket, partidas, estadísticas y clips en ATAK.GG.`,
+    description: (() => {
+      const n = (t as any).participants ?? data?.standings?.length; const max = (t as any).maxParticipants;
+      const teams = n != null ? ` ${n}${max ? `/${max}` : ''} equipos.` : '';
+      return `${t.name}: torneo de League of Legends (${t.format}).${teams}${t.prize && t.prize !== 'Por definir' ? ` Premio: ${t.prize}.` : ''} Bracket, partidas, estadísticas y clips en ATAK.GG.`;
+    })(),
     image: (t as any).bannerUrl || (t as any).logoUrl || null,
     canonical: `/tournaments/${id}`,
     jsonLd: tournamentJsonLd({ id, name: t.name, startDate: t.startDate, endDate: (t as any).endDate, description: t.description, prize: t.prize, logoUrl: (t as any).logoUrl, bannerUrl: (t as any).bannerUrl, phase: t.phase }),
