@@ -8,7 +8,7 @@
 declare global { interface Window { dataLayer?: unknown[]; gtag?: (...args: unknown[]) => void } }
 
 const GA_ID = (import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined) || '';
-const BARE = /^\/broadcast\/[^/]+\/(overlay|control|champselect)/;
+const BARE = /^\/broadcast\/[^/]+\/(overlay|control|champselect|intro)/;
 let ready = false;
 
 function dnt(): boolean {

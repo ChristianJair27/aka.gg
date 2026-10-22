@@ -101,8 +101,19 @@ E) REPETICIÓN INSTANTÁNEA
 
 F) SELECCIÓN DE CAMPEONES (CHAMP SELECT) · fila inferior con picks, bans, fearless y temporizador
    https://atakgg.revolution505.com/broadcast/lqc-2026/champselect?theme=lqc   (fuente Navegador 1920x1080, encima de la captura del cliente)
-   Lo alimenta el ATAK Companion del caster (0.4.9 o más): el caster debe estar DENTRO DEL LOBBY de la custom como
+   Lo alimenta el ATAK Companion del caster (0.4.9 o más; con 0.4.10 también la intro y OBS): el caster debe estar DENTRO DEL LOBBY de la custom como
    espectador (no en modo espectador de la partida) con la transmisión iniciada. Aparece solo al empezar la selección y
    se va al terminar. Muestra 5 tarjetas por lado (arte del campeón, jugador, rol), baneos, los campeones ya usados en
    la serie (fearless, se acumulan solos entre juegos) y el temporizador de la fase. Botón "Nueva serie" en el companion
    para olvidar los usados al cambiar de serie.   &demo=1 muestra una selección de ejemplo para colocar la fuente.
+
+G) INTRO DE LA SERIE (cinemática automática) y OBS AUTOMÁTICO
+   https://atakgg.revolution505.com/broadcast/lqc-2026/intro?theme=lqc   (fuente Navegador 1920x1080, en la escena de selección)
+   Se dispara sola al empezar cada selección de campeones (una vez por juego): equipos con logo, récord y posición en
+   la tabla, plantillas, "VS", ronda y juego; dura 14 s y se va. &bg=1 la pone a pantalla completa (escena propia, sin
+   captura detrás); &hold=1 se queda hasta que acaba la selección; &demo=1 para colocarla; &play=1 la lanza a mano.
+   OBS automático (companion 0.4.10+): en OBS, Herramientas → Ajustes del servidor WebSocket → activar y copiar la
+   contraseña; en el companion (Modo caster → OBS automático) pegar host/puerto/contraseña, "Probar conexión" y elegir la
+   escena de Selección / Partida / Post-partida / Espera. Con la transmisión iniciada, las escenas cambian solas con el
+   cliente de League. Dragones, larvas y barón: el companion los lee del HUD del espectador (barra superior, escala de
+   HUD por defecto, 1920x1080 o 2560x1440); la mesa de control sigue como respaldo.

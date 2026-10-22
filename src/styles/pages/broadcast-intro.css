@@ -1,0 +1,62 @@
+/* Cinemática de intro de la serie (/broadcast/:canal/intro, 1920×1080).
+   Entrada: fondo, cabecera, equipos desde los lados, plantillas escalonadas,
+   "VS" al final. Solo transform / opacity. Las variables --bo-* son del tema. */
+
+.in-root { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; animation: in-out 600ms ease 13.2s both; }
+.bo-root[data-bg='1'] .in-root { background: #06060a; }
+.in-bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(70% 60% at 18% 50%, color-mix(in srgb, var(--bo-blue-fill) 40%, transparent), transparent 70%),
+    radial-gradient(70% 60% at 82% 50%, color-mix(in srgb, var(--bo-red-fill) 40%, transparent), transparent 70%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.75));
+  animation: in-fade 700ms ease both;
+}
+.in-hatch {
+  position: absolute; inset: 0; opacity: 0.12;
+  background-image: repeating-linear-gradient(135deg, var(--bo-text) 0 1px, transparent 1px 14px);
+  mask-image: linear-gradient(180deg, transparent 10%, #000 50%, transparent 90%);
+  animation: in-fade 900ms ease 150ms both;
+}
+.in-head { position: absolute; top: 56px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; animation: in-drop 650ms cubic-bezier(0.22, 1, 0.36, 1) 250ms both; }
+.in-brand { height: 44px; }
+.in-tour { font-size: 30px; color: var(--bo-text); letter-spacing: 0.06em; }
+.in-round { font-size: 22px; color: var(--bo-accent); letter-spacing: 0.1em; }
+.in-fearless { margin-top: 2px; padding: 4px 12px; border: 1px solid var(--bo-line); background: var(--bo-panel); font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bo-text-2); }
+
+.in-team { position: absolute; top: 250px; width: 620px; display: flex; flex-direction: column; gap: 14px; --side: var(--bo-blue); --side-fill: var(--bo-blue-fill); }
+.in-team.blue { left: 150px; align-items: flex-start; animation: in-left 800ms cubic-bezier(0.22, 1, 0.36, 1) 500ms both; }
+.in-team.red { right: 150px; align-items: flex-end; --side: var(--bo-red); --side-fill: var(--bo-red-fill); animation: in-right 800ms cubic-bezier(0.22, 1, 0.36, 1) 500ms both; }
+.in-team.red .in-meta, .in-team.red .in-roster li { flex-direction: row-reverse; }
+.in-team.red .in-name { text-align: right; }
+.in-logo-wrap { width: 180px; height: 180px; display: grid; place-items: center; background: var(--bo-panel); border: 1px solid var(--bo-line); box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--side) 35%, transparent); animation: in-pop 700ms cubic-bezier(0.22, 1, 0.36, 1) 700ms both; }
+.in-logo { width: 150px; height: 150px; object-fit: contain; }
+.in-logo.ph { display: grid; place-items: center; width: 150px; height: 150px; background: var(--side-fill); color: #fff; font-size: 56px; }
+.in-name { margin: 0; font-size: 84px; line-height: 0.95; color: var(--bo-text); text-wrap: balance; max-width: 620px; }
+.in-meta { display: flex; align-items: baseline; gap: 16px; }
+.in-record { font-size: 40px; color: var(--side); font-variant-numeric: tabular-nums; }
+.in-record i { font-style: normal; color: var(--bo-muted); margin: 0 4px; }
+.in-pos { font-size: 16px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bo-text-2); }
+.in-score { font-size: 16px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bo-text-2); }
+.in-score b { font-size: 28px; color: var(--bo-text); margin-left: 6px; }
+.in-roster { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.in-roster li { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: var(--bo-panel); border: 1px solid var(--bo-line); border-left: 4px solid var(--side); min-width: 320px; animation: in-rise 500ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(1.1s + var(--i, 0) * 110ms); }
+.in-team.red .in-roster li { border-left: 1px solid var(--bo-line); border-right: 4px solid var(--side); }
+.in-roster img { width: 22px; height: 22px; opacity: 0.85; }
+.in-roster span { font-size: 26px; color: var(--bo-text); }
+.in-roster em { font-style: normal; font-size: 12px; font-weight: 800; padding: 2px 6px; background: var(--bo-gold); color: #15161a; border-radius: 2px; }
+
+.in-vs { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; place-items: center; animation: in-pop 600ms cubic-bezier(0.22, 1, 0.36, 1) 1.4s both; }
+.in-vs-slab { position: absolute; width: 220px; height: 220px; background: var(--bo-accent); transform: rotate(45deg); opacity: 0.9; }
+.in-vs-text { position: relative; font-size: 120px; color: #fff; text-shadow: 0 6px 30px rgba(0, 0, 0, 0.5); }
+
+@keyframes in-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes in-drop { from { transform: translateY(-40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes in-left { from { transform: translateX(-160px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes in-right { from { transform: translateX(160px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes in-rise { from { transform: translateY(18px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes in-pop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes in-out { from { opacity: 1; } to { opacity: 0; } }
+.in-vs { animation-name: in-pop; }
+.in-vs.hold, .in-root.hold { animation: none; }
+@media (prefers-reduced-motion: reduce) { .in-root, .in-root * { animation: none !important; } }

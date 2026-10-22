@@ -17,7 +17,7 @@ import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 // superponerse a la captura del juego.
 const Shell = () => {
   const { pathname, search } = useLocation();
-  const bareOverlay = /^\/broadcast\/[^/]+\/(overlay|champselect)/.test(pathname);
+  const bareOverlay = /^\/broadcast\/[^/]+\/(overlay|champselect|intro)/.test(pathname);
   // GA4: se carga una vez (si hay VITE_GA_MEASUREMENT_ID) y manda una vista por
   // cambio de ruta. El retardo deja que useSeo() ponga el título de la página.
   useEffect(() => { initAnalytics(); }, []);

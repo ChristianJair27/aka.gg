@@ -18,6 +18,7 @@ const ChampionPage         = lazy(() => import('@/pages/ChampionPage'));
 const StatsSearch          = lazy(() => import('@/pages/StatsSearch'));
 const CompanionPage        = lazy(() => import('@/pages/CompanionPage'));
 const BroadcastChampSelectPage = lazy(() => import('@/pages/BroadcastChampSelectPage'));
+const BroadcastIntroPage   = lazy(() => import('@/pages/BroadcastIntroPage'));
 const Social               = lazy(() => import('@/pages/Social'));
 const TournamentsPage      = lazy(() => import('@/pages/Tournaments'));
 const TournamentDashboardPage = lazy(() => import('@/pages/TournamentDashboardPage'));
@@ -73,6 +74,7 @@ export const AppRouter = () => (
       <Route path="/broadcast/:channel/overlay" element={<BroadcastOverlayPage />} />
       <Route path="/broadcast/:channel/control" element={<BroadcastControlPage />} />
       <Route path="/broadcast/:channel/champselect" element={<BroadcastChampSelectPage />} />
+      <Route path="/broadcast/:channel/intro"    element={<BroadcastIntroPage />} />
       <Route path="/tournaments"              element={<TournamentsPage />} />
       {/* Enlace corto para campañas: misma página, modal de creación abierto. */}
       <Route path="/crear-torneo"             element={<TournamentsPage />} />
