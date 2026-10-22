@@ -1,0 +1,43 @@
+/* Página del Companion (/companion) — específico de esta vista. */
+.td-root .cp-stage { height: clamp(320px, 40vw, 500px); }
+
+/* Botón de descarga: la única acción de la página, más alto que un botón normal. */
+.td-root .cp-dl {
+  display: inline-grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 12px; align-items: center;
+  min-height: 56px; padding: 8px 22px 8px 18px; text-decoration: none; color: #fff; background: var(--td-red);
+  border-radius: var(--td-r-ctl); font-weight: 700; font-size: 16px; letter-spacing: 0.01em;
+  transition: background var(--td-dur) var(--td-ease), transform var(--td-dur) var(--td-ease);
+}
+.td-root .cp-dl svg { grid-row: 1 / span 2; }
+.td-root .cp-dl small { font-size: 12.5px; font-weight: 500; opacity: 0.85; }
+.td-root .cp-dl:hover { background: var(--td-red-hover); transform: translateY(-1px); }
+.td-root .cp-dl:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.td-root .cp-dl--inline { grid-template-rows: auto; margin-top: 18px; }
+
+.td-root .cp-trust { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.td-root .cp-trust li { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--td-text-2); }
+.td-root .cp-trust svg { color: var(--td-red-hover); }
+
+.td-root .cp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 14px; margin-top: 40px; }
+.td-root .cp-feat { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.td-root .cp-feat-icon { color: var(--td-red-hover); }
+.td-root .cp-feat h3 { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.2; }
+.td-root .cp-feat p { margin: 0; font-size: 14.5px; line-height: 1.5; color: var(--td-text-2); }
+
+.td-root .cp-steps { margin-top: 28px; display: grid; gap: 12px; justify-items: start; }
+.td-root .cp-steps ol { margin: 0; padding-left: 22px; display: grid; gap: 8px; font-size: 15.5px; max-width: 64ch; }
+.td-root .cp-steps li::marker { color: var(--td-red-hover); font-weight: 700; }
+
+.td-root .cp-faq { display: grid; gap: 10px; margin-top: 28px; }
+.td-root .cp-faq details { padding: 0; }
+.td-root .cp-faq summary { cursor: pointer; padding: 16px 20px; font-weight: 600; font-size: 15.5px; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+.td-root .cp-faq summary::after { content: '+'; color: var(--td-red-hover); font-weight: 700; }
+.td-root .cp-faq details[open] summary::after { content: '−'; }
+.td-root .cp-faq summary::-webkit-details-marker { display: none; }
+.td-root .cp-faq p { margin: 0; padding: 0 20px 16px; font-size: 14.5px; line-height: 1.55; color: var(--td-text-2); max-width: 70ch; }
+
+.td-root .cp-foot { margin: 36px auto 0; text-align: center; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 12px; }
+.td-root .cp-foot a { display: inline-flex; align-items: center; gap: 4px; color: var(--td-red-hover); font-weight: 600; text-decoration: none; }
+
+@media (max-width: 900px) { .td-root .cp-stage { height: 280px; } }
+@media (prefers-reduced-motion: reduce) { .td-root .cp-dl { transition: none; } }

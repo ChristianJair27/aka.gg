@@ -62,7 +62,7 @@ export const Footer = () => {
               </ul>
             )}
             <p style={{ margin: '14px 0 0', fontSize: 13, lineHeight: 1.55, color: 'var(--td-muted)' }}>
-              Companion in-game disponible vía Overwolf para overlays en vivo.
+              <Link to="/companion">ATAK Companion para Windows</Link>: coach de draft, overlay in-game y modo caster. Gratis.
             </p>
           </div>
         </div>

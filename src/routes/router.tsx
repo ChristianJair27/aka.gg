@@ -16,6 +16,7 @@ const ForgotPassword       = lazy(() => import('@/pages/ForgotPassword'));
 const MetaPage             = lazy(() => import('@/pages/MetaPage'));
 const ChampionPage         = lazy(() => import('@/pages/ChampionPage'));
 const StatsSearch          = lazy(() => import('@/pages/StatsSearch'));
+const CompanionPage        = lazy(() => import('@/pages/CompanionPage'));
 const Social               = lazy(() => import('@/pages/Social'));
 const TournamentsPage      = lazy(() => import('@/pages/Tournaments'));
 const TournamentDashboardPage = lazy(() => import('@/pages/TournamentDashboardPage'));
@@ -60,6 +61,7 @@ export const AppRouter = () => (
       <Route path="/reset-password"           element={<ForgotPassword />} />
       <Route path="/stats"                    element={<StatsSearch />} />
       <Route path="/meta"                     element={<MetaPage />} />
+      <Route path="/companion"                element={<CompanionPage />} />
       <Route path="/champion/:slug"           element={<ChampionPage />} />
       <Route path="/match/:regional/:matchId" element={<MatchDetailPage />} />
       {/* Espectador universal: partida en vivo de CUALQUIER invocador, en el navegador. */}
