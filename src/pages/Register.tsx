@@ -1,4 +1,5 @@
 // src/pages/Register.tsx — registro de ATAK.GG (rediseño "Arena", espejo del Login).
+import { trackEvent } from '@/lib/analytics';
 import { useSeo } from '@/lib/seo';
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -50,8 +51,8 @@ const Register = () => {
     }
   };
 
-  const onGoogle = () => { window.location.href = `${API_BASE}/auth/google`; };
-  const onRiot = () => { window.location.href = `${API_BASE}/auth/riot`; };
+  const onGoogle = () => { trackEvent('login_start', { provider: 'google', from: 'register' }); window.location.href = `${API_BASE}/auth/google`; };
+  const onRiot = () => { trackEvent('login_start', { provider: 'riot', from: 'register' }); window.location.href = `${API_BASE}/auth/riot`; };
 
   // Éxito: tarjeta simple centrada (no hace falta el escenario).
   if (success) {

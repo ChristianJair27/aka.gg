@@ -1,4 +1,5 @@
 // src/components/Navbar.tsx — ATAK.GG red/black brand nav
+import { trackEvent } from '@/lib/analytics';
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -78,6 +79,7 @@ function NavSearch({ className = '', onDone }: { className?: string; onDone?: ()
         riotId = `${data.gameName || gameName}#${data.tagLine || tagLine}`;
       }
       saveRecentSearch(riotId, region);
+      trackEvent('search_player', { region });
       setValue('');
       setHighlight(-1);
       onDone?.();

@@ -1,4 +1,5 @@
 // src/pages/Login.tsx — inicio de sesión de ATAK.GG (rediseño "Arena").
+import { trackEvent } from '@/lib/analytics';
 import { useSeo } from '@/lib/seo';
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
@@ -72,8 +73,9 @@ export default function Login() {
     }
   };
 
-  const onGoogle = () => { window.location.href = `${API_BASE}/auth/google`; };
-  const onRiot = () => { window.location.href = `${API_BASE}/auth/riot`; };
+  // Las conversiones de anuncios se miden aquí (GA4 → evento clave login_start).
+  const onGoogle = () => { trackEvent('login_start', { provider: 'google' }); window.location.href = `${API_BASE}/auth/google`; };
+  const onRiot = () => { trackEvent('login_start', { provider: 'riot' }); window.location.href = `${API_BASE}/auth/riot`; };
 
   return (
     <AuthShell
