@@ -472,7 +472,8 @@ export default function BroadcastOverlayPage() {
   const objParam = params.get('objetivos');
   // El companion ≥ 0.4.4 dice quién manda el feed: un jugador (eventos completos) o el espectador.
   // Con objetivos marcados a mano por el caster (/broadcast/:canal/control) el feed del espectador también vale.
-  const spectator = feed?.source === 'spectator' && !(Number(feed?.manualEvents) > 0);
+  // El companion >= 0.4.8 del caster lee dragones/larvas/heraldo/barón del HUD del espectador (feed.hud).
+  const spectator = feed?.source === 'spectator' && !(Number(feed?.manualEvents) > 0) && feed?.hud !== true;
   const epicOk = objParam === '1' || (objParam !== '0' && !!feed && !spectator && (
     (feed.events || []).some((e: FeedEvent) => EPIC_EVENTS.has(e.name)) || (feed.gameTime || 0) < EPIC_CHECK_AT));
   const derived = useMemo(() => {

@@ -43,14 +43,15 @@ export default function TournamentDashboardPage() {
   useSeo(t ? {
     title: t.name,
     description: (() => {
-      const n = (t as any).participants ?? data?.standings?.length; const max = (t as any).maxParticipants;
+      const n = t.teamsRegistered ?? data?.standings?.length; const max = t.teamsMax;
       const teams = n != null ? ` ${n}${max ? `/${max}` : ''} equipos.` : '';
-      return `${t.name}: torneo de League of Legends (${t.format}).${teams}${t.prize && t.prize !== 'Por definir' ? ` Premio: ${t.prize}.` : ''} Bracket, partidas, estadísticas y clips en ATAK.GG.`;
+      const prize = t.prizeFinal || t.prizePool;
+      return `${t.name}: torneo de League of Legends (${t.format}).${teams}${prize && prize !== 'Por definir' ? ` Premio: ${prize}.` : ''} Bracket, partidas, estadísticas y clips en ATAK.GG.`;
     })(),
-    image: (t as any).bannerUrl || (t as any).logoUrl || null,
+    image: t.bannerUrl || t.logoUrl || null,
     canonical: `/tournaments/${id}`,
-    jsonLd: tournamentJsonLd({ id, name: t.name, startDate: t.startDate, endDate: (t as any).endDate, description: t.description, prize: t.prize, logoUrl: (t as any).logoUrl, bannerUrl: (t as any).bannerUrl, phase: t.phase }),
-  } : { title: 'Torneo' }, [t?.name, t?.phase, t?.participants, id]);
+    jsonLd: tournamentJsonLd({ id, name: t.name, startDate: t.startDate, endDate: t.endDate, prize: t.prizeFinal || t.prizePool, logoUrl: t.logoUrl, bannerUrl: t.bannerUrl, phase: t.phase }),
+  } : { title: 'Torneo' }, [t?.name, t?.phase, t?.teamsRegistered, id]);
   useEffect(() => { if (t) trackEvent('tournament_view', { tournament: id, phase: t.phase }); }, [id, t?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
   // Cada sección es una entrada de historial: "Atrás" vuelve a la sección
   // anterior del torneo en vez de salir de él. Los filtros internos de cada
