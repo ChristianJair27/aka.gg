@@ -98,3 +98,11 @@ D) OBJETIVOS SIN COMPANION DE JUGADOR · MESA DE CONTROL
 E) REPETICIÓN INSTANTÁNEA
    replay.html?pos=tl&marco=1  → insignia "REPETICIÓN" transparente para la escena de replay.
    OBS: Búfer de repetición (30 s) + atajo "Guardar repetición" + script instant-replay.lua (fuente Multimedia "Replay").
+
+F) SELECCIÓN DE CAMPEONES (CHAMP SELECT) · fila inferior con picks, bans, fearless y temporizador
+   https://atakgg.revolution505.com/broadcast/lqc-2026/champselect?theme=lqc   (fuente Navegador 1920x1080, encima de la captura del cliente)
+   Lo alimenta el ATAK Companion del caster (0.4.9 o más): el caster debe estar DENTRO DEL LOBBY de la custom como
+   espectador (no en modo espectador de la partida) con la transmisión iniciada. Aparece solo al empezar la selección y
+   se va al terminar. Muestra 5 tarjetas por lado (arte del campeón, jugador, rol), baneos, los campeones ya usados en
+   la serie (fearless, se acumulan solos entre juegos) y el temporizador de la fase. Botón "Nueva serie" en el companion
+   para olvidar los usados al cambiar de serie.   &demo=1 muestra una selección de ejemplo para colocar la fuente.
