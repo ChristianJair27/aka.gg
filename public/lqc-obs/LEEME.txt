@@ -98,6 +98,9 @@ D) OBJETIVOS SIN COMPANION DE JUGADOR · MESA DE CONTROL
 E) REPETICIÓN INSTANTÁNEA
    replay.html?pos=tl&marco=1  → insignia "REPETICIÓN" transparente para la escena de replay.
    OBS: Búfer de repetición (30 s) + atajo "Guardar repetición" + script instant-replay.lua (fuente Multimedia "Replay").
+   AUTOMÁTICA (companion 0.4.11+, con OBS automático conectado): tras un triple o mayor, ACE, barón o anciano el companion
+   guarda el búfer, lo carga en la fuente Multimedia "Replay" y muestra la escena de repetición los segundos indicados;
+   máximo una por minuto. El búfer lo arranca solo al conectar. Botón "Repetición ahora" para lanzarla a mano.
 
 F) SELECCIÓN DE CAMPEONES (CHAMP SELECT) · fila inferior con picks, bans, fearless y temporizador
    https://atakgg.revolution505.com/broadcast/lqc-2026/champselect?theme=lqc   (fuente Navegador 1920x1080, encima de la captura del cliente)
