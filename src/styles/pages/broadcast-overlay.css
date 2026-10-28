@@ -99,7 +99,7 @@
 .bo-kills { position: relative; overflow: hidden; display: grid; place-items: center; background: var(--side-fill); color: #fff; font-size: calc(50px * var(--bo-display-scale)); }
 .bo-kills > span { display: inline-block; }
 .bo-flash { position: absolute; inset: 0; background: #fff; pointer-events: none; }
-.bo-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: var(--bo-strip); }
+.bo-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: linear-gradient(var(--bo-strip), var(--bo-strip)), #01060f; } /* opaco: debajo está el marcador nativo */
 .bo-center img { width: auto; object-fit: contain; }
 .bo-clock { font-size: calc(23px * var(--bo-display-scale)); color: var(--bo-text); }
 /* Brillo que cruza el marcador de vez en cuando: mantiene viva la imagen. */
@@ -329,6 +329,9 @@
   background: var(--bo-panel); opacity: var(--bo-alpha);
 }
 .bo-bug::after { background: var(--bo-bar-img, var(--bo-panel)); }
+/* La barra de arriba y la del oro tapan el marcador nativo del espectador (que el lector
+   del HUD necesita en pantalla): opacas, si no se transparentan el reloj y las bajas del juego. */
+.bo-bug::after, .bo-goldw::after { opacity: 1; }
 .bo-board::after, .bo-fight::after, .bo-gg::after, .bo-banner::after { background: var(--bo-board-img, var(--bo-panel)); }
 .bo-banner::after { z-index: 0; }
 .bo-banner::before { z-index: 1; }
