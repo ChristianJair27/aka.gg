@@ -322,14 +322,14 @@
    El fondo va en un pseudo-elemento con opacidad; texto, iconos y barras quedan
    nítidos. Más oscuro que antes: el caster lo veía pálido con todo atenuado. */
 .bo-root { --bo-alpha: 0.65; }
-.bo-bug, .bo-board, .bo-fight, .bo-chip, .bo-goldw, .bo-banner { isolation: isolate; background: transparent !important; }
+.bo-bug, .bo-board, .bo-fight, .bo-gg, .bo-chip, .bo-goldw, .bo-banner { isolation: isolate; background: transparent !important; }
 .bo-chip, .bo-goldw { position: relative; }
-.bo-bug::after, .bo-board::after, .bo-fight::after, .bo-chip::after, .bo-goldw::after, .bo-banner::after {
+.bo-bug::after, .bo-board::after, .bo-fight::after, .bo-gg::after, .bo-chip::after, .bo-goldw::after, .bo-banner::after {
   content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
   background: var(--bo-panel); opacity: var(--bo-alpha);
 }
 .bo-bug::after { background: var(--bo-bar-img, var(--bo-panel)); }
-.bo-board::after, .bo-fight::after, .bo-banner::after { background: var(--bo-board-img, var(--bo-panel)); }
+.bo-board::after, .bo-fight::after, .bo-gg::after, .bo-banner::after { background: var(--bo-board-img, var(--bo-panel)); }
 .bo-banner::after { z-index: 0; }
 .bo-banner::before { z-index: 1; }
 
@@ -405,3 +405,51 @@
 .bo-fw-col.red .bo-fw-bar i.magic { left: auto; right: var(--off, 0%); }
 .bo-fw-foot .sw.phys { background: #ff8a3d; }
 .bo-fw-foot .sw.magic { background: #7c6bff; opacity: 1; }
+
+
+/* ── Diferencia de oro (estilo Worlds 2026): sale solo tras perder una ventaja grande ── */
+.bo-gg {
+  position: absolute; bottom: 0; left: 50%; margin-left: -660px; width: 1320px; padding: 12px 18px 8px;
+  border: 1px solid var(--bo-line); border-bottom: 0; border-top: 3px solid var(--bo-accent);
+  border-radius: 10px 10px 0 0; box-shadow: 0 -16px 36px -16px rgba(0, 0, 0, 0.85); pointer-events: none;
+}
+.bo-gg.blue { border-top-color: var(--bo-blue); }
+.bo-gg.red { border-top-color: var(--bo-red); }
+.bo-gg-inner { display: grid; grid-template-columns: 272px 76px 900px; gap: 0 16px; align-items: center; }
+.bo-gg-info { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.bo-gg-kicker { font-size: 12px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bo-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bo-gg-title { font-size: calc(29px * var(--bo-display-scale)); white-space: nowrap; color: var(--bo-text); }
+.bo-gg-swing { font-size: 15px; font-weight: 700; line-height: 1.35; color: var(--bo-text); }
+.bo-gg-swing b { font-weight: 800; text-transform: uppercase; }
+.bo-gg-swing b.blue { color: var(--bo-blue); }
+.bo-gg-swing b.red { color: var(--bo-red); }
+.bo-gg-swing b.amt { color: var(--bo-gold, #f0d891); font-family: var(--bo-font-display); font-style: var(--bo-display-style); font-size: calc(22px * var(--bo-display-scale)); }
+.bo-gg-swing i { display: block; font-style: normal; font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; color: var(--bo-text-2); }
+.bo-gg-est { font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bo-text-2); opacity: 0.75; }
+.bo-gg-logos { display: flex; flex-direction: column; gap: 10px; }
+.bo-gg-logo { display: flex; align-items: center; justify-content: center; width: 76px; height: 76px; border-left: 4px solid var(--side); border-radius: 4px; background: rgba(0, 0, 0, 0.35); }
+.bo-gg-logo img { width: 60px; height: 60px; object-fit: contain; }
+.bo-gg-logo b { font-size: calc(24px * var(--bo-display-scale)); color: var(--side); }
+.bo-gg-svg { display: block; overflow: visible; }
+.bo-gg-svg text { font-family: var(--bo-font-data); }
+.bo-gg-grid { stroke: rgba(255, 255, 255, 0.14); stroke-width: 1; }
+.bo-gg-zero { stroke: rgba(255, 255, 255, 0.45); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.bo-gg-band { fill: rgba(255, 255, 255, 0.07); stroke: rgba(255, 255, 255, 0.22); stroke-dasharray: 3 3; }
+.bo-gg-area.blue { fill: var(--bo-blue); opacity: 0.6; }
+.bo-gg-area.red { fill: var(--bo-red); opacity: 0.6; }
+.bo-gg-line { fill: none; stroke-width: 2.5; stroke-linejoin: round; }
+.bo-gg-line.blue { stroke: var(--bo-blue); }
+.bo-gg-line.red { stroke: var(--bo-red); }
+.bo-gg-ymax { font-size: 22px; font-weight: 800; }
+.bo-gg-ymax.blue { fill: var(--bo-blue); }
+.bo-gg-ymax.red { fill: var(--bo-red); }
+.bo-gg-tick { font-size: 17px; font-weight: 800; fill: var(--bo-text); }
+.bo-gg-dot { stroke: #fff; stroke-width: 2; }
+.bo-gg-dot.blue { fill: var(--bo-blue); }
+.bo-gg-dot.red { fill: var(--bo-red); }
+.bo-gg-drop { font-size: 26px; font-weight: 800; paint-order: stroke; stroke: rgba(0, 0, 0, 0.7); stroke-width: 4px; }
+.bo-gg-drop.blue { fill: var(--bo-blue); }
+.bo-gg-drop.red { fill: var(--bo-red); }
+.bo-gg-ev { fill: rgba(0, 0, 0, 0.6); stroke: rgba(255, 255, 255, 0.35); stroke-width: 2; }
+.bo-gg-ev.blue { stroke: var(--bo-blue); }
+.bo-gg-ev.red { stroke: var(--bo-red); }

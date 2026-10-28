@@ -19,6 +19,11 @@
 //   vale es la DIFERENCIA.
 // - Un objetivo solo se da por VIVO si el historial de eventos está completo:
 //   si el espectador entró con la partida empezada no se sabe qué murió antes.
+// - Gráfica de DIFERENCIA DE ORO (estilo Worlds 2026): el overlay guarda la diferencia
+//   cada pocos segundos (localStorage por canal, sobrevive a recargas) y SOLO la muestra
+//   cuando un equipo pierde de golpe una ventaja grande (?oro=3000 por defecto: llevaba
+//   ≥ 3k y en ≤ 100 s se le esfumaron ≥ 3k). Sale tras el panel de pelea, ocupa el sitio
+//   del tablero 14 s y no se repite en 2:30. ?grafica=0 la apaga · ?grafica=1 la deja fija.
 // - Movimiento solo con transform / opacity; se apaga con prefers-reduced-motion.
 // Vista previa: ?bg=1 (fondo de prueba) · ?demo=1 (partida simulada).
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -108,6 +113,48 @@ const towerLane = (extra: string) => (/^Turret_T\d_C_/.test(extra) ? 'TORRE DE M
 
 type Side = 'blue' | 'red';
 const sideOfTeam = (team: 'ORDER' | 'CHAOS' | null | undefined): Side => (team === 'CHAOS' ? 'red' : 'blue');
+
+// ── Gráfica de diferencia de oro (solo tras una remontada / un throw) ────────
+const GOLD_SAMPLE = 4;        // s de juego entre muestras
+const SWING_WINDOW = 100;     // la ventaja se tuvo que perder en ≤ 100 s
+const SWING_COOLDOWN = 150;   // no repetir la gráfica antes de 2:30
+const GRAPH_HOLD = 14;        // s en pantalla
+type GoldPt = [number, number]; // [segundo de juego, oro azul − oro rojo]
+interface GoldHist { sig: string; pts: GoldPt[]; cool: number }
+interface GoldSwing { t: number; peakT: number; side: Side; peak: number; now: number }
+const goldKey = (ch: string) => `bo-gold:${ch}`;
+function loadGoldHist(ch: string): GoldHist | null {
+  try { const v = JSON.parse(localStorage.getItem(goldKey(ch)) || 'null'); return v && Array.isArray(v.pts) ? v : null; } catch { return null; }
+}
+function saveGoldHist(ch: string, h: GoldHist) {
+  try { localStorage.setItem(goldKey(ch), JSON.stringify(h)); } catch { /* sin almacenamiento: solo en memoria */ }
+}
+/** ¿Un equipo llevaba ≥ umbral de ventaja y la perdió (≥ umbral) dentro de la ventana? */
+function detectSwing(pts: GoldPt[], t: number, thr: number): GoldSwing | null {
+  const win = pts.filter(([pt]) => pt >= t - SWING_WINDOW);
+  if (win.length < 2) return null;
+  const cur = win[win.length - 1][1];
+  for (const side of ['blue', 'red'] as Side[]) {
+    const sg = side === 'blue' ? 1 : -1;
+    let peak = -Infinity, peakT = 0;
+    for (const [pt, v] of win) if (v * sg > peak) { peak = v * sg; peakT = pt; }
+    const now = cur * sg;
+    if (peak >= thr && peak - now >= thr && peakT < win[win.length - 1][0]) return { t, peakT, side, peak, now };
+  }
+  return null;
+}
+/** ?demo=1: historial inventado que acaba en un throw azul, para ver la gráfica sin partida. */
+function demoGoldHistory(t: number, cur: number): GoldPt[] {
+  const pts: GoldPt[] = [];
+  const peakT = t - 44, peak = cur + 4700;
+  for (let x = 60; x <= t - GOLD_SAMPLE; x += GOLD_SAMPLE) {
+    const v = x <= peakT
+      ? peak * Math.pow(Math.max(0, (x - 240) / (peakT - 240)), 1.6) - 520 * Math.sin(x / 95) * Math.max(0, 1 - x / 700) + 260 * Math.sin(x / 41)
+      : peak + ((cur - peak) * (x - peakT)) / (t - peakT);
+    pts.push([x, Math.round(v)]);
+  }
+  return pts;
+}
 
 /** Todo lo que se puede leer de los eventos: objetivos por lado, tiempos y oro. */
 function readGame(feed: any) {
@@ -211,6 +258,87 @@ function Flash({ value }: { value: number }) {
   );
 }
 
+/** Panel inferior "Diferencia de oro" (estilo Worlds 2026): área azul arriba / roja abajo,
+ *  minutos en el eje, objetivos épicos abajo y el tramo del throw resaltado. */
+function GoldGraph({ pts, t, team, logo, events, epicOk, swing, label }: {
+  pts: GoldPt[]; t: number; team: Record<Side, string>; logo: Record<Side, string>;
+  events: Array<{ t: number; icon: string; side: Side | null }>; epicOk: boolean; swing: GoldSwing | null; label: string;
+}) {
+  const W = 900, H = 200, TOP = 18, PH = 126, L = 70, R = 16, PW = W - L - R;
+  const data = pts.filter(([pt]) => pt <= t + 2);
+  if (data.length < 2) return null;
+  const t0 = data[0][0] < 150 ? 0 : data[0][0];
+  const t1 = Math.max(data[data.length - 1][0], t0 + 60);
+  const vals = data.map(([, v]) => v);
+  const maxB = Math.max(0, ...vals), maxR = Math.max(0, ...vals.map((v) => -v));
+  const pad = Math.max(500, 0.16 * Math.max(maxB, maxR));
+  const vTop = Math.max(maxB, pad), vBot = -Math.max(maxR, pad);
+  const x = (s: number) => L + ((s - t0) / (t1 - t0)) * PW;
+  const y = (v: number) => TOP + ((vTop - v) / (vTop - vBot)) * PH;
+  const y0 = y(0);
+  const line = data.map(([s, v], i) => `${i ? 'L' : 'M'}${x(s).toFixed(1)},${y(v).toFixed(1)}`).join('');
+  const area = `${line}L${x(data[data.length - 1][0]).toFixed(1)},${y0.toFixed(1)}L${x(data[0][0]).toFixed(1)},${y0.toFixed(1)}Z`;
+  const span = t1 - t0;
+  const step = span > 900 ? 300 : span > 400 ? 120 : 60;
+  const ticks: number[] = [];
+  for (let s = Math.ceil(t0 / step) * step; s <= t1; s += step) if (s > t0) ticks.push(s);
+  const last = data[data.length - 1];
+  const icons = epicOk ? events.filter((e) => e.t >= t0 && e.t <= t1) : [];
+  const loser = swing ? swing.side : null;
+  const curLead: Side | null = last[1] > 0 ? 'blue' : last[1] < 0 ? 'red' : null;
+  const sgn = (n: number) => (n > 0 ? '+' : n < 0 ? '−' : '') + wFmt(Math.abs(n));
+  const hide = (e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.visibility = 'hidden'; };
+  const bandX = swing ? x(Math.max(t0, swing.peakT)) : 0;
+  return (
+    <div className="bo-gg-inner">
+      <div className="bo-gg-info">
+        <span className="bo-gg-kicker">{label}</span>
+        <span className="bo-gg-title bo-disp">Diferencia de oro</span>
+        {swing && loser ? (
+          <span className="bo-gg-swing">
+            <b className={loser}>{team[loser]}</b> {swing.now < 0 ? 'pierde la ventaja:' : 'se deja'} <b className="amt">{wFmt(swing.peak - swing.now)}</b>
+            <i>de {sgn(swing.peak)} a {sgn(swing.now)} en {fmt(swing.t - swing.peakT)}</i>
+          </span>
+        ) : (
+          <span className="bo-gg-swing">{curLead ? <><b className={curLead}>{team[curLead]}</b> arriba por <b className="amt">{wFmt(Math.abs(last[1]))}</b></> : 'Oro igualado'}</span>
+        )}
+        <span className="bo-gg-est">Oro estimado · ATAK.GG</span>
+      </div>
+      <div className="bo-gg-logos">
+        {(['blue', 'red'] as Side[]).map((sd) => (
+          <span key={sd} className={`bo-gg-logo ${sd}`} title={team[sd]}>
+            {logo[sd] ? <img src={logo[sd]} alt="" onError={hide} /> : <b className="bo-disp">{team[sd].slice(0, 3)}</b>}
+          </span>
+        ))}
+      </div>
+      <svg className="bo-gg-svg" viewBox={`0 0 ${W} ${H}`} width={W} height={H} aria-label="Diferencia de oro">
+        <defs>
+          <clipPath id="bogg-up"><rect x={0} y={0} width={W} height={y0} /></clipPath>
+          <clipPath id="bogg-dn"><rect x={0} y={y0} width={W} height={H - y0} /></clipPath>
+          <clipPath id="bogg-reveal"><motion.rect x={0} y={0} height={H} initial={{ width: 0 }} animate={{ width: W }} transition={{ duration: 1.2, ease: EASE, delay: 0.25 }} /></clipPath>
+        </defs>
+        {ticks.map((s) => <line key={s} className="bo-gg-grid" x1={x(s)} x2={x(s)} y1={TOP} y2={TOP + PH} />)}
+        {swing && <rect className="bo-gg-band" x={bandX} y={TOP} width={Math.max(4, x(swing.t) - bandX)} height={PH} />}
+        <g clipPath="url(#bogg-reveal)">
+          <g clipPath="url(#bogg-up)"><path className="bo-gg-area blue" d={area} /><path className="bo-gg-line blue" d={line} /></g>
+          <g clipPath="url(#bogg-dn)"><path className="bo-gg-area red" d={area} /><path className="bo-gg-line red" d={line} /></g>
+        </g>
+        <line className="bo-gg-zero" x1={L} x2={W - R} y1={y0} y2={y0} />
+        <text className="bo-gg-ymax blue" x={L - 12} y={TOP + 14} textAnchor="end">{Math.round(maxB / 10) * 10}</text>
+        <text className="bo-gg-ymax red" x={L - 12} y={TOP + PH} textAnchor="end">{Math.round(maxR / 10) * 10}</text>
+        {ticks.map((s) => <text key={s} className="bo-gg-tick" x={x(s)} y={TOP + PH + 20} textAnchor="middle">{Math.round(s / 60)}</text>)}
+        <motion.circle className={`bo-gg-dot ${curLead ?? 'blue'}`} cx={x(last[0])} cy={y(last[1])} r={5} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.4 }} />
+        {icons.map((e, i) => (
+          <g key={i} transform={`translate(${x(e.t).toFixed(1)}, ${TOP + PH + 42})`}>
+            <circle r={12} className={`bo-gg-ev ${e.side ?? ''}`} />
+            <image href={e.icon} x={-9} y={-9} width={18} height={18} />
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 export default function BroadcastOverlayPage() {
   const { channel } = useParams<{ channel: string }>();
   const [params] = useSearchParams();
@@ -224,6 +352,9 @@ export default function BroadcastOverlayPage() {
   const boardParam = params.get('tablero') !== '0';
   const autoHide = params.get('auto') !== '0';
   // ?rotar=25 → el tablero va rotando vistas (líneas → líderes → objetivos) cada N s; 0 lo deja fijo en líneas.
+  // ?oro=3000: ventaja perdida que dispara la gráfica · ?grafica=0 apagada · ?grafica=1 siempre visible.
+  const swingThr = Math.max(1000, Number(params.get('oro')) || 3000);
+  const graphParam = params.get('grafica');
   const rotateSecs = params.has('rotar') ? Math.max(0, Number(params.get('rotar')) || 0) : 25;
   const [viewIdx, setViewIdx] = useState(0);
   useEffect(() => {
@@ -362,6 +493,10 @@ export default function BroadcastOverlayPage() {
   const firstSnap = useRef(true);
   const lastTime = useRef(-1);
   const historyOk = useRef(false);
+  const goldHist = useRef<GoldHist | null>(null);
+  const [swing, setSwing] = useState<GoldSwing | null>(null);
+  const swingShownAt = useRef<number | null>(null);
+  const swingRef = useRef(swing); swingRef.current = swing;
 
   // Partida nueva (el reloj retrocede) y ¿está completo el historial? Se
   // resuelve durante el render para que los timers de este mismo snapshot ya
@@ -381,6 +516,37 @@ export default function BroadcastOverlayPage() {
   useEffect(() => {
     if (!feed) return;
     const g = readGame(feed);
+
+    // ── Historial de la diferencia de oro + detección del throw ──
+    {
+      const sig = [norm(String(feed.team1 || '')), norm(String(feed.team2 || ''))].sort().join('|');
+      let h = goldHist.current ?? loadGoldHist(String(channel));
+      const lastT = h?.pts.length ? h.pts[h.pts.length - 1][0] : -1;
+      if (!h || h.sig !== sig || g.t < lastT - 30) {
+        h = { sig, pts: [], cool: -1e9 };
+        swingShownAt.current = null;
+        setSwing(null);
+      }
+      const diff = Math.round(g.gold.blue - g.gold.red);
+      if (demo && !h.pts.length) h.pts = demoGoldHistory(g.t, diff);
+      const full = g.order.length > 0 && g.order.length === g.chaos.length;
+      if (full && g.t > 0 && (!h.pts.length || g.t - h.pts[h.pts.length - 1][0] >= GOLD_SAMPLE)) {
+        h.pts.push([Math.round(g.t), diff]);
+        if (h.pts.length > 900) { const n = h.pts.length; h.pts = h.pts.filter((_, i) => i % 2 === 0 || i > n - 60); }
+        if (g.t - h.cool > SWING_COOLDOWN) {
+          const s = detectSwing(h.pts, g.t, swingThr);
+          if (s) { h.cool = g.t; swingShownAt.current = null; setSwing(s); }
+        }
+        if (!demo) saveGoldHist(String(channel), h);
+      }
+      goldHist.current = h;
+      // Se retira sola tras GRAPH_HOLD en pantalla, o si una pelea larga no la dejó salir.
+      const cur = swingRef.current;
+      if (cur && cur.t !== g.t) {
+        const shown = swingShownAt.current;
+        if (shown != null ? g.t - shown >= GRAPH_HOLD : g.t - cur.t > 75) { swingShownAt.current = null; setSwing(null); }
+      }
+    }
 
     // Partida nueva: los ids de evento vuelven a empezar.
     if (lastTime.current >= 0 && g.t < lastTime.current - 30) {
@@ -597,6 +763,22 @@ export default function BroadcastOverlayPage() {
     const maxDmg = Math.max(100, ...players.blue.map((x) => x.dmg), ...players.red.map((x) => x.dmg));
     return { rows, tally, lead, t0: group[0].t, t1: group[group.length - 1].t, gold: Math.abs(tally.blue - tally.red) * 300, players, maxGold, maxDmg };
   })();
+  // Gráfica de oro: después del panel de pelea (nunca encima), GRAPH_HOLD s en pantalla.
+  let showGraph = false;
+  if (d.isRift && graphParam !== '0' && !fight) {
+    if (graphParam === '1') showGraph = true;
+    else if (swing) {
+      if (swingShownAt.current == null) swingShownAt.current = d.t;
+      showGraph = d.t - swingShownAt.current < GRAPH_HOLD;
+    }
+  }
+  if (showGraph) busyRef.current = true;
+  const graphEvents = (d.events as FeedEvent[])
+    .filter((e) => e.name === 'DragonKill' || e.name === 'BaronKill' || e.name === 'HeraldKill')
+    .map((e) => ({
+      t: e.t, side: d.sideOf(e.killer),
+      icon: e.name === 'DragonKill' ? dragonIcon(e.extra || 'Fire') : e.name === 'BaronKill' ? ICON.baron : ICON.herald,
+    }));
   const goldDiff = d.gold.blue - d.gold.red;
   const lead: Side | null = goldDiff > 0 ? 'blue' : goldDiff < 0 ? 'red' : null;
   const bluePct = (d.gold.blue / Math.max(1, d.gold.blue + d.gold.red)) * 100;
@@ -962,9 +1144,26 @@ export default function BroadcastOverlayPage() {
           )}
         </AnimatePresence>
 
+        {/* ── Diferencia de oro: solo cuando un equipo pierde de golpe una ventaja grande ── */}
+        <AnimatePresence>
+          {showGraph && (
+            <motion.div
+              key={`gg-${swing?.t ?? 'fija'}`}
+              className={`bo-gg ${swing ? swing.side : ''}`}
+              initial={{ opacity: 0, y: 80 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 60, transition: { duration: 0.3 } }}
+              transition={{ duration: 0.55, ease: EASE }}
+            >
+              <GoldGraph
+                pts={goldHist.current?.pts ?? []} t={d.t} team={d.team} logo={d.logo}
+                events={graphEvents} epicOk={d.epicOk} swing={graphParam === '1' ? null : swing} label={boardLabel}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* ── Tablero inferior: rota entre vistas; se esconde durante las peleas (?auto=0 lo deja fijo) y con ?tablero=0 ── */}
         <AnimatePresence initial={false}>
-          {boardParam && !(autoHide && fight) && (
+          {boardParam && !(autoHide && fight) && !showGraph && (
             <motion.div key="board" className="bo-board" initial={{ opacity: 0, y: 90 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 70, transition: { duration: 0.3 } }} transition={{ duration: 0.6, ease: EASE, delay: 0.1 }}>
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div key={view} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8, transition: { duration: 0.22 } }} transition={{ duration: 0.35, ease: EASE }}>
