@@ -10,7 +10,7 @@
   const q = (k, d) => (P.has(k) ? P.get(k) : d);
   const TID = q('torneo', 'lqc-2026');
 
-  const LOGOS = { '2 DOPE': '2-dope', 'DinoRatas': 'dinoratas', 'False Promise Gaming': 'false-promise-gaming', 'Galaxy Gaming': 'galaxy-gaming', 'Heralds Of Cthulhu': 'heralds-of-cthulhu', 'Game Over Qro': 'game-over-qro', 'Requiem': 'requiem', 'Los Rokosos': 'los-rokosos', 'Nephyx Esports': 'nephyx-esports', 'RAKU': 'raku', 'REV505': 'rev505', 'Tlacuaches': 'tlacuaches', 'Mythical Dragons': 'mythical-dragons', 'The Town Boys': 'the-town-boys', 'Hive': 'hive' };
+  const LOGOS = { '2 DOPE': '2-dope', 'DinoRatas': 'dinoratas', 'False Promise Gaming': 'false-promise-gaming', 'Galaxy Gaming': 'galaxy-gaming', 'Heralds Of Cthulhu': 'heralds-of-cthulhu', 'Game Over Qro': 'game-over-qro', 'Requiem': 'requiem', 'Los Rokosos': 'los-rokosos', 'Nephyx Esports': 'nephyx-esports', 'RAKU': 'raku', 'REV505': 'rev505', 'Tlacuaches': 'tlacuaches', 'Mythical Dragons': 'mythical-dragons', 'The Town Boys': 'the-town-boys', 'Hive': 'hive', 'Axolotl': 'axolotl' };
   const norm = (s) => String(s || '').trim().replace(/\s+/g, ' ');
   const same = (a, b) => norm(a).toLowerCase() === norm(b).toLowerCase();
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

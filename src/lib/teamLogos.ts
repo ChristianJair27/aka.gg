@@ -15,6 +15,7 @@ const LQC_LOGOS: Record<string, string> = {
   "Mythical Dragons": "/teams/lqc/mythical-dragons.webp",
   "The Town Boys": "/teams/lqc/the-town-boys.webp",
   "Hive": "/teams/lqc/hive.webp",
+  "Axolotl": "/teams/lqc/axolotl.webp",
 };
 
 const ALIASES: Record<string, string> = {
