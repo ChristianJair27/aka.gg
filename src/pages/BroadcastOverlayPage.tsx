@@ -156,6 +156,26 @@ function demoGoldHistory(t: number, cur: number): GoldPt[] {
   return pts;
 }
 
+/**
+ * Quita objetivos imposibles antes de pintar nada: el lector del HUD del companion del
+ * caster puede confundir la aparición del HUD (o un cambio de ventana) con contadores que
+ * suben. Un objetivo antes de que su monstruo exista, o varios objetivos DISTINTOS del HUD
+ * en el mismo segundo, no son reales.
+ */
+const SPAWN_AT: Record<string, number> = { DragonKill: DRAGON_FIRST, HordeKill: GRUBS_SPAWN, HeraldKill: HERALD_SPAWN, BaronKill: BARON_SPAWN };
+function plausibleEvents(events: FeedEvent[]): FeedEvent[] {
+  const hudAt = new Map<number, Set<string>>();
+  for (const e of events) if ((e as any).hud && EPIC_EVENTS.has(e.name)) {
+    const k = Math.round(e.t); if (!hudAt.has(k)) hudAt.set(k, new Set()); hudAt.get(k)!.add(e.name);
+  }
+  return events.filter((e) => {
+    const spawn = SPAWN_AT[e.name];
+    if (spawn != null && e.t < spawn - 20) return false;
+    if ((e as any).hud && EPIC_EVENTS.has(e.name) && (hudAt.get(Math.round(e.t))?.size || 0) > 1) return false;
+    return true;
+  });
+}
+
 /** Todo lo que se puede leer de los eventos: objetivos por lado, tiempos y oro. */
 function readGame(feed: any) {
   const players: FeedPlayer[] = feed.players || [];
@@ -436,7 +456,11 @@ export default function BroadcastOverlayPage() {
     [demo, demoElapsed, channel, theme.id],
   );
 
-  const feed: any = demo ? demoData : feedQ.data ?? null;
+  const rawFeed: any = demo ? demoData : feedQ.data ?? null;
+  const feed: any = useMemo(
+    () => (rawFeed?.events ? { ...rawFeed, events: plausibleEvents(rawFeed.events) } : rawFeed),
+    [rawFeed],
+  );
   const accent: string = feed?.accent || '';
 
   // championName (display o slug) → icono y splash, tolerante a acentos/espacios.
