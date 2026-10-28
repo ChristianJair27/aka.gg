@@ -16,6 +16,19 @@
   const TID = q('torneo', 'lqc-2026');
   const POLL = 15000;
 
+  // OBS no recarga la fuente Navegador: si este script cambia en el sitio (logos nuevos,
+  // arreglos), la pantalla se recarga sola al minuto. Solo mira el propio .js, no cada deploy.
+  (() => {
+    const self = document.currentScript && document.currentScript.src; if (!self) return;
+    let base = null;
+    setInterval(async () => {
+      try {
+        const txt = await (await fetch(self, { cache: 'no-store' })).text();
+        if (base === null) base = txt; else if (txt && txt !== base) location.reload();
+      } catch { /* sin red: se reintenta */ }
+    }, 60000);
+  })();
+
   const LOGOS = {
     '2 DOPE': '2-dope', 'DinoRatas': 'dinoratas', 'False Promise Gaming': 'false-promise-gaming',
     'Galaxy Gaming': 'galaxy-gaming', 'Heralds Of Cthulhu': 'heralds-of-cthulhu', 'Game Over Qro': 'game-over-qro',

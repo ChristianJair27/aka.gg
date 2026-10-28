@@ -14,6 +14,7 @@ import { axiosInstance } from '@/lib/axios';
 import { lol } from '@/lib/lolAssets';
 import { broadcastThemeFor, broadcastVars, ensureBroadcastFont } from '@/lib/broadcastTheme';
 import { useSeo } from '@/lib/seo';
+import { resolveTeamLogo } from '@/lib/teamLogos';
 import '@/styles/pages/broadcast-overlay.css';
 import '@/styles/pages/broadcast-champselect.css';
 
@@ -94,6 +95,21 @@ export default function BroadcastChampSelectPage() {
       return status === 200 && data?.ok ? (data as CsFeed) : null;
     },
   });
+  // OBS no recarga la fuente Navegador: tras un deploy (cambia index.html) se recarga sola,
+  // pero solo mientras no hay selección en pantalla.
+  const liveRef = useRef(false);
+  liveRef.current = !!feedQ.data;
+  useEffect(() => {
+    if (demo) return;
+    let base: string | null = null;
+    const id = window.setInterval(async () => {
+      try {
+        const txt = await (await fetch('/index.html', { cache: 'no-store' })).text();
+        if (base === null) base = txt; else if (txt !== base && !liveRef.current) window.location.reload();
+      } catch { /* sin red */ }
+    }, 120000);
+    return () => window.clearInterval(id);
+  }, [demo]);
   const [tick, setTick] = useState(0);
   useEffect(() => {
     if (!demo) return;
@@ -130,7 +146,7 @@ export default function BroadcastChampSelectPage() {
     return (ra < 0 ? 9 : ra) - (rb < 0 ? 9 : rb) || a.cellId - b.cellId;
   });
   const teamName = (side: Side) => (side === 'blue' ? f.team1 : f.team2) || (side === 'blue' ? 'Lado azul' : 'Lado rojo');
-  const teamLogo = (side: Side) => (side === 'blue' ? f.logo1 : f.logo2);
+  const teamLogo = (side: Side) => (side === 'blue' ? f.logo1 || resolveTeamLogo(f.team1) : f.logo2 || resolveTeamLogo(f.team2)) || '';
   const initials = (name: string) => name.split(/\s+/).map((w) => w[0]).join('').slice(0, 3).toUpperCase();
 
   return (

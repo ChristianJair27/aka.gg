@@ -10,6 +10,18 @@
   const q = (k, d) => (P.has(k) ? P.get(k) : d);
   const TID = q('torneo', 'lqc-2026');
 
+  // OBS no recarga la fuente Navegador: si este script cambia en el sitio (logos nuevos,
+  // arreglos), la pantalla se recarga sola al minuto. Solo mira el propio .js, no cada deploy.
+  (() => {
+    const self = document.currentScript && document.currentScript.src; if (!self) return;
+    let base = null;
+    setInterval(async () => {
+      try {
+        const txt = await (await fetch(self, { cache: 'no-store' })).text();
+        if (base === null) base = txt; else if (txt && txt !== base) location.reload();
+      } catch { /* sin red: se reintenta */ }
+    }, 60000);
+  })();
   const LOGOS = { '2 DOPE': '2-dope', 'DinoRatas': 'dinoratas', 'False Promise Gaming': 'false-promise-gaming', 'Galaxy Gaming': 'galaxy-gaming', 'Heralds Of Cthulhu': 'heralds-of-cthulhu', 'Game Over Qro': 'game-over-qro', 'Requiem': 'requiem', 'Los Rokosos': 'los-rokosos', 'Nephyx Esports': 'nephyx-esports', 'RAKU': 'raku', 'REV505': 'rev505', 'Tlacuaches': 'tlacuaches', 'Mythical Dragons': 'mythical-dragons', 'The Town Boys': 'the-town-boys', 'Hive': 'hive', 'Axolotl': 'axolotl' };
   const norm = (s) => String(s || '').trim().replace(/\s+/g, ' ');
   const same = (a, b) => norm(a).toLowerCase() === norm(b).toLowerCase();
