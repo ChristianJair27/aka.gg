@@ -13,12 +13,14 @@ const today = new Date().toISOString().slice(0, 10);
 
 const STATIC = [
   ['/', 'daily', '1.0'], ['/tournaments', 'daily', '0.9'], ['/tournaments/lqc-2026', 'daily', '0.9'],
-  ['/crear-torneo', 'monthly', '0.8'], ['/stats', 'weekly', '0.8'], ['/companion', 'monthly', '0.8'],
+  ['/stats', 'weekly', '0.8'], ['/companion', 'monthly', '0.8'],
   ['/meta', 'daily', '0.7'], ['/social', 'daily', '0.7'],
 ];
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// /crear-torneo no va: sin sesión redirige a /login (noindex); es un enlace corto para la bio.
+const SKIP = /\/(crear-torneo|login|register)$/;
 const urls = new Map();
-const add = (loc, changefreq, priority, lastmod) => { if (!urls.has(loc)) urls.set(loc, { changefreq, priority, lastmod }); };
+const add = (loc, changefreq, priority, lastmod) => { if (!SKIP.test(loc) && !urls.has(loc)) urls.set(loc, { changefreq, priority, lastmod }); };
 
 async function get(url, as = 'json') {
   const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
