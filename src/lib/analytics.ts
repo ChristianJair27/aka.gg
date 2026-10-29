@@ -36,7 +36,7 @@ export function trackPageview(path: string, title?: string): void {
 export type AtakEvent =
   | 'tournament_view' | 'tournament_tab' | 'register_open' | 'tournament_created'
   | 'clip_play' | 'clip_share' | 'reel_like' | 'reel_publish'
-  | 'companion_download' | 'login_start' | 'search_player';
+  | 'companion_download' | 'login_start' | 'search_player' | 'pickem_pick';
 
 export function trackEvent(name: AtakEvent, params: Record<string, string | number | boolean | undefined> = {}): void {
   if (!ready || !window.gtag) return;

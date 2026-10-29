@@ -5,7 +5,7 @@
 import { CSSProperties, ReactNode, useEffect, useState } from 'react';
 import {
   Trophy, Users, BarChart3, Swords, LayoutDashboard, Network, ScrollText,
-  AlertTriangle, RefreshCw, Clapperboard, Film,
+  AlertTriangle, RefreshCw, Clapperboard, Film, Target,
 } from 'lucide-react';
 import { animate } from 'framer-motion';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -75,7 +75,7 @@ export function Card({ children, accent, style, anchor }: {
   );
 }
 
-export type Tab = 'resumen' | 'bracket' | 'equipos' | 'partidas' | 'stats' | 'social' | 'replays' | 'reglas';
+export type Tab = 'resumen' | 'bracket' | 'pickems' | 'equipos' | 'partidas' | 'stats' | 'social' | 'replays' | 'reglas';
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
@@ -101,6 +101,7 @@ export function ErrorCard({ message, onRetry }: { message: string; onRetry: () =
 export const NAV_ITEMS: Array<{ key: Tab; label: string; icon: ReactNode }> = [
   { key: 'resumen', label: 'Resumen', icon: <LayoutDashboard size={18} /> },
   { key: 'bracket', label: 'Bracket', icon: <Network size={18} /> },
+  { key: 'pickems', label: "Pick'Ems", icon: <Target size={18} /> },
   { key: 'equipos', label: 'Equipos', icon: <Users size={18} /> },
   { key: 'partidas', label: 'Partidas', icon: <Swords size={18} /> },
   { key: 'stats', label: 'Estadísticas', icon: <BarChart3 size={18} /> },
@@ -113,6 +114,7 @@ export const NAV_ITEMS: Array<{ key: Tab; label: string; icon: ReactNode }> = [
 export const NAV_TIPS: Record<Tab, string> = {
   resumen: 'Directo, clasificación y líderes del torneo',
   bracket: 'Bracket por rondas con el marcador de cada serie',
+  pickems: 'Predice los playoffs y compite en la clasificación',
   equipos: 'Equipos inscritos, plantillas y análisis',
   partidas: 'Todas las series con su scoreboard',
   stats: 'Ranking de jugadores, radar y gráficos',

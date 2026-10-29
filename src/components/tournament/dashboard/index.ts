@@ -9,5 +9,6 @@ export * from './EquiposTab';
 export * from './PartidasTab';
 export * from './StatsTab';
 export * from './ReglasTab';
+export * from './PickemsTab';
 export * from './AdminPanel';
 export * from './DashboardSkeleton';

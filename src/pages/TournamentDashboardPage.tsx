@@ -15,7 +15,7 @@ import {
   ErrorCard, type Tab,
   Hero, Breadcrumbs, BroadcastBanner,
   TabBar,
-  ResumenGrid, BracketTab, EquiposTab, PartidasTab, StatsTab, ReglasTab,
+  ResumenGrid, BracketTab, EquiposTab, PartidasTab, StatsTab, ReglasTab, PickemsTab, usePickemsEnabled,
   AdminPanel, DashboardSkeleton, ResponsiveStyles,
 } from '@/components/tournament/dashboard';
 import { SocialReels } from '@/components/social/SocialReels';
@@ -39,6 +39,7 @@ export default function TournamentDashboardPage() {
       ? 'equipos'
       : 'resumen';
   const tab = (params.get('tab') as Tab) || defaultTab;
+  const pickems = usePickemsEnabled(id);
   const t = data?.tournament;
   useSeo(t ? {
     title: t.name,
@@ -122,7 +123,7 @@ export default function TournamentDashboardPage() {
             )}
             {/* Pestañas pegajosas (una sola barra para escritorio y móvil) */}
             <div className="td-tabs">
-              <TabBar value={tab} onChange={setTab} live={data.tournament.status === 'live'} />
+              <TabBar value={tab} onChange={setTab} live={data.tournament.status === 'live'} hidden={pickems ? [] : ['pickems']} />
             </div>
             <main style={{ minWidth: 0, marginTop: 18 }}>
               {/* Sin animación de salida: la sección nueva aparece al instante */}
@@ -139,6 +140,7 @@ export default function TournamentDashboardPage() {
                       })} />
                   )}
                   {tab === 'bracket' && <BracketTab id={id} data={data} />}
+                  {tab === 'pickems' && <PickemsTab id={id} />}
                   {tab === 'equipos' && (
                     <EquiposTab id={id} region={data.tournament.region} standings={data.standings} />
                   )}

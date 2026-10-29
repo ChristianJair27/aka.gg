@@ -12,7 +12,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { Tip } from '@/components/ui/Tip';
 import { NAV_ITEMS, NAV_TIPS, type Tab } from './shared';
 
-export function TabBar({ value, onChange, live }: { value: Tab; onChange: (t: Tab) => void; live: boolean }) {
+export function TabBar({ value, onChange, live, hidden = [] }: { value: Tab; onChange: (t: Tab) => void; live: boolean; hidden?: Tab[] }) {
   const reduce = useReducedMotion();
   const ref = useRef<HTMLElement>(null);
   // La pestaña activa siempre a la vista (en móvil el carril se desplaza).
@@ -26,7 +26,7 @@ export function TabBar({ value, onChange, live }: { value: Tab; onChange: (t: Ta
   }, [value, reduce]);
   return (
     <nav ref={ref} className="ax-tabs" aria-label="Secciones del torneo">
-      {NAV_ITEMS.map((it) => {
+      {NAV_ITEMS.filter((it) => !hidden.includes(it.key)).map((it) => {
         const active = value === it.key;
         return (
           <Tip key={it.key} label={NAV_TIPS[it.key]} side="bottom">
