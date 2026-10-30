@@ -731,9 +731,13 @@ export default function BroadcastOverlayPage() {
 
   if (!derived) {
     // Sin transmisión: overlay invisible (OBS no muestra nada). En debug, aviso.
-    return debugBg ? (
-      <div className="bo-wait">Overlay {channel}: esperando transmisión del companion…</div>
-    ) : null;
+    // La repetición de la segunda cámara también sale entre partidas (sin feed del caster).
+    return (
+      <>
+        {debugBg && <div className="bo-wait">Overlay {channel}: esperando transmisión del companion…</div>}
+        <LiveReplay channel={String(channel || '')} brand={theme.brand} logo={theme.logo} />
+      </>
+    );
   }
 
   const d = derived;
@@ -1239,7 +1243,7 @@ function LiveReplay({ channel, brand, logo }: { channel: string; brand: string; 
     <AnimatePresence>
       {on && (
         <motion.div key={on.at} initial={{ opacity: 0, scale: 1.04 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, transition: { duration: 0.35 } }} transition={{ duration: 0.45, ease: EASE }}
-          style={{ position: 'absolute', inset: 0, zIndex: 50, background: '#000', overflow: 'hidden' }}>
+          style={{ position: 'fixed', inset: 0, zIndex: 50, background: '#000', overflow: 'hidden' }}>
           <video ref={video} src={on.url} muted playsInline preload="auto" onLoadedMetadata={start} onEnded={() => setOn(null)}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 0 6px var(--bo-accent, #e8323c), inset 0 0 160px rgba(0,0,0,.55)', pointerEvents: 'none' }} />
