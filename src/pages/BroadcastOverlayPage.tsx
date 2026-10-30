@@ -736,6 +736,7 @@ export default function BroadcastOverlayPage() {
       <>
         {debugBg && <div className="bo-wait">Overlay {channel}: esperando transmisión del companion…</div>}
         <LiveReplay channel={String(channel || '')} brand={theme.brand} logo={theme.logo} />
+        <StreamCues channel={String(channel || '')} />
       </>
     );
   }
@@ -1205,9 +1206,36 @@ export default function BroadcastOverlayPage() {
           )}
         </AnimatePresence>
         <LiveReplay channel={String(channel || '')} brand={theme.brand} logo={theme.logo} />
+        <StreamCues channel={String(channel || '')} />
       </div>
     </MotionConfig>
   );
+}
+
+// Sonidos al stream: el Stream Deck del productor manda un cue y aquí se reproduce (la fuente de
+// navegador del caster lleva audio a OBS). Solo cues nuevos y recientes: recargar no repite el último.
+function StreamCues({ channel }: { channel: string }) {
+  const seen = useRef(-1);
+  useEffect(() => {
+    if (!channel) return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const { data } = await axiosInstance.get(`/api/live-feed/${channel}/cue`);
+        const c = data?.cue; if (!alive || !c?.at) return;
+        if (seen.current < 0) { seen.current = c.at; return; }
+        if (c.at === seen.current) return;
+        seen.current = c.at;
+        if (Date.now() - c.at > 8000 || !/^[a-z0-9-]+$/.test(String(c.sound))) return;
+        const a = new Audio(`/sfx/${c.sound}.wav`); a.volume = Math.min(1, Math.max(0, Number(c.vol) || 0.8));
+        void a.play().catch(() => {});
+      } catch { /* sin backend */ }
+    };
+    void tick();
+    const id = window.setInterval(tick, 700);
+    return () => { alive = false; window.clearInterval(id); };
+  }, [channel]);
+  return null;
 }
 
 // Repetición de la segunda cámara: la mesa de control (/broadcast/:canal/control) decide cuándo sale y
