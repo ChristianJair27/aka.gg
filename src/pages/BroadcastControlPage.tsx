@@ -107,6 +107,7 @@ export default function BroadcastControlPage() {
           </div>
           <input value={token} onChange={(e) => setToken(e.target.value)} placeholder="Token del feed (modo caster)" className="td-input" style={{ width: 260 }} type="password" autoComplete="off" />
         </div>
+        <ReplayPanel channel={channel} token={token} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 16 }}>
           {sideBlock('blue')}
           {sideBlock('red')}
@@ -129,6 +130,69 @@ export default function BroadcastControlPage() {
           <p className="td-help" style={{ marginTop: 10 }}>Marca cada objetivo en cuanto caiga: el overlay actualiza contadores, dragones hacia el alma, timers y avisos en menos de 3 s. Si un jugador de la partida tiene el companion abierto, los objetivos llegan solos y lo que marques aquí no se duplica.</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Repeticiones de la segunda cámara (OBS de quien espectea + scripts/live-clip-uploader): lista de las
+// últimas subidas y botones para que el overlay del caster la muestre o la quite.
+function ReplayPanel({ channel, token }: { channel: string; token: string }) {
+  const [clips, setClips] = useState<Array<{ id: number; title: string | null; size: number; createdAt: number; url: string }>>([]);
+  const [state, setState] = useState<{ show: boolean; id: number; last: number; slow?: boolean }>({ show: false, id: 0, last: 0 });
+  const [last, setLast] = useState(15);
+  const [slow, setSlow] = useState(false);
+  const [preview, setPreview] = useState<number>(0);
+  useEffect(() => {
+    let alive = true;
+    const tick = async () => {
+      try {
+        const [c, s] = await Promise.all([axiosInstance.get(`/api/live-feed/${channel}/clips`), axiosInstance.get(`/api/live-feed/${channel}/clip-state`)]);
+        if (!alive) return;
+        setClips(Array.isArray(c.data?.clips) ? c.data.clips : []);
+        if (s.data?.state) setState(s.data.state);
+      } catch { /* backend sin repeticiones */ }
+    };
+    void tick();
+    const id = window.setInterval(tick, 2000);
+    return () => { alive = false; window.clearInterval(id); };
+  }, [channel]);
+  const send = async (body: any) => {
+    if (!token) { toast.error('Pon el token del feed arriba'); return; }
+    try { const { data } = await axiosInstance.post(`/api/live-feed/${channel}/clip-state`, body, { headers: { 'X-Feed-Token': token } }); setState(data.state); toast.success(data.state.show ? 'Repetición al aire' : 'Repetición quitada'); }
+    catch (e: any) { toast.error(e?.response?.data?.error === 'bad_token' ? 'Token incorrecto' : 'No se pudo'); }
+  };
+  const ago = (t: number) => { const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 60 ? `hace ${s} s` : `hace ${Math.floor(s / 60)} min`; };
+  return (
+    <div className="td-panel" style={{ padding: 16, display: 'grid', gap: 12, borderTop: `3px solid ${state.show ? '#e8323c' : 'var(--td-line, #333)'}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span className="td-over">REPETICIONES · SEGUNDA CÁMARA</span>
+        {state.show ? <span className="td-chip" data-kind="live">AL AIRE · #{state.id}</span> : <span className="td-chip">Fuera del aire</span>}
+        <span style={{ flex: 1 }} />
+        <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>Últimos
+          <select className="td-input" value={last} onChange={(e) => setLast(Number(e.target.value))} style={{ width: 80 }}>
+            {[8, 10, 15, 20, 30].map((s) => <option key={s} value={s}>{s} s</option>)}
+          </select>
+        </label>
+        <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}><input type="checkbox" checked={slow} onChange={(e) => setSlow(e.target.checked)} /> Cámara lenta</label>
+        <button type="button" className="td-btn td-btn--primary" disabled={!state.show} onClick={() => send({ show: false })} style={{ minWidth: 120 }}>Quitar</button>
+      </div>
+      {clips.length === 0 && <span style={{ fontSize: 13, color: 'var(--td-muted)' }}>Aún no hay repeticiones. Cuando guardes una en tu OBS (búfer de repetición) aparece aquí en unos segundos.</span>}
+      <div style={{ display: 'grid', gap: 8 }}>
+        {clips.map((c, i) => (
+          <div key={c.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 10, alignItems: 'center', padding: '8px 10px', borderRadius: 8, background: state.show && state.id === c.id ? 'rgba(232,50,60,.12)' : 'rgba(255,255,255,.03)' }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>#{c.id} {c.title || 'Repetición'} {i === 0 && <span className="td-chip" data-kind="pos" style={{ fontSize: 11 }}>nueva</span>}</div>
+              <div style={{ fontSize: 12, color: 'var(--td-muted)' }}>{ago(c.createdAt)} · {(c.size / 1048576).toFixed(1)} MB</div>
+              {preview === c.id && <video src={c.url} controls muted autoPlay style={{ width: '100%', maxWidth: 480, marginTop: 8, borderRadius: 6 }} />}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button type="button" className="td-btn td-btn--secondary" onClick={() => setPreview(preview === c.id ? 0 : c.id)}>{preview === c.id ? 'Cerrar' : 'Ver'}</button>
+              <button type="button" className="td-btn td-btn--primary" onClick={() => send({ show: true, id: c.id, last, slow })} style={{ minWidth: 110 }}>Mostrar</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="td-help" style={{ margin: 0 }}>"Mostrar" pone la repetición en pantalla completa en el overlay del caster, desde los últimos segundos elegidos (ahí está la jugada); se quita sola al terminar o con "Quitar".</p>
     </div>
   );
 }

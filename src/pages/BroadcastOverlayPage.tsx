@@ -1200,7 +1200,57 @@ export default function BroadcastOverlayPage() {
             </motion.div>
           )}
         </AnimatePresence>
+        <LiveReplay channel={String(channel || '')} brand={theme.brand} logo={theme.logo} />
       </div>
     </MotionConfig>
+  );
+}
+
+// Repetición de la segunda cámara: la mesa de control (/broadcast/:canal/control) decide cuándo sale y
+// cuándo se quita; aquí se reproduce a pantalla completa desde los últimos `last` segundos del clip.
+function LiveReplay({ channel, brand, logo }: { channel: string; brand: string; logo: string }) {
+  const [on, setOn] = useState<{ url: string; last: number; slow: boolean; at: number } | null>(null);
+  const seen = useRef(0);
+  const video = useRef<HTMLVideoElement | null>(null);
+  useEffect(() => {
+    if (!channel) return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const { data } = await axiosInstance.get(`/api/live-feed/${channel}/clip-state`);
+        if (!alive) return;
+        const s = data?.state;
+        if (!s?.show) { setOn(null); return; }
+        // Solo arranca por una orden nueva (y reciente): recargar el overlay no repite la anterior.
+        if (s.at !== seen.current && data.url && Date.now() - s.at < 60_000) { seen.current = s.at; setOn({ url: data.url, last: Number(s.last) || 0, slow: !!s.slow, at: s.at }); }
+      } catch { /* sin backend */ }
+    };
+    void tick();
+    const id = window.setInterval(tick, 1000);
+    return () => { alive = false; window.clearInterval(id); };
+  }, [channel]);
+  const start = () => {
+    const v = video.current; if (!v || !on) return;
+    if (on.last > 0 && Number.isFinite(v.duration) && v.duration > on.last) v.currentTime = v.duration - on.last;
+    v.playbackRate = on.slow ? 0.5 : 1;
+    void v.play().catch(() => {});
+  };
+  return (
+    <AnimatePresence>
+      {on && (
+        <motion.div key={on.at} initial={{ opacity: 0, scale: 1.04 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, transition: { duration: 0.35 } }} transition={{ duration: 0.45, ease: EASE }}
+          style={{ position: 'absolute', inset: 0, zIndex: 50, background: '#000', overflow: 'hidden' }}>
+          <video ref={video} src={on.url} muted playsInline preload="auto" onLoadedMetadata={start} onEnded={() => setOn(null)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 0 6px var(--bo-accent, #e8323c), inset 0 0 160px rgba(0,0,0,.55)', pointerEvents: 'none' }} />
+          <motion.div initial={{ x: -60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.2, duration: 0.5, ease: EASE }}
+            style={{ position: 'absolute', top: 44, left: 48, display: 'flex', alignItems: 'center', gap: 16, padding: '12px 22px 12px 16px', background: 'rgba(6,10,20,.82)', borderLeft: '6px solid var(--bo-accent, #e8323c)' }}>
+            <img src={logo} alt={brand} style={{ height: 40 }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+            <span className="bo-disp" style={{ fontSize: 40, letterSpacing: '.06em', color: '#fff', lineHeight: 1 }}>REPETICIÓN</span>
+            {on.slow && <span className="bo-disp" style={{ fontSize: 22, color: 'var(--bo-accent, #e8323c)' }}>CÁMARA LENTA</span>}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
