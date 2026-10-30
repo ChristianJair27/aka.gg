@@ -211,7 +211,7 @@ export function TournamentMatchStats({ tournamentId, match, isActive, onSeeRound
           {/* Serie Bo3/Bo5: selector de juego + marcador global */}
           {games && games.length > 1 && (
             <div className="flex flex-wrap items-center justify-center gap-2 py-2">
-              <span className="text-[10px] uppercase tracking-[0.18em] text-gray-500 mr-1">
+              <span className="text-[11px] uppercase tracking-[0.18em] text-gray-500 mr-1">
                 Serie {match.score1 ?? 0}–{match.score2 ?? 0}
               </span>
               {games.map((g, i) => {

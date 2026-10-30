@@ -200,6 +200,12 @@ function SortableTable({ players, marked, onMark, onPick, iconOf }: {
     else { setSortKey(key); setSortDir(key === 'rank' || key === 'tier' ? 'asc' : 'desc'); }
   };
 
+  const narrow = useIsNarrow();
+  if (narrow) {
+    return <MobileStatsList sorted={sorted} sortKey={sortKey} sortDir={sortDir} onSort={onSort}
+      marked={marked} onMark={onMark} onPick={onPick} iconOf={iconOf} />;
+  }
+
   // 108+ filas en LQC: alto acotado (ScrollArea) + thead pegajoso vía CSS
   // (.td-stats-scroll en tournament-dashboard.css). Sin virtualización: 100-200
   // filas de texto plano no la necesitan.
@@ -310,6 +316,99 @@ function SortableTable({ players, marked, onMark, onPick, iconOf }: {
       </table>
       <ScrollBar orientation="horizontal" />
     </ScrollArea>
+  );
+}
+
+// ─── Tabla en móvil ───────────────────────────────────────────────────────────
+// Con 12 columnas en 375 px solo se veían #, nombre y medio rango: las cifras
+// quedaban detrás de un scroll lateral sin el nombre a la vista. En móvil cada
+// jugador es una tarjeta con sus 6 cifras clave; el orden se elige con chips
+// (tocar el activo invierte) y la lista crece de 20 en 20 en vez de anidar un
+// scroll dentro de la página.
+
+type MobileSortKey = GlobalSortKey | 'rank' | 'tier';
+const MOBILE_SORTS: { key: MobileSortKey; label: string }[] = [
+  { key: 'rank', label: 'Puesto' }, { key: 'avgKda', label: 'KDA' }, { key: 'winrate', label: 'WR%' },
+  { key: 'avgGoldPerMin', label: 'Oro/min' }, { key: 'avgDamagePerMin', label: 'Daño/min' },
+  { key: 'avgCsPerMin', label: 'CS/min' }, { key: 'avgVisionPerMin', label: 'Visión/min' },
+  { key: 'totalKills', label: 'Kills' }, { key: 'gamesPlayed', label: 'Partidas' },
+  { key: 'tier', label: 'Rango' }, { key: 'pentaKills', label: 'Pentas' },
+];
+
+function MobileStatsList({ sorted, sortKey, sortDir, onSort, marked, onMark, onPick, iconOf }: {
+  sorted: PlayerAggregate[]; sortKey: MobileSortKey; sortDir: SortDir; onSort: (k: MobileSortKey) => void;
+  marked: string | null; onMark: (key: string | null) => void;
+  onPick?: (p: PlayerAggregate) => void; iconOf?: (p: PlayerAggregate) => number | null;
+}) {
+  const [shown, setShown] = useState(20);
+  const stats = (p: PlayerAggregate): { key: MobileSortKey; label: string; value: string }[] => [
+    { key: 'gamesPlayed', label: 'PJ', value: String(p.gamesPlayed) },
+    { key: 'winrate', label: 'WR', value: `${p.winrate}%` },
+    { key: 'avgKda', label: 'KDA', value: formatKda(p).text },
+    { key: 'avgGoldPerMin', label: 'Oro/min', value: fmtNumber(Math.round(p.avgGoldPerMin)) },
+    { key: 'avgDamagePerMin', label: 'Daño/min', value: fmtNumber(Math.round(p.avgDamagePerMin)) },
+    { key: 'avgCsPerMin', label: 'CS/min', value: p.avgCsPerMin.toFixed(1) },
+  ];
+  // Si se ordena por una cifra que no está en la tarjeta, se añade como 7.ª.
+  const extra = (p: PlayerAggregate) =>
+    sortKey === 'avgVisionPerMin' ? { label: 'Visión/min', value: p.avgVisionPerMin.toFixed(2) }
+    : sortKey === 'totalKills' ? { label: 'K / D / A', value: `${p.totalKills}/${p.totalDeaths}/${p.totalAssists}` }
+    : sortKey === 'pentaKills' ? { label: 'Pentas', value: String(p.pentaKills) }
+    : null;
+
+  return (
+    <div>
+      <div className="td-msort" role="group" aria-label="Ordenar tabla por">
+        {MOBILE_SORTS.map(s => {
+          const active = s.key === sortKey;
+          return (
+            <button key={s.key} type="button" className="td-msort-chip" data-active={active} aria-pressed={active}
+              onClick={() => onSort(s.key)}>
+              {s.label}
+              {active && (sortDir === 'desc' ? <ChevronDown size={14} aria-label="mayor a menor" /> : <ChevronUp size={14} aria-label="menor a mayor" />)}
+            </button>
+          );
+        })}
+      </div>
+      <ol className="td-mlist">
+        {sorted.slice(0, shown).map((p, i) => {
+          const rowKey = `${p.summonerName}#${p.tagLine}`;
+          const isMarked = marked === rowKey;
+          const ex = extra(p);
+          return (
+            <li key={rowKey}>
+              <button type="button" className="td-mcard" data-marked={isMarked || undefined}
+                onClick={() => { onMark(isMarked ? null : rowKey); onPick?.(p); }}>
+                <span className="td-mcard-head">
+                  <span className="td-mcard-pos td-num">{sortKey === 'rank' ? (p.rank ?? '—') : i + 1}</span>
+                  <PlayerAvatar riotId={riotIdOf(p)} profileIconId={iconOf?.(p)} mostPlayedChamp={p.mostPlayedChamp} size={36} />
+                  <span className="td-mcard-who">
+                    <b>{p.summonerName}</b>
+                    <small>{p.championPool.slice(0, 3).join(' · ')}</small>
+                  </span>
+                  <TierEmblem tier={p.soloTier} division={p.soloDivision} lp={p.soloLp} size={36} showLabel={false} />
+                </span>
+                <span className="td-mcard-stats">
+                  {stats(p).map(s => (
+                    <span key={s.label} data-active={s.key === sortKey || undefined}>
+                      <b className="td-num">{s.value}</b><small>{s.label}</small>
+                    </span>
+                  ))}
+                  {ex && <span data-active><b className="td-num">{ex.value}</b><small>{ex.label}</small></span>}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      {shown < sorted.length && (
+        <div className="td-mlist-more">
+          <Button variant="secondary" onClick={() => setShown(n => n + 20)}>
+            Ver más ({sorted.length - shown} restantes)
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -702,7 +801,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
           {onRefresh && (
             <button
               onClick={onRefresh}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs text-white/40
+              className="flex items-center gap-1.5 px-3 py-1.5 min-h-[40px] rounded-xl text-xs text-white/40
                 hover:text-white hover:bg-white/[0.06] transition-all"
             >
               <RefreshCw className={cn('h-3 w-3', loading && 'animate-spin')} />

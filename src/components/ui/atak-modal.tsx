@@ -124,7 +124,7 @@ export function AtakModalHeader({
         <div className="min-w-0 flex-1">
           {eyebrow && (
             <p
-              className="text-[10px] font-bold uppercase tracking-[0.18em]"
+              className="text-[11px] font-bold uppercase tracking-[0.18em]"
               style={{ color: accent }}
             >
               {eyebrow}

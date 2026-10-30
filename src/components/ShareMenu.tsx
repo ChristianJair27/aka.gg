@@ -49,7 +49,7 @@ export function ShareMenu({ url, mp4, title, text, compact = false, rail = false
             <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Compartir clip</span>
             <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar" className="text-gray-500 hover:text-white"><CloseIcon className="h-3.5 w-3.5" /></button>
           </div>
-          <button type="button" role="menuitem" onClick={copy} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-gray-200 hover:bg-white/[0.06]"><LinkIcon className="h-4 w-4 text-gray-400" /> Copiar enlace <span className="ml-auto text-[10px] uppercase tracking-wider text-gray-500">con video</span></button>
+          <button type="button" role="menuitem" onClick={copy} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-gray-200 hover:bg-white/[0.06]"><LinkIcon className="h-4 w-4 text-gray-400" /> Copiar enlace <span className="ml-auto text-[11px] uppercase tracking-wider text-gray-500">con video</span></button>
           {canNative && <button type="button" role="menuitem" onClick={native} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-gray-200 hover:bg-white/[0.06]"><Smartphone className="h-4 w-4 text-gray-400" /> Compartir con…</button>}
           <div className="my-1 grid grid-cols-2 gap-1">
             {links.map((l) => (
@@ -58,9 +58,9 @@ export function ShareMenu({ url, mp4, title, text, compact = false, rail = false
           </div>
           {mp4 && (
             <div className="mt-1 border-t border-white/[0.08] pt-1">
-              <div className="px-2 pb-1 pt-1 text-[10px] uppercase tracking-[0.14em] text-gray-500">Historias y reels (se sube el archivo)</div>
+              <div className="px-2 pb-1 pt-1 text-[11px] uppercase tracking-[0.14em] text-gray-500">Historias y reels (se sube el archivo)</div>
               {social.map((l) => (
-                <a key={l.label} role="menuitem" href={l.href} target="_blank" rel="noopener noreferrer" onClick={() => { void copyCaption(); const a = document.createElement('a'); a.href = mp4; a.download = ''; a.click(); setOpen(false); }} className="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-gray-200 hover:bg-white/[0.06]"><span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />{l.label}<span className="ml-auto text-[10px] uppercase tracking-wider text-gray-500">{l.hint}</span></a>
+                <a key={l.label} role="menuitem" href={l.href} target="_blank" rel="noopener noreferrer" onClick={() => { void copyCaption(); const a = document.createElement('a'); a.href = mp4; a.download = ''; a.click(); setOpen(false); }} className="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-gray-200 hover:bg-white/[0.06]"><span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />{l.label}<span className="ml-auto text-[11px] uppercase tracking-wider text-gray-500">{l.hint}</span></a>
               ))}
               <a role="menuitem" href={mp4} download onClick={() => setOpen(false)} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-gray-200 hover:bg-white/[0.06]"><Download className="h-4 w-4 text-gray-400" /> Descargar MP4</a>
             </div>

@@ -175,7 +175,7 @@ export function GuiaRapidaButton({ data }: { data: DiscoverySamplesData }) {
 
   return (
     <>
-      <button type="button" className="td-guide-fab" onClick={() => setOpen(true)}>
+      <button type="button" className="td-guide-fab" aria-label="Guía rápida" onClick={() => setOpen(true)}>
         <LifeBuoy size={15} />
         <span>Guía rápida</span>
       </button>

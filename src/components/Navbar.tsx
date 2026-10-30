@@ -154,7 +154,7 @@ function NavSearch({ className = '', onDone }: { className?: string; onDone?: ()
         >
           {champMatches.length > 0 && (
             <>
-              <div className="flex items-center gap-2 px-3.5 pt-3 pb-1.5 text-[10px] uppercase tracking-[0.22em] text-white/25">
+              <div className="flex items-center gap-2 px-3.5 pt-3 pb-1.5 text-[11px] uppercase tracking-[0.22em] text-white/25">
                 <Swords className="h-3 w-3" /> Campeones
               </div>
               {champMatches.map((c, i) => (
@@ -175,7 +175,7 @@ function NavSearch({ className = '', onDone }: { className?: string; onDone?: ()
                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
                   />
                   <span className="text-sm text-white/85 truncate">{c.name}</span>
-                  <span className="ml-auto text-[10px] text-[#c8aa6e]/70 uppercase flex-shrink-0">Análisis</span>
+                  <span className="ml-auto text-[11px] text-[#c8aa6e]/70 uppercase flex-shrink-0">Análisis</span>
                 </button>
               ))}
             </>
@@ -183,7 +183,7 @@ function NavSearch({ className = '', onDone }: { className?: string; onDone?: ()
 
           {recents.length > 0 && (
             <>
-              <div className="flex items-center gap-2 px-3.5 pt-3 pb-1.5 text-[10px] uppercase tracking-[0.22em] text-white/25">
+              <div className="flex items-center gap-2 px-3.5 pt-3 pb-1.5 text-[11px] uppercase tracking-[0.22em] text-white/25">
                 <Clock className="h-3 w-3" /> Recientes
               </div>
               {recents.map((r, ri) => {
@@ -204,7 +204,7 @@ function NavSearch({ className = '', onDone }: { className?: string; onDone?: ()
                     <Clock className="h-3 w-3 text-white/35" />
                   </span>
                   <span className="text-sm text-white/75 truncate">{r.id}</span>
-                  <span className="ml-auto text-[10px] text-white/30 uppercase flex-shrink-0">
+                  <span className="ml-auto text-[11px] text-white/30 uppercase flex-shrink-0">
                     {REGIONS.find(rg => rg.value === r.region)?.label || r.region}
                   </span>
                 </button>
@@ -215,7 +215,7 @@ function NavSearch({ className = '', onDone }: { className?: string; onDone?: ()
 
           {options.length > champMatches.length + recents.length && (
             <>
-              <div className="px-3.5 pt-3 pb-1.5 text-[10px] uppercase tracking-[0.22em] text-white/25">
+              <div className="px-3.5 pt-3 pb-1.5 text-[11px] uppercase tracking-[0.22em] text-white/25">
                 Jugadores
               </div>
               {options.slice(champMatches.length + recents.length).map((o, idx) => {
@@ -251,9 +251,9 @@ function NavSearch({ className = '', onDone }: { className?: string; onDone?: ()
                       <span className="block text-sm text-white/85 truncate">
                         {p.gameName}<span className="text-white/35">#{p.tagLine}</span>
                       </span>
-                      {p.level ? <span className="block text-[10px] text-white/30">Nivel {p.level}</span> : null}
+                      {p.level ? <span className="block text-[11px] text-white/30">Nivel {p.level}</span> : null}
                     </span>
-                    <span className="ml-auto text-[10px] text-white/30 uppercase flex-shrink-0">
+                    <span className="ml-auto text-[11px] text-white/30 uppercase flex-shrink-0">
                       {REGIONS.find(rg => rg.value === p.platform)?.label || p.platform}
                     </span>
                   </button>

@@ -90,7 +90,7 @@ function RankCard({ rank, label }: { rank: any; label: string }) {
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: `radial-gradient(ellipse at 80% 50%, ${color}12 0%, transparent 70%)` }} />
       )}
-      <p className="text-[10px] uppercase tracking-[0.2em] text-gray-600 mb-4 font-mono">{label}</p>
+      <p className="text-[11px] uppercase tracking-[0.2em] text-gray-600 mb-4 font-mono">{label}</p>
       {tier ? (
         <div className="flex items-center gap-4">
           <div className="relative flex-shrink-0">
@@ -142,13 +142,13 @@ function StatPill({ label, value, sub, icon, color='text-white', trend }: {
           <div className="text-white/50 h-4 w-4">{icon}</div>
         </div>
         {trend && (
-          <div className={`text-[10px] font-bold flex items-center gap-0.5 ${trend === 'up' ? 'text-green-400' : 'text-red-400'}`}>
+          <div className={`text-[11px] font-bold flex items-center gap-0.5 ${trend === 'up' ? 'text-green-400' : 'text-red-400'}`}>
             {trend === 'up' ? '↑' : '↓'}
           </div>
         )}
       </div>
       <div>
-        <p className="text-[10px] text-gray-600 uppercase tracking-[0.15em] font-mono">{label}</p>
+        <p className="text-[11px] text-gray-600 uppercase tracking-[0.15em] font-mono">{label}</p>
         <p className={`text-2xl font-black mt-0.5 ${color}`}>{value}</p>
         {sub && <p className="text-xs text-gray-600 mt-0.5 font-mono">{sub}</p>}
       </div>
@@ -184,13 +184,13 @@ function ChampStatRow({ champKey, stats, champs, rank }: {
       {/* Name + games */}
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-white text-sm truncate">{champ?.name || '?'}</div>
-        <div className="text-[10px] text-gray-600 font-mono">{stats.games} partidas</div>
+        <div className="text-[11px] text-gray-600 font-mono">{stats.games} partidas</div>
       </div>
 
       {/* WR bar */}
       <div className="w-24 hidden sm:block">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] font-mono" style={{ color: wrColor }}>{wr}%</span>
+          <span className="text-[11px] font-mono" style={{ color: wrColor }}>{wr}%</span>
         </div>
         <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">
           <div className="h-full rounded-full" style={{ width: `${wrW}%`, background: wrColor }} />
@@ -200,7 +200,7 @@ function ChampStatRow({ champKey, stats, champs, rank }: {
       {/* KDA */}
       <div className="text-right flex-shrink-0">
         <div className="text-sm font-black" style={{ color: kdaColor }}>{kda.toFixed(2)}</div>
-        <div className="text-[10px] text-gray-600 font-mono">KDA</div>
+        <div className="text-[11px] text-gray-600 font-mono">KDA</div>
       </div>
 
       {/* WR pill on mobile */}
@@ -228,7 +228,7 @@ function SectionHeader({ icon, label, right }: { icon: React.ReactNode; label: s
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
         <div className="text-white/40">{icon}</div>
-        <h2 className="text-[10px] uppercase tracking-[0.2em] text-white/30 font-mono font-bold">{label}</h2>
+        <h2 className="text-[11px] uppercase tracking-[0.2em] text-white/30 font-mono font-bold">{label}</h2>
       </div>
       {right}
     </div>
@@ -527,7 +527,7 @@ export default function SummonerPage() {
         {/* Skin selector — bottom right */}
         {topChampData?.id && (
           <div className="absolute bottom-14 right-6 flex items-center gap-1.5 z-10">
-            <span className="text-white/20 text-[9px] font-mono uppercase tracking-widest mr-0.5">SKIN</span>
+            <span className="text-white/20 text-[10.5px] font-mono uppercase tracking-widest mr-0.5">SKIN</span>
             {Array.from({ length: 9 }, (_, i) => (
               <button
                 key={i}
@@ -567,7 +567,7 @@ export default function SummonerPage() {
                   <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-white/[0.06] border border-white/15" />
                 )}
                 <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap
-                  px-3 py-0.5 rounded-full bg-black/90 border border-white/10 text-[10px] font-mono font-bold text-gray-300">
+                  px-3 py-0.5 rounded-full bg-black/90 border border-white/10 text-[11px] font-mono font-bold text-gray-300">
                   Nv. {summary?.summoner?.level || '?'}
                 </div>
                 {liveStatus === 'live' && (
@@ -586,7 +586,7 @@ export default function SummonerPage() {
               <div data-gsap className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   {liveGame && (
-                    <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/25 border border-red-500/50 text-red-400 text-[10px] font-black uppercase tracking-wider">
+                    <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/25 border border-red-500/50 text-red-400 text-[11px] font-black uppercase tracking-wider">
                       <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />EN VIVO
                     </span>
                   )}
@@ -620,7 +620,7 @@ export default function SummonerPage() {
 
         {/* Scroll hint */}
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-white/20 animate-bounce">
-          <span className="text-[10px] font-mono uppercase tracking-widest">Scroll</span>
+          <span className="text-[11px] font-mono uppercase tracking-widest">Scroll</span>
           <ChevronDown className="h-3.5 w-3.5" />
         </div>
       </div>
@@ -751,12 +751,12 @@ export default function SummonerPage() {
             {/* Rolling WR every 5 games */}
             {matchHistory.length >= 10 && (
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-mono text-white/20 uppercase tracking-widest">WR por bloque</span>
+                <span className="text-[11px] font-mono text-white/20 uppercase tracking-widest">WR por bloque</span>
                 {Array.from({ length: Math.floor(matchHistory.length / 5) }, (_, i) => {
                   const block = matchHistory.slice(i * 5, i * 5 + 5);
                   const wr = Math.round(block.filter(m => m.win).length / 5 * 100);
                   return (
-                    <span key={i} className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${wr >= 60 ? 'text-green-400 border-green-500/30 bg-green-500/[0.07]' : wr >= 50 ? 'text-white/60 border-white/10' : 'text-red-400 border-red-500/30 bg-red-500/[0.07]'}`}>
+                    <span key={i} className={`text-[11px] font-mono px-2 py-0.5 rounded-full border ${wr >= 60 ? 'text-green-400 border-green-500/30 bg-green-500/[0.07]' : wr >= 50 ? 'text-white/60 border-white/10' : 'text-red-400 border-red-500/30 bg-red-500/[0.07]'}`}>
                       {wr}%
                     </span>
                   );
@@ -785,25 +785,25 @@ export default function SummonerPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                 {avgDmg && (
                   <GlassCard className="p-4">
-                    <p className="text-[10px] text-white/25 uppercase tracking-widest font-mono mb-1">Daño/partida</p>
+                    <p className="text-[11px] text-white/25 uppercase tracking-widest font-mono mb-1">Daño/partida</p>
                     <p className="text-xl font-black text-white">{avgDmg.toLocaleString()}</p>
                   </GlassCard>
                 )}
                 {avgKp && (
                   <GlassCard className="p-4">
-                    <p className="text-[10px] text-white/25 uppercase tracking-widest font-mono mb-1">Kill Part.</p>
+                    <p className="text-[11px] text-white/25 uppercase tracking-widest font-mono mb-1">Kill Part.</p>
                     <p className={`text-xl font-black ${avgKp >= 65 ? 'text-green-400' : avgKp >= 50 ? 'text-white' : 'text-white/60'}`}>{avgKp}%</p>
                   </GlassCard>
                 )}
                 {avgGold && (
                   <GlassCard className="p-4">
-                    <p className="text-[10px] text-white/25 uppercase tracking-widest font-mono mb-1">Oro/partida</p>
+                    <p className="text-[11px] text-white/25 uppercase tracking-widest font-mono mb-1">Oro/partida</p>
                     <p className="text-xl font-black text-yellow-400">{(avgGold / 1000).toFixed(1)}k</p>
                   </GlassCard>
                 )}
                 {(pentas + quadras + triples + doubles) > 0 && (
                   <GlassCard className="p-4">
-                    <p className="text-[10px] text-white/25 uppercase tracking-widest font-mono mb-1">Multikills</p>
+                    <p className="text-[11px] text-white/25 uppercase tracking-widest font-mono mb-1">Multikills</p>
                     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
                       {pentas  > 0 && <span className="text-xs font-bold text-pink-400">{pentas}  Penta</span>}
                       {quadras > 0 && <span className="text-xs font-bold text-purple-400">{quadras} Quadra</span>}
@@ -841,13 +841,13 @@ export default function SummonerPage() {
                         ? <img src={c.image} alt={c.name} className="w-11 h-11 rounded-xl border border-yellow-500/15 group-hover:border-yellow-500/40 transition" />
                         : <div className="w-11 h-11 rounded-xl bg-gray-900" />
                       }
-                      <div className="absolute -bottom-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-br from-yellow-600 to-yellow-800 border border-yellow-500 flex items-center justify-center text-[9px] font-black text-white">
+                      <div className="absolute -bottom-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-br from-yellow-600 to-yellow-800 border border-yellow-500 flex items-center justify-center text-[10.5px] font-black text-white">
                         {m.level}
                       </div>
                     </div>
                     <div className="text-center">
-                      <div className="text-[10px] text-white font-semibold truncate w-full">{c?.name || '?'}</div>
-                      <div className="text-[9px] text-yellow-500 font-mono">{(m.points/1000).toFixed(1)}k</div>
+                      <div className="text-[11px] text-white font-semibold truncate w-full">{c?.name || '?'}</div>
+                      <div className="text-[10.5px] text-yellow-500 font-mono">{(m.points/1000).toFixed(1)}k</div>
                     </div>
                   </GlassCard>
                 );

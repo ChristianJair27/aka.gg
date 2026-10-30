@@ -160,7 +160,7 @@ export function ChampionDance3D({
                 {c.imageUrl ? (
                   <img src={c.imageUrl} className="w-full h-full object-cover" alt={c.name} />
                 ) : (
-                  <span className="text-[10px] text-white/70">{c.name}</span>
+                  <span className="text-[11px] text-white/70">{c.name}</span>
                 )}
               </button>
             ))}

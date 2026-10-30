@@ -316,21 +316,21 @@ function TeamEditModal({ tournamentId, reg, onClose }: {
             <div key={i} className="flex flex-wrap items-end gap-2 p-3 rounded-xl border border-white/[0.06] bg-white/[0.02]">
               <span className="w-6 text-center text-xs font-black text-red-300 pb-2.5">{i + 1}</span>
               <div className="flex-1 min-w-32">
-                <label className="text-[10px] text-gray-500 block mb-1">Nombre</label>
+                <label className="text-[11px] text-gray-500 block mb-1">Nombre</label>
                 <input value={p.name || ''} onChange={e => setP(i, { name: e.target.value })}
                   placeholder={`Jugador ${i + 1}`}
                   className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-2.5 py-2 text-sm text-white
                     placeholder:text-gray-600 outline-none focus:border-red-500/50 transition-colors" />
               </div>
               <div className="flex-1 min-w-40">
-                <label className="text-[10px] text-gray-500 block mb-1">Riot ID</label>
+                <label className="text-[11px] text-gray-500 block mb-1">Riot ID</label>
                 <input value={p.riotId || ''} placeholder="Nombre#TAG"
                   onChange={e => setP(i, { riotId: e.target.value, inviteEmail: e.target.value ? undefined : p.inviteEmail })}
                   className="w-full bg-white/[0.05] border border-white/[0.08] rounded-lg px-2.5 py-2 text-sm text-white font-mono
                     placeholder:text-gray-600 outline-none focus:border-red-500/50 transition-colors" />
               </div>
               <div className="flex-1 min-w-44">
-                <label className="text-[10px] text-gray-500 block mb-1">
+                <label className="text-[11px] text-gray-500 block mb-1">
                   o correo ATAK.GG{p.inviteStatus === 'pending' && p.inviteEmail ? ' · invitación pendiente' : ''}
                 </label>
                 <input value={p.inviteEmail || ''} placeholder="jugador@correo.com" type="email"

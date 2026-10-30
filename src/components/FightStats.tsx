@@ -88,7 +88,7 @@ export function FightStats({ region, gameId, start, end, defaultOpen = true, den
         <div className={`${pad} pb-3`}>
           <table className="w-full border-separate border-spacing-0 tabular-nums">
             <thead>
-              <tr className="text-[10px] uppercase tracking-[0.12em] text-gray-500">
+              <tr className="text-[11px] uppercase tracking-[0.12em] text-gray-500">
                 <th className="text-left font-semibold pb-1">Jugador</th>
                 <th className="text-right font-semibold pb-1">K/D/A</th>
                 <th className="text-right font-semibold pb-1 w-[38%]">Daño</th>
@@ -114,7 +114,7 @@ export function FightStats({ region, gameId, start, end, defaultOpen = true, den
                       <div className="flex items-center gap-2 justify-end">
                         <div className="h-1.5 flex-1 max-w-[120px] rounded-full bg-white/10 overflow-hidden"><div className={`h-full ${t.bar}`} style={{ width: `${Math.round((p.damage / maxDmg) * 100)}%` }} /></div>
                         <span className={`w-12 text-right font-bold ${t.text}`}>{k(p.damage)}</span>
-                        <span className="w-8 text-right text-[10px] text-gray-500">{p.damagePct}%</span>
+                        <span className="w-8 text-right text-[11px] text-gray-500">{p.damagePct}%</span>
                       </div>
                     </td>
                     <td className={`py-1 pl-3 text-right text-gray-400 hidden sm:table-cell ${first && i > 0 ? 'pt-2.5' : ''}`}>{k(p.damageTaken)}</td>
@@ -134,12 +134,12 @@ export function FightStats({ region, gameId, start, end, defaultOpen = true, den
                   <span className="text-gray-600">mató a</span>
                   {kl.victim && <><Champ name={kl.victim.champion} size={18} /><span className={`font-semibold ${TEAM[kl.victim.team as 'blue' | 'red']?.text}`}>{kl.victim.name}</span></>}
                   {kl.assists.length > 0 && <span className="ml-1 inline-flex items-center gap-0.5 text-gray-600">+{kl.assists.map((c) => <Champ key={c} name={c} size={14} />)}</span>}
-                  {kl.shutdown > 0 && <span className="ml-1 rounded bg-amber-400/15 px-1 text-[10px] font-bold text-amber-300">+{kl.shutdown}g</span>}
+                  {kl.shutdown > 0 && <span className="ml-1 rounded bg-amber-400/15 px-1 text-[11px] font-bold text-amber-300">+{kl.shutdown}g</span>}
                 </li>
               ))}
             </ol>
           )}
-          <p className="mt-2 text-[10px] text-gray-600">Daño, recibido y oro medidos entre los minutos {mmss(fight.frameStart)} y {mmss(fight.frameEnd)} (resolución de la timeline de Riot). Bajas y asistencias exactas al clip.</p>
+          <p className="mt-2 text-[11px] text-gray-600">Daño, recibido y oro medidos entre los minutos {mmss(fight.frameStart)} y {mmss(fight.frameEnd)} (resolución de la timeline de Riot). Bajas y asistencias exactas al clip.</p>
         </div>
       )}
     </div>

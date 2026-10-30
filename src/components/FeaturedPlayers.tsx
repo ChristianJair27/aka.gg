@@ -165,15 +165,15 @@ const PlayerCard = memo(function PlayerCard({
           {/* Stats row */}
           <div className="grid grid-cols-3 gap-2">
             <div className="flex flex-col items-center p-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-              <span className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">WR</span>
+              <span className="text-[11px] text-gray-600 uppercase tracking-wider mb-0.5">WR</span>
               <span className="text-sm font-black" style={{ color: wrColor }}>{wr}%</span>
             </div>
             <div className="flex flex-col items-center p-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-              <span className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">KDA</span>
+              <span className="text-[11px] text-gray-600 uppercase tracking-wider mb-0.5">KDA</span>
               <span className="text-sm font-black text-white">{p.avgKDA.toFixed(1)}</span>
             </div>
             <div className="flex flex-col items-center p-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-              <span className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Games</span>
+              <span className="text-[11px] text-gray-600 uppercase tracking-wider mb-0.5">Games</span>
               <span className="text-sm font-black text-white">{p.recentGames}</span>
             </div>
           </div>

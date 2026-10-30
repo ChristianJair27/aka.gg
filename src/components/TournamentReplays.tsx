@@ -278,7 +278,7 @@ const ClipCard = memo(function ClipCard({ clip: c, caption, focused }: { clip: C
             <span aria-hidden className="absolute left-1/2 top-1/2 grid h-12 w-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-black/55 text-white backdrop-blur transition-transform duration-200 group-hover:scale-110 group-active:scale-95">
               <Play className="ml-0.5 h-5 w-5" fill="currentColor" />
             </span>
-            <span className="absolute right-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white backdrop-blur">{mmss(Math.max(0, c.tEnd - c.tStart))}</span>
+            <span className="absolute right-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-white backdrop-blur">{mmss(Math.max(0, c.tEnd - c.tStart))}</span>
           </button>
         )}
       </div>
@@ -314,12 +314,12 @@ function ReplaysSkeleton() {
 }
 
 function Count({ n }: { n: number }) {
-  return <span className="rounded bg-white/[0.08] px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-gray-300">{n}</span>;
+  return <span className="rounded bg-white/[0.08] px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-gray-300">{n}</span>;
 }
 function Seg({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="inline-flex items-center gap-2">
-      <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500">{label}</span>
+      <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-gray-500">{label}</span>
       <div className="inline-flex overflow-hidden rounded-md border border-white/[0.1]">{children}</div>
     </div>
   );

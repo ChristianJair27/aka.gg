@@ -15,7 +15,7 @@ function TeamAvatar({ name, size = 22, dimmed = false }: { name?: string | null;
   if (!name || name === 'BYE') {
     return (
       <div style={{ width: size, height: size }}
-        className="rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-[10px] text-gray-600 flex-shrink-0">–</div>
+        className="rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-[11px] text-gray-600 flex-shrink-0">–</div>
     );
   }
   const g = TEAM_GRADIENTS[name.charCodeAt(0) % TEAM_GRADIENTS.length];
@@ -88,7 +88,7 @@ function ReportForm({ match, onReport, loading }: {
   const numCls = 'w-12 h-7 text-xs text-center px-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-white outline-none focus:border-red-500/50';
   return (
     <div className="mt-2 p-2.5 rounded-xl bg-black/40 border border-white/[0.08] space-y-2">
-      <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Resultado</p>
+      <p className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider">Resultado</p>
       <div className="flex gap-2 items-center justify-center">
         <input type="number" placeholder="0" value={score1} onChange={e => setScore1(e.target.value)} className={numCls} min={0} />
         <span className="text-gray-600 text-xs">vs</span>
@@ -183,7 +183,7 @@ function MatchCard({ match, isActive, isReporting, onActivate, onReport, onToggl
              match.matchStatus === 'ready'    ? 'Por iniciar' : 'Esperando'}
           </span>
           {boLabel && (
-            <span className="ml-1 px-1.5 rounded-md bg-black/30 text-[9.5px] text-[#c8aa6e] font-black tracking-normal">
+            <span className="ml-1 px-1.5 rounded-md bg-black/30 text-[10.5px] text-[#c8aa6e] font-black tracking-normal">
               {boLabel}
             </span>
           )}
@@ -193,7 +193,7 @@ function MatchCard({ match, isActive, isReporting, onActivate, onReport, onToggl
       <div className="p-2.5 space-y-1.5">
         <TeamRow team={match.team1} score={match.score1} />
         <div className="flex items-center justify-center -my-1">
-          <span className="text-[9px] font-black text-gray-700 tracking-widest">VS</span>
+          <span className="text-[10.5px] font-black text-gray-700 tracking-widest">VS</span>
           <Swords className="h-3 w-3 text-gray-700 ml-1" />
         </div>
         <TeamRow team={match.team2} score={match.score2} />
@@ -206,7 +206,7 @@ function MatchCard({ match, isActive, isReporting, onActivate, onReport, onToggl
       )}
       {!canViewCodes && (match.matchStatus === 'active' || match.matchStatus === 'ready') && !isEmpty && (
         <div className="px-2 pb-1.5 pt-0.5 border-t border-white/[0.06]">
-          <p className="text-[10px] text-gray-600 text-center py-1">Código solo para jugadores inscritos</p>
+          <p className="text-[11px] text-gray-600 text-center py-1">Código solo para jugadores inscritos</p>
         </div>
       )}
 
@@ -335,7 +335,7 @@ export function TournamentBracket({
                   className="p-4 rounded-2xl text-center border border-yellow-500/40 bg-gradient-to-b from-yellow-500/15 to-yellow-900/10 shadow-[0_0_24px_rgba(234,179,8,0.15)]">
                   <Crown className="h-9 w-9 text-yellow-400 mx-auto mb-2" />
                   <div className="flex justify-center mb-2"><TeamAvatar name={champion} size={40} /></div>
-                  <p className="text-[10px] text-yellow-400/70 uppercase tracking-wider">Campeón</p>
+                  <p className="text-[11px] text-yellow-400/70 uppercase tracking-wider">Campeón</p>
                   <p className="text-lg font-bold text-yellow-300 mt-1 break-words">{champion}</p>
                 </motion.div>
               </div>

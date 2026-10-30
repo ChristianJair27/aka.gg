@@ -833,3 +833,15 @@ html[data-nav-hidden] .td-root .td-tabs { top: 10px; }
 .td-sel-hint { margin-left: auto; font-size: 12px; color: var(--td-muted); }
 .td-sel-check { position: absolute; right: 12px; display: inline-flex; color: var(--td-red-hover, #ff5a63); }
 @media (prefers-reduced-motion: reduce) { .td-sel-content, .td-sel-content[data-state='closed'] { animation: none; } }
+
+/* Pantallas táctiles: área de toque ≥44 px en controles chicos sin cambiar su
+   aspecto (un ::after invisible amplía la zona). Auditoría móvil 30-oct: migas,
+   "Ver partidas de la ronda", "Ver todos", cierres de avisos y "Actualizar". */
+@media (pointer: coarse) {
+  .td-root .td-crumb-link, .td-root .td-btn--ghost, .td-root .td-collapse-trigger { position: relative; }
+  .td-root .td-crumb-link::after, .td-root .td-btn--ghost::after, .td-root .td-collapse-trigger::after {
+    content: ''; position: absolute; inset: -12px -6px;
+  }
+  .td-root .td-discover-x::after, .td-root .td-coach-x::after { content: ''; position: absolute; inset: -9px; }
+  .td-root kbd.td-cmd-kbd { display: none; }
+}

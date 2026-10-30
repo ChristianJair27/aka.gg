@@ -250,14 +250,14 @@ function ReelCard({ post, index, active, near, muted, onMute, onLike, onRepost, 
           <Avatar name={post.user_name} url={post.user_avatar} size={34} />
           <div className="min-w-0">
             <div className="truncate text-sm font-bold text-white drop-shadow">{post.user_name}{isRepost && <span className="font-normal text-gray-300"> · reposteó a {post.orig_user_name}</span>}</div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-gray-300">{ago(post.created_at)}{tournamentName ? ` · ${tournamentName}` : ''}</div>
+            <div className="text-[11px] uppercase tracking-[0.14em] text-gray-300">{ago(post.created_at)}{tournamentName ? ` · ${tournamentName}` : ''}</div>
           </div>
         </div>
         {isVideo && <button type="button" onClick={onMute} aria-label={muted ? 'Activar sonido' : 'Silenciar'} className={`absolute grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white backdrop-blur ${fs ? 'right-14 top-3' : 'right-3 top-3'}`}>{muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}</button>}
         {/* Pie: título y meta */}
         <div className={`absolute left-3 right-16 ${fs ? 'bottom-10' : 'bottom-6'}`}>
           <div className="text-base font-bold uppercase leading-tight tracking-wide text-white drop-shadow" style={{ fontFamily: 'var(--td-font-display)' }}>{title}</div>
-          {(label || tags.length > 0) && <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-300">{tags.map((t) => <span key={t} className="rounded bg-white/15 px-1.5 py-0.5 text-[10px] text-white">{t}</span>)}<span>{label}</span></div>}
+          {(label || tags.length > 0) && <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-300">{tags.map((t) => <span key={t} className="rounded bg-white/15 px-1.5 py-0.5 text-[11px] text-white">{t}</span>)}<span>{label}</span></div>}
           {post.content && post.title && post.kind !== 'clip' && <p className="mt-1 line-clamp-2 text-sm text-gray-200">{post.content}</p>}
         </div>
         {/* Carril de acciones */}

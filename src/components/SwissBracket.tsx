@@ -331,7 +331,7 @@ export function SwissBracket({
                     aria-hidden
                   >
                     <Swords className="h-4 w-4" />
-                    <span className="text-[9px] uppercase tracking-widest text-white/25 [writing-mode:vertical-rl]">
+                    <span className="text-[10.5px] uppercase tracking-widest text-white/25 [writing-mode:vertical-rl]">
                       pareo por récord
                     </span>
                   </motion.div>
@@ -352,7 +352,7 @@ export function SwissBracket({
                   >
                     <Crown className="h-10 w-10 mx-auto mb-2" style={{ color: GOLD }} />
                     <div className="flex justify-center mb-2"><TeamBadge name={champion ?? undefined} size={44} /></div>
-                    <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: 'rgba(200,170,110,0.8)' }}>Campeón</p>
+                    <p className="text-[11px] uppercase tracking-[0.2em]" style={{ color: 'rgba(200,170,110,0.8)' }}>Campeón</p>
                     <p className="text-lg font-extrabold text-white mt-1 break-words">{champion}</p>
                   </motion.div>
                 )}

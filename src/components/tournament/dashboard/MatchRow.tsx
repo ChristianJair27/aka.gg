@@ -151,7 +151,7 @@ export function MatchRow({ id, m, open, onToggle, inlineStats = true, onSeeRound
               <span style={{ color: m.winner === m.team2 ? '#fff' : 'var(--td-text-2)' }}>{m.score2 ?? '–'}</span>
             </span>
             {boLabel && (
-              <span className="td-num" style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.1em', color: '#c8aa6e' }}
+              <span className="td-num" style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', color: '#c8aa6e' }}
                 title={`Serie al mejor de ${seriesTo * 2 - 1} — gana quien llegue a ${seriesTo}`}>
                 {boLabel}
               </span>
