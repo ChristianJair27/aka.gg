@@ -322,7 +322,7 @@ const CHART_LABELS: Record<ChartMetric, { label: string; color: string }> = {
   avgKda:          { label: 'KDA Promedio', color: '#22c55e' },
 };
 
-function TopPlayersChart({ players, avatarUrl }: { players: PlayerAggregate[]; avatarUrl?: (name: string) => string | null }) {
+function TopPlayersChart({ players, avatarUrl, floor }: { players: PlayerAggregate[]; avatarUrl?: (name: string) => string | null; floor: number }) {
   const [metric, setMetric] = useState<ChartMetric>('avgDamagePerMin');
 
   const data = useMemo(() =>
@@ -342,7 +342,9 @@ function TopPlayersChart({ players, avatarUrl }: { players: PlayerAggregate[]; a
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="td-sechead-title" style={{ margin: 0 }}>Top 8 jugadores</h3>
+        <h3 className="td-sechead-title" style={{ margin: 0 }}>
+          Top 8 jugadores{floor > 1 && <FloorNote floor={floor} />}
+        </h3>
         <div className="td-seg" role="group" aria-label="Métrica">
           {(Object.entries(CHART_LABELS) as [ChartMetric, typeof CHART_LABELS[ChartMetric]][]).map(([k, v]) => (
             <button
@@ -411,6 +413,23 @@ const MIN_GAMES: { key: MinGames; label: string }[] = [
   { key: 'all', label: 'Todos' }, { key: '1', label: '≥1' }, { key: '3', label: '≥3' }, { key: '5', label: '≥5' },
 ];
 
+// Mínimo de partidas para entrar a los rankings (podio, Top 8, Mejor WR%): el
+// 40 % de las que lleva quien más ha jugado. Crece con el torneo, así que en uno
+// nuevo (todos con 1–2 partidas) sigue saliendo data. La tabla no se filtra.
+const QUALIFY_SHARE = 0.4;
+function rankingFloor(players: PlayerAggregate[]): number {
+  const max = players.reduce((m, p) => Math.max(m, p.gamesPlayed), 0);
+  return Math.max(1, Math.ceil(max * QUALIFY_SHARE));
+}
+
+function FloorNote({ floor }: { floor: number }) {
+  return (
+    <Tip label={`Solo entran jugadores con ${floor} o más partidas (el 40 % de las que lleva quien más ha jugado). Los demás siguen en la tabla completa.`}>
+      <span className="td-over" style={{ marginLeft: 10, fontSize: 11, fontWeight: 600, color: 'var(--td-muted)' }}>≥{floor} PJ</span>
+    </Tip>
+  );
+}
+
 export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner, standings, tournamentName, logoUrl, region }: Props) {
   const [podiumCat, setPodiumCat] = useState<GlobalSortKey>('avgKda');
   // Jugador abierto en el radar (fila de la tabla o podio).
@@ -469,6 +488,13 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allPlayers, q, minGames, team, teamBySummoner]);
+
+  // Rankings: solo jugadores con el mínimo de partidas. Si con un filtro de
+  // equipo nadie lo cumple, se muestra lo que haya en vez de dejarlo vacío.
+  const floor = Math.max(rankingFloor(allPlayers), minGames === 'all' ? 0 : Number(minGames));
+  const qualified = useMemo(() => players.filter(p => p.gamesPlayed >= floor), [players, floor]);
+  const rankPool = qualified.length ? qualified : players;
+  const shownFloor = qualified.length ? floor : 0;
 
   const hasFilters = q.trim() !== '' || minGames !== 'all' || team !== null;
   const clearFilters = () => { setQ(''); setMinGames('all'); setTeam(null); };
@@ -617,6 +643,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h3 className="td-sechead-title" style={{ margin: 0 }}>
             <span className="inline-flex items-center gap-2"><Trophy className="h-4 w-4" aria-hidden style={{ color: 'var(--td-gold)' }} />Top 3 · {PODIUM_CATS.find(c => c.key === podiumCat)?.label}</span>
+            {shownFloor > 1 && <FloorNote floor={shownFloor} />}
           </h3>
           <SharePodiumButton data={{
             tournamentId: data.tournamentId,
@@ -628,7 +655,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
             // recorte del KDA extremo (formatKda) — no se comparte un 54 crudo.
             entries: (() => {
               const cat = PODIUM_CATS.find(c => c.key === podiumCat)!;
-              return [...players]
+              return [...rankPool]
                 .sort((a, b) => (b[podiumCat] as number) - (a[podiumCat] as number))
                 .slice(0, 3)
                 .map((p, i) => ({
@@ -658,14 +685,14 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
           >
-            <Podium players={players} sortKey={podiumCat} onPick={setPicked} iconOf={iconOf} />
+            <Podium players={rankPool} sortKey={podiumCat} onPick={setPicked} iconOf={iconOf} />
           </motion.div>
         </AnimatePresence>
       </div>}
 
       {/* Chart */}
       {players.length > 0 && <div className="td-panel p-5">
-        <TopPlayersChart players={players} avatarUrl={avatarUrlOf} />
+        <TopPlayersChart players={rankPool} avatarUrl={avatarUrlOf} floor={shownFloor} />
       </div>}
 
       {/* Sortable table */}
@@ -693,7 +720,7 @@ export function TournamentGlobalStats({ data, loading, onRefresh, teamBySummoner
           <StatsCharts
             players={players}
             standings={standings}
-            minGames={minGames === 'all' ? 0 : Number(minGames)}
+            minGames={floor}
             avatarUrl={avatarUrlOf}
           />
         </div>
