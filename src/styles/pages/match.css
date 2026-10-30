@@ -179,11 +179,59 @@
 .td-root .mx-items { display: flex; gap: 3px; }
 .td-root .mx-items > :nth-child(7) { margin-left: 5px; }
 
+/* Móvil: cada jugador es una tarjeta (nombre · cifras con etiqueta · build) en
+   vez de una tabla de 960 px con scroll lateral. Antes la columna Daño quedaba
+   en ~8 px (172 px fijos de jugador + anchos fijos = 952 de 960) y su cifra se
+   montaba sobre Oro (reporte de Wicho, 30-oct). */
 @media (max-width: 640px) {
-  .td-root .mx-table .mx-col-player { width: 172px; }
-  .td-root .mx-player { min-width: 0; gap: 8px; }
-  .td-root .mx-pname > b { max-width: 96px; }
   .td-root .mx-team-totals { margin-left: 0; width: 100%; }
+  .td-root .mx-table { display: block; width: 100%; min-width: 0; table-layout: auto; }
+  .td-root .mx-table colgroup, .td-root .mx-table thead { display: none; }
+  .td-root .mx-table tbody { display: block; }
+  .td-root .mx-table tbody tr { display: grid; gap: 10px 8px; padding: 12px 14px; border-bottom: 1px solid var(--td-border-soft); }
+  .td-root .mx-table.mx-sb tbody tr {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.8fr);
+    grid-template-areas: "p p p p p" "k c d g v" "l i i i i";
+  }
+  .td-root .mx-table.mx-live tbody tr {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.3fr) minmax(0, 0.9fr) minmax(0, 1fr);
+    grid-template-areas: "p p p p" "k d c g" "i i i i";
+  }
+  .td-root .mx-table.mx-live .mx-items { justify-content: flex-start; }
+  .td-root .mx-table tbody tr:last-child { border-bottom: none; }
+  .td-root .mx-table td { display: block; min-width: 0; padding: 0; border: 0; text-align: left; }
+  .td-root .mx-table td:first-child, .td-root .mx-table tbody tr:hover td:first-child {
+    position: static; padding-left: 0; background: transparent;
+  }
+  .td-root .mx-table tr[data-me='true'] { background: rgba(232, 50, 60, 0.07); box-shadow: inset 3px 0 0 var(--td-red); }
+  .td-root .mx-table tr[data-me='true'] td, .td-root .mx-table tr[data-me='true'] td:first-child { background: transparent; box-shadow: none; }
+  .td-root .mx-table td:nth-child(1) { grid-area: p; }
+  .td-root .mx-sb td:nth-child(2) { grid-area: l; align-self: center; }
+  .td-root .mx-sb td:nth-child(3) { grid-area: k; }
+  .td-root .mx-sb td:nth-child(4) { grid-area: c; }
+  .td-root .mx-sb td:nth-child(5) { grid-area: d; }
+  .td-root .mx-sb td:nth-child(6) { grid-area: g; }
+  .td-root .mx-sb td:nth-child(7) { grid-area: v; }
+  .td-root .mx-sb td:nth-child(8) { grid-area: i; align-self: center; }
+  .td-root .mx-live td:nth-child(2) { grid-area: k; }
+  .td-root .mx-live td:nth-child(3) { grid-area: d; }
+  .td-root .mx-live td:nth-child(4) { grid-area: c; }
+  .td-root .mx-live td:nth-child(5) { grid-area: g; }
+  .td-root .mx-live td:nth-child(6) { grid-area: i; }
+  .td-root .mx-table td[data-label]::before {
+    content: attr(data-label); display: block; margin-bottom: 3px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; color: var(--td-muted);
+  }
+  .td-root .mx-sb td:nth-child(7) .mx-sub { display: none; }
+  .td-root .mx-pname > b { max-width: 62vw; }
+  .td-root .mx-kda { font-size: 14px; }
+  .td-root .mx-kda i { margin: 0 1px; }
+  .td-root .mx-sub { font-size: 11.5px; }
+  .td-root .mx-dmg { min-width: 0; }
+  .td-root .mx-dmg-num, .td-root .mx-gold { font-size: 14px; }
+  .td-root .mx-items { flex-wrap: wrap; justify-content: flex-end; gap: 3px; }
+  .td-root .mx-items > :nth-child(7) { margin-left: 3px; }
+  .td-root .mx-items .mx-slot { width: 26px !important; height: 26px !important; }
 }
 
 /* ── Barras (pestañas Daño / Oro) ──────────────────────────────────────────── */

@@ -434,4 +434,6 @@ export interface MatchStatsResponse {
   redTeam: ParticipantStats[];
   blueObjectives: TeamObjectives;
   redObjectives: TeamObjectives;
+  /** Torneos: lado en que jugó team1 en ESTE juego (cambia entre juegos de una serie). */
+  team1Side?: 'blue' | 'red' | null;
 }

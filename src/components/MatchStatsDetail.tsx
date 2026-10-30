@@ -102,17 +102,17 @@ function ParticipantRow({
         </div>
       </td>
       {/* KDA */}
-      <td className="mx-c">
+      <td className="mx-c" data-label="KDA">
         <Kda k={p.kills} d={p.deaths} a={p.assists} />
         <span className="mx-sub">{kdaVal} KDA</span>
       </td>
       {/* CS */}
-      <td className="mx-c">
+      <td className="mx-c" data-label="CS">
         <span className="td-num" style={{ fontWeight: 700 }}>{p.cs}</span>
         <span className="mx-sub">{p.csPerMin}/min</span>
       </td>
       {/* Daño */}
-      <td>
+      <td data-label="Daño">
         <div className="mx-dmg">
           <span className="mx-dmg-num">{fmtNumber(p.totalDamageDealt)}</span>
           <ProgressBar pct={dmgPct} kind={side === 'blue' ? SIDE_COLOR.blue : 'red'} height={5} />
@@ -125,9 +125,9 @@ function ParticipantRow({
         </div>
       </td>
       {/* Oro */}
-      <td className="mx-c"><span className="mx-gold">{fmtNumber(p.goldEarned)}</span></td>
+      <td className="mx-c" data-label="Oro"><span className="mx-gold">{fmtNumber(p.goldEarned)}</span></td>
       {/* Visión */}
-      <td className="mx-c">
+      <td className="mx-c" data-label="Visión">
         <span className="td-num" style={{ fontWeight: 700 }}>{p.visionScore}</span>
         <span className="mx-sub" title="Centinelas colocados / destruidos">{p.wardsPlaced} col. · {p.wardsKilled} destr.</span>
       </td>
@@ -177,7 +177,7 @@ function TeamTable({
       </header>
 
       <div className="ax-table-scroll">
-        <table className="ax-table mx-table">
+        <table className="ax-table mx-table mx-sb">
           <colgroup>
             <col className="mx-col-player" /><col style={{ width: 96 }} /><col style={{ width: 116 }} />
             <col style={{ width: 92 }} /><col /><col style={{ width: 92 }} />
@@ -386,6 +386,8 @@ interface MatchStatsDetailProps {
   queueLabel?: string;
   /** puuid del jugador enfocado: se resalta su fila y su retrato. */
   highlightPuuid?: string;
+  /** Confeti al cargar una partida terminada (apagado en el panel de series). */
+  celebrate?: boolean;
 }
 
 type StatsTab = 'tabla' | 'daño' | 'oro' | 'objetivos';
@@ -417,19 +419,19 @@ function Faces({ team, side, highlightPuuid }: { team: ParticipantStats[]; side:
 }
 
 export function MatchStatsDetail({
-  stats, loading, error, bracketMatchId, gameId, team1, team2, queueLabel, highlightPuuid,
+  stats, loading, error, bracketMatchId, gameId, team1, team2, queueLabel, highlightPuuid, celebrate = true,
 }: MatchStatsDetailProps) {
   const [tab, setTab] = useState<StatsTab>('tabla');
   const [showConfetti, setShowConfetti] = useState(false);
   const confettiShown = useRef(false);
 
   useEffect(() => {
-    if (stats?.isComplete && !confettiShown.current) {
+    if (celebrate && stats?.isComplete && !confettiShown.current) {
       confettiShown.current = true;
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 4000);
     }
-  }, [stats?.isComplete]);
+  }, [stats?.isComplete, celebrate]);
 
   const wrap = (node: ReactNode) => <div className="td-root mx-embed">{node}</div>;
 
@@ -454,8 +456,11 @@ export function MatchStatsDetail({
 
   const { blueTeam, redTeam, blueObjectives, redObjectives, gameDuration, gameMode, winner, isComplete } = stats;
 
-  const blueTeamName = team1 ?? 'Equipo Azul';
-  const redTeamName  = team2 ?? 'Equipo Rojo';
+  // team1/team2 son los equipos del enfrentamiento; en una serie cambian de
+  // lado entre juegos y el backend dice dónde jugó team1 (team1Side).
+  const swap = stats.team1Side === 'red';
+  const blueTeamName = (swap ? team2 : team1) ?? 'Equipo Azul';
+  const redTeamName  = (swap ? team1 : team2) ?? 'Equipo Rojo';
   const blueKills = blueTeam.reduce((s, p) => s + p.kills, 0);
   const redKills  = redTeam.reduce((s, p) => s + p.kills, 0);
   const objectives = objectivesOf(blueObjectives, redObjectives);

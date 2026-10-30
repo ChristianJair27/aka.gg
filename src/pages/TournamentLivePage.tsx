@@ -213,12 +213,12 @@ function StatRow({ p, version, maxDmg, side }: { p: StatPlayer; version: string;
         </div>
       </td>
       {/* KDA */}
-      <td className="mx-c">
+      <td className="mx-c" data-label="KDA">
         <Kda k={p.kills} d={p.deaths} a={p.assists} />
         <span className="mx-sub">{p.kda.toFixed(2)} KDA</span>
       </td>
       {/* Daño */}
-      <td>
+      <td data-label="Daño">
         <div className="mx-dmg" style={{ minWidth: 0 }}>
           <span className="mx-dmg-num">{fmtNum(p.totalDamageDealt)}</span>
           <ProgressBar pct={maxDmg > 0 ? (p.totalDamageDealt / maxDmg) * 100 : 0}
@@ -226,12 +226,12 @@ function StatRow({ p, version, maxDmg, side }: { p: StatPlayer; version: string;
         </div>
       </td>
       {/* CS */}
-      <td className="mx-c">
+      <td className="mx-c" data-label="CS">
         <span className="td-num" style={{ fontWeight: 700 }}>{p.cs}</span>
         <span className="mx-sub">{p.csPerMin}/min</span>
       </td>
       {/* Oro */}
-      <td className="mx-c"><span className="mx-gold">{fmtNum(p.goldEarned)}</span></td>
+      <td className="mx-c" data-label="Oro"><span className="mx-gold">{fmtNum(p.goldEarned)}</span></td>
       {/* Objetos */}
       <td>
         <div className="mx-items">
@@ -261,7 +261,7 @@ function PostGameStats({ stats, version }: { stats: MatchStats; version: string 
         </div>
       </div>
       <div className="ax-table-scroll">
-        <table className="ax-table mx-table">
+        <table className="ax-table mx-table mx-live">
           <colgroup>
             <col className="mx-col-player" /><col style={{ width: 116 }} /><col /><col style={{ width: 92 }} />
             <col style={{ width: 84 }} /><col style={{ width: 232 }} />
